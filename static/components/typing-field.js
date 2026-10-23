@@ -2,10 +2,14 @@
 
    日本語や英語の入力モードのまま打てるように、ブラウザの IME は使わず keydown を自分で受ける。
    そのため <input> ではなく div に描き、フォーカスは透明な <input> で受ける（キーイベントとフォーカスの枠のため）。
-   持つのは「打った字母の列」（jamos）だけ。表示は毎回 composer.compose() で作る。
+   中身（確定した文字・カーソル・組み立て中の音節）は ComposeBuffer が持ち、ここは描くのとキーの振り分けだけをする。
+
+   キー: ← → でカーソル移動、Home / End で先頭・末尾、Backspace は字母を 1 つずつ、Delete は後ろの 1 文字。
+   文字をクリックすると、その位置にカーソルを置く。
+   なぞり（setTarget）のときはカーソルを末尾に固定する（次のキーのガイドが末尾を前提にするため）。
 
    TypingField.create(container, { keymap, composer, keyboard, onSubmit, onChange })
-     → { value(), jamos(), reset(), setTarget(text), focus(), setEnabled(on), element } */
+     → { value(), jamos(), reset(), setTarget(text), focus(), setEnabled(on), isComplete(), element } */
 "use strict";
 
 const TypingField = (() => {
@@ -19,74 +23,100 @@ const TypingField = (() => {
     input.spellcheck = false;
     const view = document.createElement("div");
     view.className = "tf-view";
-    const text = document.createElement("span");
-    text.className = "tf-text";
-    const caret = document.createElement("span");
-    caret.className = "tf-caret";
-    const hint = document.createElement("span");
-    hint.className = "tf-placeholder";
-    hint.textContent = placeholder;
-    view.append(text, caret, hint);
     container.append(view, input);
 
-    let jamos = [];
+    const buf = ComposeBuffer.create(composer);
     let target = null; // なぞりのとき: 打つべき字母の列
     let enabled = true;
 
-    function value() {
-      return composer.compose(jamos);
-    }
+    const value = () => ComposeBuffer.value(buf);
+    const jamos = () => composer.decompose(value());
 
     function render() {
       const composed = value();
-      if (target) {
-        renderTrace(composed);
-      } else {
-        text.textContent = composed;
+      view.replaceChildren();
+      if (target) renderTrace(composed);
+      else renderEdit();
+      if (!composed.length) {
+        const hint = document.createElement("span");
+        hint.className = "tf-placeholder";
+        hint.textContent = placeholder;
+        view.append(hint);
       }
-      hint.hidden = composed.length > 0;
       updateGuide();
       onChange(composed);
+    }
+
+    function charSpan(ch, index) {
+      const span = document.createElement("span");
+      span.className = "tf-char";
+      span.dataset.i = String(index);
+      span.textContent = ch;
+      return span;
+    }
+
+    function caretSpan() {
+      const caret = document.createElement("span");
+      caret.className = "tf-caret";
+      return caret;
+    }
+
+    function renderEdit() {
+      const { before, composing, after } = ComposeBuffer.parts(buf);
+      const beforeChars = [...before];
+      beforeChars.forEach((ch, i) => view.append(charSpan(ch, i)));
+      if (composing) {
+        const span = document.createElement("span");
+        span.className = "tf-composing";
+        span.textContent = composing;
+        view.append(span);
+      }
+      view.append(caretSpan());
+      [...after].forEach((ch, i) => view.append(charSpan(ch, beforeChars.length + i)));
     }
 
     /** なぞり: 目標と一致している部分と、違っている部分を色分けする */
     function renderTrace(composed) {
       const expected = composer.compose(target);
+      const ok = jamosMatchPrefix();
       let common = 0;
       while (common < composed.length && common < expected.length && composed[common] === expected[common]) common += 1;
-      // 組み立て途中の最後の音節は、目標の字母の列の途中なら「合っている」とみなす
-      const typedPrefixOk = jamosMatchPrefix();
-      text.replaceChildren();
-      const ok = document.createElement("span");
-      ok.className = "tf-ok";
-      ok.textContent = typedPrefixOk ? composed : composed.slice(0, common);
-      text.append(ok);
-      if (!typedPrefixOk) {
+      const good = document.createElement("span");
+      good.className = "tf-ok";
+      good.textContent = ok ? composed : composed.slice(0, common);
+      view.append(good);
+      if (!ok) {
         const bad = document.createElement("span");
         bad.className = "tf-bad";
         bad.textContent = composed.slice(common);
-        text.append(bad);
+        view.append(bad);
       }
-      const rest = document.createElement("span");
-      rest.className = "tf-rest";
-      rest.textContent = typedPrefixOk ? expected.slice(composed.length) : "";
-      text.append(rest);
+      view.append(caretSpan());
+      if (ok) {
+        const rest = document.createElement("span");
+        rest.className = "tf-rest";
+        rest.textContent = expected.slice(composed.length);
+        view.append(rest);
+      }
     }
 
     function jamosMatchPrefix() {
       if (!target) return true;
-      if (jamos.length > target.length) return false;
-      return jamos.every((j, i) => j === target[i]);
+      const typed = jamos();
+      return typed.length <= target.length && typed.every((j, i) => j === target[i]);
     }
 
     function updateGuide() {
       if (!keyboard) return;
-      if (!target || !jamosMatchPrefix()) {
-        keyboard.guide(jamos.length && target ? "backspace" : null);
-        if (target && jamos.length && !jamosMatchPrefix()) keyboard.guide("backspace");
+      if (!target) {
+        keyboard.guide(null);
         return;
       }
-      const next = target[jamos.length];
+      if (!jamosMatchPrefix()) {
+        keyboard.guide("backspace");
+        return;
+      }
+      const next = target[jamos().length];
       if (next === undefined) {
         keyboard.guide("enter");
         return;
@@ -95,6 +125,8 @@ const TypingField = (() => {
       if (key) keyboard.guide(key.key, key.shift);
       else keyboard.guide(next === " " ? " " : null);
     }
+
+    const MOVES = { ArrowLeft: ComposeBuffer.left, ArrowRight: ComposeBuffer.right, Home: ComposeBuffer.home, End: ComposeBuffer.end };
 
     function onKeyDown(event) {
       if (!enabled) return;
@@ -105,34 +137,44 @@ const TypingField = (() => {
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       if (event.key === "Enter") {
         event.preventDefault();
+        ComposeBuffer.commit(buf);
         onSubmit(value());
+        return;
+      }
+      if (MOVES[event.key]) {
+        event.preventDefault();
+        if (!target) {
+          MOVES[event.key](buf);
+          render();
+        }
         return;
       }
       if (event.key === "Backspace") {
         event.preventDefault();
-        jamos.pop();
+        ComposeBuffer.backspace(buf);
         render();
         return;
       }
-      if (event.key === " ") {
+      if (event.key === "Delete") {
         event.preventDefault();
-        jamos.push(" ");
-        render();
+        if (!target) {
+          ComposeBuffer.deleteForward(buf);
+          render();
+        }
         return;
       }
       if (event.key === "Shift" || event.key === "Tab" || event.key === "Escape") return;
       const jamo = keymap.jamoOf(event.key, event.shiftKey);
       if (jamo) {
         event.preventDefault();
-        jamos.push(jamo);
+        ComposeBuffer.typeJamo(buf, jamo);
         render();
         return;
       }
-      // ハングルをそのまま貼り付けたときや、記号（. ? !）はそのまま入れる
+      // 空白・記号（. ? !）と、ハングルを直接入れられる環境で来た文字はそのまま入れる
       if (event.key.length === 1) {
         event.preventDefault();
-        if (composer.isSyllable(event.key)) jamos.push(...composer.decompose(event.key));
-        else jamos.push(event.key);
+        ComposeBuffer.insertText(buf, event.key);
         render();
       }
     }
@@ -141,6 +183,20 @@ const TypingField = (() => {
       if (!keyboard) return;
       keyboard.pressed(event.key, false);
       keyboard.setShift(event.shiftKey);
+    }
+
+    /** クリックした文字の左半分ならその前、右半分ならその後ろにカーソルを置く。文字のない所なら末尾 */
+    function placeCaret(event) {
+      if (target || !enabled) return;
+      const span = event.target.closest(".tf-char");
+      if (span) {
+        const rect = span.getBoundingClientRect();
+        const index = Number(span.dataset.i) + (event.clientX > rect.left + rect.width / 2 ? 1 : 0);
+        ComposeBuffer.setCaret(buf, index);
+      } else if (!event.target.closest(".tf-composing")) {
+        ComposeBuffer.end(buf);
+      }
+      render();
     }
 
     input.addEventListener("keydown", onKeyDown);
@@ -152,17 +208,17 @@ const TypingField = (() => {
     input.addEventListener("focus", () => container.classList.add("tf-focus"));
     input.addEventListener("paste", (event) => {
       event.preventDefault();
-      const pasted = (event.clipboardData || window.clipboardData).getData("text");
-      jamos.push(...composer.decompose(pasted));
+      ComposeBuffer.insertText(buf, (event.clipboardData || window.clipboardData).getData("text"));
       render();
     });
     view.addEventListener("mousedown", (event) => {
       event.preventDefault();
+      placeCaret(event);
       input.focus();
     });
 
     function reset() {
-      jamos = [];
+      ComposeBuffer.reset(buf);
       target = null;
       render();
     }
@@ -182,8 +238,12 @@ const TypingField = (() => {
       input.focus({ preventScroll: true });
     }
 
+    function isComplete() {
+      return target !== null && jamos().length === target.length && jamosMatchPrefix();
+    }
+
     render();
-    return { value, jamos: () => [...jamos], reset, setTarget, focus, setEnabled, element: container, isComplete: () => target !== null && jamos.length === target.length && jamosMatchPrefix() };
+    return { value, jamos, reset, setTarget, focus, setEnabled, isComplete, element: container };
   }
 
   return { create };

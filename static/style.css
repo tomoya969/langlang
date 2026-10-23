@@ -604,6 +604,18 @@ dialog .actions {
   }
 }
 
+.tf-char {
+  cursor: text;
+}
+
+/* 組み立て中の音節。ふつうの IME と同じく下線で示す */
+.tf-composing {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
 .tf-placeholder {
   color: var(--muted);
   font-size: 16px;
