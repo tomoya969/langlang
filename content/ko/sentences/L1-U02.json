@@ -1,0 +1,135 @@
+[
+  {
+    "id": "ko-s-L1-U02-001", "unit": "L1-U02",
+    "ko": "커피 주세요.", "ja": "コーヒーください。",
+    "register": "해요체", "scene": "カフェのカウンターで",
+    "tokens": [
+      { "surface": "커피", "word_ids": ["ko-w-0019"], "eojeol": 0 },
+      { "surface": "주세요", "word_ids": ["ko-w-0026"], "eojeol": 1 }
+    ],
+    "grammar": ["-(으)세요"],
+    "cloze": [{ "eojeol": 1, "answer": "주세요", "hint_ja": "ください" }],
+    "variants": { "ko": ["커피 하나 주세요."], "ja": ["コーヒーをください。", "コーヒーをお願いします。"] },
+    "status": "approved"
+  },
+  {
+    "id": "ko-s-L1-U02-002", "unit": "L1-U02",
+    "ko": "물 주세요.", "ja": "お水ください。",
+    "register": "해요체", "scene": "カフェのカウンターで",
+    "tokens": [
+      { "surface": "물", "word_ids": ["ko-w-0020"], "eojeol": 0 },
+      { "surface": "주세요", "word_ids": ["ko-w-0026"], "eojeol": 1 }
+    ],
+    "grammar": ["-(으)세요"],
+    "cloze": [{ "eojeol": 0, "answer": "물", "hint_ja": "水" }],
+    "variants": { "ko": ["물 좀 주세요."], "ja": ["水をください。"] },
+    "status": "approved"
+  },
+  {
+    "id": "ko-s-L1-U02-003", "unit": "L1-U02",
+    "ko": "이 빵은 얼마예요?", "ja": "このパンはいくらですか？",
+    "register": "해요체", "scene": "カフェのカウンターで",
+    "tokens": [
+      { "surface": "이", "word_ids": [], "eojeol": 0 },
+      { "surface": "빵은", "word_ids": ["ko-w-0022"], "eojeol": 1 },
+      { "surface": "얼마예요", "word_ids": ["ko-w-0036"], "eojeol": 2 }
+    ],
+    "grammar": ["은/는", "-예요/이에요"],
+    "cloze": [{ "eojeol": 2, "answer": "얼마예요", "hint_ja": "いくらですか" }],
+    "variants": { "ko": [], "ja": ["このパン、いくらですか？"] },
+    "status": "approved"
+  },
+  {
+    "id": "ko-s-L1-U02-004", "unit": "L1-U02",
+    "ko": "케이크가 비싸요.", "ja": "ケーキが高いです。",
+    "register": "해요체", "scene": "友達との会話",
+    "tokens": [
+      { "surface": "케이크가", "word_ids": ["ko-w-0025"], "eojeol": 0 },
+      { "surface": "비싸요", "word_ids": ["ko-w-0031"], "eojeol": 1 }
+    ],
+    "grammar": ["이/가", "-아/어요"],
+    "cloze": [{ "eojeol": 1, "answer": "비싸요", "hint_ja": "高いです" }],
+    "variants": { "ko": [], "ja": ["ケーキが高い。"] },
+    "status": "approved"
+  },
+  {
+    "id": "ko-s-L1-U02-005", "unit": "L1-U02",
+    "ko": "커피가 싸요.", "ja": "コーヒーが安いです。",
+    "register": "해요체", "scene": "友達との会話",
+    "tokens": [
+      { "surface": "커피가", "word_ids": ["ko-w-0019"], "eojeol": 0 },
+      { "surface": "싸요", "word_ids": ["ko-w-0030"], "eojeol": 1 }
+    ],
+    "grammar": ["이/가", "-아/어요"],
+    "cloze": [{ "eojeol": 1, "answer": "싸요", "hint_ja": "安いです" }],
+    "variants": { "ko": [], "ja": ["コーヒーが安い。"] },
+    "status": "approved"
+  },
+  {
+    "id": "ko-s-L1-U02-006", "unit": "L1-U02",
+    "ko": "우유를 마셔요.", "ja": "牛乳を飲みます。",
+    "register": "해요체", "scene": "友達との会話",
+    "tokens": [
+      { "surface": "우유를", "word_ids": ["ko-w-0023"], "eojeol": 0 },
+      { "surface": "마셔요", "word_ids": ["ko-w-0027"], "eojeol": 1 }
+    ],
+    "grammar": ["을/를", "-아/어요"],
+    "cloze": [{ "eojeol": 1, "answer": "마셔요", "hint_ja": "飲みます" }],
+    "variants": { "ko": [], "ja": ["牛乳を飲む。"] },
+    "status": "approved"
+  },
+  {
+    "id": "ko-s-L1-U02-007", "unit": "L1-U02",
+    "ko": "빵을 먹어요.", "ja": "パンを食べます。",
+    "register": "해요체", "scene": "友達との会話",
+    "tokens": [
+      { "surface": "빵을", "word_ids": ["ko-w-0022"], "eojeol": 0 },
+      { "surface": "먹어요", "word_ids": ["ko-w-0028"], "eojeol": 1 }
+    ],
+    "grammar": ["을/를", "-아/어요"],
+    "cloze": [{ "eojeol": 1, "answer": "먹어요", "hint_ja": "食べます" }],
+    "variants": { "ko": [], "ja": ["パンを食べる。"] },
+    "status": "approved"
+  },
+  {
+    "id": "ko-s-L1-U02-008", "unit": "L1-U02",
+    "ko": "이 케이크는 맛있어요.", "ja": "このケーキはおいしいです。",
+    "register": "해요체", "scene": "友達との会話",
+    "tokens": [
+      { "surface": "이", "word_ids": [], "eojeol": 0 },
+      { "surface": "케이크는", "word_ids": ["ko-w-0025"], "eojeol": 1 },
+      { "surface": "맛있어요", "word_ids": ["ko-w-0032"], "eojeol": 2 }
+    ],
+    "grammar": ["은/는", "-아/어요"],
+    "cloze": [{ "eojeol": 2, "answer": "맛있어요", "hint_ja": "おいしいです" }],
+    "variants": { "ko": [], "ja": ["このケーキ、おいしいです。"] },
+    "status": "approved"
+  },
+  {
+    "id": "ko-s-L1-U02-009", "unit": "L1-U02",
+    "ko": "친구가 주스를 사요.", "ja": "友達がジュースを買います。",
+    "register": "해요체", "scene": "友達との会話",
+    "tokens": [
+      { "surface": "친구가", "word_ids": ["ko-w-0012"], "eojeol": 0 },
+      { "surface": "주스를", "word_ids": ["ko-w-0024"], "eojeol": 1 },
+      { "surface": "사요", "word_ids": ["ko-w-0029"], "eojeol": 2 }
+    ],
+    "grammar": ["이/가", "을/를", "-아/어요"],
+    "cloze": [{ "eojeol": 2, "answer": "사요", "hint_ja": "買います" }],
+    "variants": { "ko": [], "ja": ["友達がジュースを買う。"] },
+    "status": "approved"
+  },
+  {
+    "id": "ko-s-L1-U02-010", "unit": "L1-U02",
+    "ko": "돈이 없어요.", "ja": "お金がありません。",
+    "register": "해요체", "scene": "友達との会話",
+    "tokens": [
+      { "surface": "돈이", "word_ids": ["ko-w-0035"], "eojeol": 0 },
+      { "surface": "없어요", "word_ids": ["ko-w-0014"], "eojeol": 1 }
+    ],
+    "grammar": ["이/가", "-아/어요"],
+    "cloze": [{ "eojeol": 1, "answer": "없어요", "hint_ja": "ありません" }],
+    "variants": { "ko": [], "ja": ["お金がない。", "お金がないです。"] },
+    "status": "approved"
+  }
+]

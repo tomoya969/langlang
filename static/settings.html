@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>設定 – langlang</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/settings-page.css">
+  <script src="/static/settings.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">langlang <span class="lang">韓国語</span></a>
+    <nav class="nav" aria-label="画面">
+      <a href="/">ホーム</a>
+      <a href="/learn">学習</a>
+      <a href="/words">単語帳</a>
+      <a href="/settings">設定</a>
+    </nav>
+    <span class="spacer"></span>
+  </header>
+
+  <main class="settings-page">
+    <h1>設定</h1>
+
+    <section class="card">
+      <h2>表示</h2>
+      <p class="muted small">このブラウザにだけ残ります</p>
+      <div class="options" id="theme-options">
+        <label class="option"><input type="radio" name="theme" value="system"><div><strong>システムに合わせる</strong><span>OS のライト・ダークの設定に合わせて切り替えます</span></div></label>
+        <label class="option"><input type="radio" name="theme" value="light"><div><strong>ライト</strong></div></label>
+        <label class="option"><input type="radio" name="theme" value="dark"><div><strong>ダーク</strong></div></label>
+      </div>
+    </section>
+
+    <form id="settings-form" class="card settings-form">
+      <h2>1 日の学習</h2>
+      <div class="fields">
+        <label class="field"><span>新出の単語（語/日）</span><input type="number" name="new_words_per_day" min="0" step="1"></label>
+        <label class="field"><span>新しい文（文/日）</span><input type="number" name="new_sentences_per_day" min="0" step="1"></label>
+        <label class="field"><span>苦手枠（枚/日）</span><input type="number" name="weak_slots" min="0" step="1"></label>
+        <label class="field"><span>復習の上限（枚/日）</span><input type="number" name="review_limit" min="0" step="1"></label>
+      </div>
+
+      <h2>矢印ゲームの反応時間（秒）</h2>
+      <p class="muted small">速い＝Easy、遅い＝Hard。時間切れは不正解。記録がたまったら自分の中央値を基準にします</p>
+      <div class="fields">
+        <label class="field"><span>速い（未満）</span><input type="number" name="fast_sec" min="0" step="0.1"></label>
+        <label class="field"><span>遅い（超）</span><input type="number" name="slow_sec" min="0" step="0.1"></label>
+        <label class="field"><span>時間切れ</span><input type="number" name="timeout_sec" min="1" step="0.5"></label>
+      </div>
+
+      <h2>面を出し始める安定度（日）</h2>
+      <div class="fields">
+        <label class="field"><span>聞き取り</span><input type="number" name="unlock_listen_days" min="0" step="1"></label>
+        <label class="field"><span>逆引き</span><input type="number" name="unlock_reverse_days" min="0" step="1"></label>
+        <label class="field"><span>綴り</span><input type="number" name="unlock_spell_days" min="0" step="1"></label>
+        <label class="field"><span>定着とみなす</span><input type="number" name="mastered_days" min="0" step="1"></label>
+      </div>
+
+      <h2>読み上げとキーボード</h2>
+      <div class="fields">
+        <label class="field"><span>読み上げの速さ</span>
+          <select name="tts_rate">
+            <option value="0.75">ゆっくり（0.75）</option>
+            <option value="1">ふつう（1.0）</option>
+          </select>
+        </label>
+        <label class="field"><span>キーボードの英字</span>
+          <select name="keyboard_show_latin">
+            <option value="true">表示する</option>
+            <option value="false">表示しない</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <button type="button" id="btn-test-voice" class="btn">読み上げを試す</button>
+        <span id="voice-info" class="muted small">–</span>
+      </div>
+
+      <div class="actions-row">
+        <span id="save-state" class="muted small"></span>
+        <button type="submit" class="btn primary">保存</button>
+      </div>
+    </form>
+  </main>
+
+  <div id="toasts" aria-live="polite"></div>
+  <script src="/static/toast.js"></script>
+  <script src="/static/langs/ko/keymap.js"></script>
+  <script src="/static/langs/ko/composer.js"></script>
+  <script src="/static/components/speak.js"></script>
+  <script src="/static/common.js"></script>
+  <script src="/static/settings-page.js"></script>
+</body>
+</html>

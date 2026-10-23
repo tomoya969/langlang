@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>単語帳 – langlang</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/words.css">
+  <script src="/static/settings.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">langlang <span class="lang">韓国語</span></a>
+    <nav class="nav" aria-label="画面">
+      <a href="/">ホーム</a>
+      <a href="/learn">学習</a>
+      <a href="/words">単語帳</a>
+      <a href="/settings">設定</a>
+    </nav>
+    <span class="spacer"></span>
+  </header>
+
+  <main class="words">
+    <aside class="card filters">
+      <h2>絞り込み</h2>
+      <label class="field"><span>検索</span><input id="f-q" type="text" placeholder="韓国語か意味"></label>
+      <label class="field"><span>レベル</span>
+        <select id="f-level"><option value="">すべて</option></select>
+      </label>
+      <label class="field"><span>ユニット</span>
+        <select id="f-unit"><option value="">すべて</option></select>
+      </label>
+      <label class="field"><span>状態</span>
+        <select id="f-state">
+          <option value="">すべて</option>
+          <option value="new">未学習</option>
+          <option value="learning">学習中</option>
+          <option value="mastered">定着</option>
+          <option value="weak">苦手</option>
+        </select>
+      </label>
+      <p id="f-count" class="muted small">–</p>
+    </aside>
+
+    <section class="list-area">
+      <div id="word-list" class="word-list"><p class="muted">読み込んでいます…</p></div>
+    </section>
+
+    <section id="detail" class="card detail" hidden>
+      <p class="muted">単語を選ぶと、ここに詳細が出ます</p>
+    </section>
+  </main>
+
+  <div id="toasts" aria-live="polite"></div>
+  <script src="/static/toast.js"></script>
+  <script src="/static/langs/ko/keymap.js"></script>
+  <script src="/static/langs/ko/composer.js"></script>
+  <script src="/static/components/speak.js"></script>
+  <script src="/static/common.js"></script>
+  <script src="/static/words.js"></script>
+</body>
+</html>

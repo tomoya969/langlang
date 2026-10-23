@@ -1,0 +1,30 @@
+[project]
+name = "langlang"
+version = "0.1.0"
+description = "ゲーム感覚の反復で日常会話の語彙まで到達する、ローカルの語学学習アプリ"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+]
+
+[project.scripts]
+langlang = "app.cli:main"
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.13",
+    "pytest>=8.3",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = ["content", "records", "docs", "static", ".venv", ".git"]

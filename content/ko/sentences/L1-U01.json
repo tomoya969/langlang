@@ -1,0 +1,108 @@
+[
+  {
+    "id": "ko-s-L1-U01-001", "unit": "L1-U01",
+    "ko": "안녕하세요. 저는 다나카예요.", "ja": "こんにちは。私は田中です。",
+    "register": "해요체", "scene": "初めて会った人と",
+    "tokens": [
+      { "surface": "안녕하세요", "word_ids": ["ko-w-0001"], "eojeol": 0 },
+      { "surface": "저는", "word_ids": ["ko-w-0005"], "eojeol": 1 },
+      { "surface": "다나카예요", "word_ids": [], "eojeol": 2 }
+    ],
+    "grammar": ["-예요/이에요", "은/는"],
+    "cloze": [{ "eojeol": 0, "answer": "안녕하세요", "hint_ja": "こんにちは" }],
+    "variants": { "ko": ["안녕하세요, 저는 다나카예요."], "ja": ["こんにちは、田中です。"] },
+    "status": "approved"
+  },
+  {
+    "id": "ko-s-L1-U01-002", "unit": "L1-U01",
+    "ko": "만나서 반갑습니다.", "ja": "お会いできてうれしいです。",
+    "register": "합니다체", "scene": "初めて会った人と",
+    "tokens": [
+      { "surface": "만나서", "word_ids": ["ko-w-0017"], "eojeol": 0 },
+      { "surface": "반갑습니다", "word_ids": ["ko-w-0018"], "eojeol": 1 }
+    ],
+    "grammar": ["-ㅂ니다/습니다"],
+    "cloze": [{ "eojeol": 1, "answer": "반갑습니다", "hint_ja": "うれしいです" }],
+    "variants": { "ko": [], "ja": ["はじめまして。", "会えてうれしいです。"] },
+    "status": "approved"
+  },
+  {
+    "id": "ko-s-L1-U01-003", "unit": "L1-U01",
+    "ko": "저는 학생이에요.", "ja": "私は学生です。",
+    "register": "해요체", "scene": "自己紹介",
+    "tokens": [
+      { "surface": "저는", "word_ids": ["ko-w-0005"], "eojeol": 0 },
+      { "surface": "학생이에요", "word_ids": ["ko-w-0010"], "eojeol": 1 }
+    ],
+    "grammar": ["-예요/이에요", "은/는"],
+    "cloze": [{ "eojeol": 1, "answer": "학생이에요", "hint_ja": "学生です" }],
+    "variants": { "ko": [], "ja": ["僕は学生です。"] },
+    "status": "approved"
+  },
+  {
+    "id": "ko-s-L1-U01-004", "unit": "L1-U01",
+    "ko": "저는 일본 사람이에요.", "ja": "私は日本人です。",
+    "register": "해요체", "scene": "自己紹介",
+    "tokens": [
+      { "surface": "저는", "word_ids": ["ko-w-0005"], "eojeol": 0 },
+      { "surface": "일본", "word_ids": ["ko-w-0008"], "eojeol": 1 },
+      { "surface": "사람이에요", "word_ids": ["ko-w-0007"], "eojeol": 2 }
+    ],
+    "grammar": ["-예요/이에요", "은/는"],
+    "cloze": [{ "eojeol": 2, "answer": "사람이에요", "hint_ja": "人です" }],
+    "variants": { "ko": [], "ja": ["私は日本の人間です。"] },
+    "status": "approved"
+  },
+  {
+    "id": "ko-s-L1-U01-005", "unit": "L1-U01",
+    "ko": "친구가 있어요.", "ja": "友達がいます。",
+    "register": "해요체", "scene": "自己紹介",
+    "tokens": [
+      { "surface": "친구가", "word_ids": ["ko-w-0012"], "eojeol": 0 },
+      { "surface": "있어요", "word_ids": ["ko-w-0013"], "eojeol": 1 }
+    ],
+    "grammar": ["이/가", "-아/어요"],
+    "cloze": [{ "eojeol": 1, "answer": "있어요", "hint_ja": "います" }],
+    "variants": { "ko": [], "ja": ["友達がいる。"] },
+    "status": "approved"
+  },
+  {
+    "id": "ko-s-L1-U01-006", "unit": "L1-U01",
+    "ko": "저는 회사원이에요.", "ja": "私は会社員です。",
+    "register": "해요체", "scene": "自己紹介",
+    "tokens": [
+      { "surface": "저는", "word_ids": ["ko-w-0005"], "eojeol": 0 },
+      { "surface": "회사원이에요", "word_ids": ["ko-w-0011"], "eojeol": 1 }
+    ],
+    "grammar": ["-예요/이에요", "은/는"],
+    "cloze": [{ "eojeol": 1, "answer": "회사원이에요", "hint_ja": "会社員です" }],
+    "variants": { "ko": [], "ja": [] },
+    "status": "approved"
+  },
+  {
+    "id": "ko-s-L1-U01-007", "unit": "L1-U01",
+    "ko": "이름이 뭐예요?", "ja": "お名前は何ですか？",
+    "register": "해요체", "scene": "初めて会った人と",
+    "tokens": [
+      { "surface": "이름이", "word_ids": ["ko-w-0006"], "eojeol": 0 },
+      { "surface": "뭐예요", "word_ids": [], "eojeol": 1 }
+    ],
+    "grammar": ["이/가", "-예요/이에요"],
+    "cloze": [{ "eojeol": 0, "answer": "이름이", "hint_ja": "名前が" }],
+    "variants": { "ko": [], "ja": ["名前は何ですか？"] },
+    "status": "approved"
+  },
+  {
+    "id": "ko-s-L1-U01-008", "unit": "L1-U01",
+    "ko": "네, 감사합니다.", "ja": "はい、ありがとうございます。",
+    "register": "합니다체", "scene": "お礼",
+    "tokens": [
+      { "surface": "네", "word_ids": ["ko-w-0003"], "eojeol": 0 },
+      { "surface": "감사합니다", "word_ids": ["ko-w-0002"], "eojeol": 1 }
+    ],
+    "grammar": ["-ㅂ니다/습니다"],
+    "cloze": [{ "eojeol": 1, "answer": "감사합니다", "hint_ja": "ありがとうございます" }],
+    "variants": { "ko": ["네 감사합니다."], "ja": ["はい、ありがとう。"] },
+    "status": "approved"
+  }
+]

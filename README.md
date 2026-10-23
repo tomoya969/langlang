@@ -1,0 +1,45 @@
+# langlang
+
+予習なしで、ゲーム感覚の反復を続けるうちに、日常会話に困らない語彙まで到達するためのローカルの語学学習アプリ。
+最初の対象は韓国語（日本語話者向け）。設計は `docs/plan.md`、AI 向けのルールは `CLAUDE.md`。
+
+## 今の状態
+
+**画面を作っている段階。** `content/ko/` はテストデータ（3 ユニット・54 語・26 文）で、学習の記録はまだ保存しない。
+本番の教材と、SQLite・FSRS による記憶の管理は、UI が固まってから入れる。
+
+## セットアップ
+
+- uv（`curl -LsSf https://astral.sh/uv/install.sh | sh`）
+- ネイティブ版 Claude Code（`claude` コマンド）。AI を使う機能を動かすときだけ
+
+```text
+uv sync
+uv run langlang serve          # http://127.0.0.1:8766/ をブラウザで開く
+uv run langlang validate       # 教材の整合を確かめる
+uv run pytest                  # app/ のテスト
+node --test 'static/**/*.test.js'   # 画面の部品（ハングルの合成、矢印ゲームの列）のテスト
+```
+
+## 画面
+
+| URL | 画面 |
+| --- | --- |
+| `/` | ホーム。今日の学習の見通し（復習・新出・目安の時間）と「始める」、レベルの進み |
+| `/learn` | 学習。単語 → 文 → 産出 → 仕上げ の順に自動で進む。画面下にハングルのキーボード |
+| `/words` | 単語帳。レベル・ユニットで絞り込み、単語の詳細（意味・漢字・出てくる文） |
+| `/settings` | 設定。新出の数、反応時間の基準、読み上げ、キーボードの表示 |
+
+学習画面のキー: 矢印キーで選ぶ、Space で読み上げ、Enter で「わからない」（入力の練習では送る）、Esc で中断。
+入力の練習は、日本語や英語の入力モードのまま、キーボードの英字の位置で打つ（画面のキーボードがハングルに組み立てる）。
+
+## 環境変数
+
+| 変数 | 意味 |
+| --- | --- |
+| `LANGLANG_PORT` | 画面のポート。未設定なら 8766 |
+| `LANGLANG_ROOT` | リポジトリのルート。未設定ならカレントディレクトリ |
+| `LANGLANG_CLAUDE_BIN` | 使う claude バイナリ。未設定なら PATH 上の `claude` |
+| `LANGLANG_CLAUDE_MODEL` / `LANGLANG_CLAUDE_EFFORT` | すべての用途のモデルと effort |
+| `LANGLANG_<用途>_MODEL` / `_EFFORT` | 用途（TAG / ENRICH / VERIFY / GRADE / EXPLAIN）だけの上書き |
+| `ANTHROPIC_API_KEY` | 設定しない。設定されていると API 課金に切り替わるため中断する |

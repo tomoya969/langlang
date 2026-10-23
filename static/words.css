@@ -1,0 +1,183 @@
+/* 単語帳 */
+
+.words {
+  max-width: 1200px;
+  display: grid;
+  grid-template-columns: 220px 1fr 340px;
+  gap: 16px;
+  align-items: start;
+}
+
+.filters {
+  display: grid;
+  gap: 12px;
+  position: sticky;
+  top: 16px;
+}
+
+.small {
+  font-size: 13px;
+}
+
+.word-list {
+  display: grid;
+  gap: 6px;
+}
+
+.word-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.word-row:hover,
+.word-row[aria-current="true"] {
+  border-color: var(--accent);
+}
+
+.word-row[aria-current="true"] {
+  background: var(--accent-soft);
+}
+
+.word-lemma {
+  font-family: var(--font-ko);
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.word-meaning {
+  color: var(--muted);
+}
+
+.state {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.state.learning {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: transparent;
+}
+
+.state.mastered {
+  color: var(--ok);
+  background: var(--ok-soft);
+  border-color: transparent;
+}
+
+.state.weak {
+  color: var(--ng);
+  background: var(--ng-soft);
+  border-color: transparent;
+}
+
+.unit-head {
+  margin: 12px 0 4px;
+  font-size: 13px;
+  color: var(--muted);
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.unit-head strong {
+  color: var(--text);
+}
+
+.detail {
+  position: sticky;
+  top: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.detail-lemma {
+  font-family: var(--font-ko);
+  font-size: 36px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.detail-meaning {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.faces {
+  display: grid;
+  gap: 6px;
+}
+
+.face-row {
+  display: grid;
+  grid-template-columns: 70px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.face-row .muted {
+  font-size: 12px;
+}
+
+.detail-sentences {
+  display: grid;
+  gap: 8px;
+}
+
+.detail-sentence {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--panel-alt);
+}
+
+.detail-sentence .ko {
+  font-size: 17px;
+}
+
+.detail-sentence .ja {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.speak-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 16px;
+}
+
+@media (max-width: 960px) {
+  .words {
+    grid-template-columns: 1fr;
+  }
+  .filters,
+  .detail {
+    position: static;
+  }
+}

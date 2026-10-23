@@ -1,0 +1,5 @@
+[
+  { "id": "L1-U01", "level": 1, "order": 1, "title": "あいさつと自己紹介", "scene": "初めて会った人と" },
+  { "id": "L1-U02", "level": 1, "order": 2, "title": "カフェで注文", "scene": "カフェのカウンターで" },
+  { "id": "L1-U03", "level": 1, "order": 3, "title": "一日の行動", "scene": "友達との会話" }
+]

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>langlang</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/home.css">
+  <script src="/static/settings.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">langlang <span class="lang">韓国語</span></a>
+    <nav class="nav" aria-label="画面">
+      <a href="/">ホーム</a>
+      <a href="/learn">学習</a>
+      <a href="/words">単語帳</a>
+      <a href="/settings">設定</a>
+    </nav>
+    <span class="spacer"></span>
+  </header>
+
+  <main class="home">
+    <section class="card hero">
+      <div class="hero-main">
+        <p class="eyebrow">今日の学習</p>
+        <h1 id="hero-title">読み込んでいます…</h1>
+        <p id="hero-unit" class="muted">–</p>
+        <div class="stats">
+          <div class="stat"><span class="stat-num" id="stat-review">–</span><span class="stat-label">復習</span></div>
+          <div class="stat"><span class="stat-num" id="stat-new">–</span><span class="stat-label">新出の単語</span></div>
+          <div class="stat"><span class="stat-num" id="stat-sentences">–</span><span class="stat-label">新しい文</span></div>
+          <div class="stat"><span class="stat-num" id="stat-min">–</span><span class="stat-label">目安（分）</span></div>
+        </div>
+      </div>
+      <div class="hero-side">
+        <a id="btn-start" class="btn primary big" href="/learn">始める</a>
+        <p class="muted small">単語 → 文 → 産出 → 仕上げ の順に進みます</p>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <h2>レベルの進み</h2>
+        <div id="levels" class="levels"><p class="muted">読み込んでいます…</p></div>
+      </div>
+      <div class="card">
+        <h2>苦手な単語</h2>
+        <p class="big-num"><span id="stat-weak">–</span><span class="muted"> 語</span></p>
+        <p class="muted small">取り違えや反応の遅い単語を、期限の前でも混ぜて出します</p>
+        <a class="btn" href="/words?weak=1">苦手だけを見る</a>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>ユニット</h2>
+      <div id="units" class="units"><p class="muted">読み込んでいます…</p></div>
+    </section>
+  </main>
+
+  <div id="toasts" aria-live="polite"></div>
+  <script src="/static/toast.js"></script>
+  <script src="/static/langs/ko/keymap.js"></script>
+  <script src="/static/langs/ko/composer.js"></script>
+  <script src="/static/common.js"></script>
+  <script src="/static/home.js"></script>
+</body>
+</html>

@@ -1,0 +1,114 @@
+[
+  {
+    "id": "ko-s-L1-U03-001", "unit": "L1-U03",
+    "ko": "아침에 학교에 가요.", "ja": "朝、学校に行きます。",
+    "register": "해요체", "scene": "友達との会話",
+    "tokens": [
+      { "surface": "아침에", "word_ids": ["ko-w-0037"], "eojeol": 0 },
+      { "surface": "학교에", "word_ids": ["ko-w-0043"], "eojeol": 1 },
+      { "surface": "가요", "word_ids": ["ko-w-0046"], "eojeol": 2 }
+    ],
+    "grammar": ["에（場所・時）", "-아/어요"],
+    "cloze": [{ "eojeol": 2, "answer": "가요", "hint_ja": "行きます" }],
+    "variants": { "ko": [], "ja": ["朝に学校へ行きます。"] },
+    "status": "approved"
+  },
+  {
+    "id": "ko-s-L1-U03-002", "unit": "L1-U03",
+    "ko": "오늘은 회사에 안 가요.", "ja": "今日は会社に行きません。",
+    "register": "해요체", "scene": "友達との会話",
+    "tokens": [
+      { "surface": "오늘은", "word_ids": ["ko-w-0040"], "eojeol": 0 },
+      { "surface": "회사에", "word_ids": ["ko-w-0044"], "eojeol": 1 },
+      { "surface": "안", "word_ids": [], "eojeol": 2 },
+      { "surface": "가요", "word_ids": ["ko-w-0046"], "eojeol": 3 }
+    ],
+    "grammar": ["안 -", "에（場所・時）"],
+    "cloze": [{ "eojeol": 2, "answer": "안", "hint_ja": "〜ない" }],
+    "variants": { "ko": [], "ja": ["今日は会社へ行かない。"] },
+    "status": "approved"
+  },
+  {
+    "id": "ko-s-L1-U03-003", "unit": "L1-U03",
+    "ko": "저녁에 친구를 만나요.", "ja": "夕方、友達に会います。",
+    "register": "해요체", "scene": "友達との会話",
+    "tokens": [
+      { "surface": "저녁에", "word_ids": ["ko-w-0039"], "eojeol": 0 },
+      { "surface": "친구를", "word_ids": ["ko-w-0012"], "eojeol": 1 },
+      { "surface": "만나요", "word_ids": ["ko-w-0017"], "eojeol": 2 }
+    ],
+    "grammar": ["에（場所・時）", "을/를"],
+    "cloze": [{ "eojeol": 2, "answer": "만나요", "hint_ja": "会います" }],
+    "variants": { "ko": [], "ja": ["夕方に友達と会います。"] },
+    "status": "approved"
+  },
+  {
+    "id": "ko-s-L1-U03-004", "unit": "L1-U03",
+    "ko": "내일 집에서 공부해요.", "ja": "明日、家で勉強します。",
+    "register": "해요체", "scene": "友達との会話",
+    "tokens": [
+      { "surface": "내일", "word_ids": ["ko-w-0041"], "eojeol": 0 },
+      { "surface": "집에서", "word_ids": ["ko-w-0042"], "eojeol": 1 },
+      { "surface": "공부해요", "word_ids": ["ko-w-0051"], "eojeol": 2 }
+    ],
+    "grammar": ["에서", "-아/어요"],
+    "cloze": [{ "eojeol": 2, "answer": "공부해요", "hint_ja": "勉強します" }],
+    "variants": { "ko": [], "ja": ["明日は家で勉強します。"] },
+    "status": "approved"
+  },
+  {
+    "id": "ko-s-L1-U03-005", "unit": "L1-U03",
+    "ko": "점심에 빵을 먹어요.", "ja": "昼にパンを食べます。",
+    "register": "해요체", "scene": "友達との会話",
+    "tokens": [
+      { "surface": "점심에", "word_ids": ["ko-w-0038"], "eojeol": 0 },
+      { "surface": "빵을", "word_ids": ["ko-w-0022"], "eojeol": 1 },
+      { "surface": "먹어요", "word_ids": ["ko-w-0028"], "eojeol": 2 }
+    ],
+    "grammar": ["에（場所・時）", "을/를"],
+    "cloze": [{ "eojeol": 1, "answer": "빵을", "hint_ja": "パンを" }],
+    "variants": { "ko": [], "ja": ["お昼にパンを食べます。"] },
+    "status": "approved"
+  },
+  {
+    "id": "ko-s-L1-U03-006", "unit": "L1-U03",
+    "ko": "차로 회사에 와요.", "ja": "車で会社に来ます。",
+    "register": "해요체", "scene": "友達との会話",
+    "tokens": [
+      { "surface": "차로", "word_ids": ["ko-w-0045"], "eojeol": 0 },
+      { "surface": "회사에", "word_ids": ["ko-w-0044"], "eojeol": 1 },
+      { "surface": "와요", "word_ids": ["ko-w-0047"], "eojeol": 2 }
+    ],
+    "grammar": ["에（場所・時）", "-아/어요"],
+    "cloze": [{ "eojeol": 2, "answer": "와요", "hint_ja": "来ます" }],
+    "variants": { "ko": [], "ja": ["車で会社へ来ます。"] },
+    "status": "approved"
+  },
+  {
+    "id": "ko-s-L1-U03-007", "unit": "L1-U03",
+    "ko": "오늘은 바빠요.", "ja": "今日は忙しいです。",
+    "register": "해요체", "scene": "友達との会話",
+    "tokens": [
+      { "surface": "오늘은", "word_ids": ["ko-w-0040"], "eojeol": 0 },
+      { "surface": "바빠요", "word_ids": ["ko-w-0053"], "eojeol": 1 }
+    ],
+    "grammar": ["은/는", "-아/어요"],
+    "cloze": [{ "eojeol": 1, "answer": "바빠요", "hint_ja": "忙しいです" }],
+    "variants": { "ko": [], "ja": ["今日は忙しい。"] },
+    "status": "approved"
+  },
+  {
+    "id": "ko-s-L1-U03-008", "unit": "L1-U03",
+    "ko": "저녁에 차를 마셔요.", "ja": "夕方にお茶を飲みます。",
+    "register": "해요체", "scene": "友達との会話",
+    "tokens": [
+      { "surface": "저녁에", "word_ids": ["ko-w-0039"], "eojeol": 0 },
+      { "surface": "차를", "word_ids": ["ko-w-0021"], "eojeol": 1 },
+      { "surface": "마셔요", "word_ids": ["ko-w-0027"], "eojeol": 2 }
+    ],
+    "grammar": ["에（場所・時）", "을/를"],
+    "cloze": [{ "eojeol": 1, "answer": "차를", "hint_ja": "お茶を" }],
+    "variants": { "ko": [], "ja": ["夕方、お茶を飲みます。"] },
+    "status": "approved"
+  }
+]

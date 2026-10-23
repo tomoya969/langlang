@@ -1,0 +1,33 @@
+/* 設定の画面 */
+
+.settings-page {
+  max-width: 760px;
+  display: grid;
+  gap: 20px;
+}
+
+.settings-form h2 {
+  margin-top: 8px;
+}
+
+.settings-form h2:not(:first-child) {
+  margin-top: 24px;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.small {
+  font-size: 13px;
+}
+
+.actions-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+}
