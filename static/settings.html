@@ -11,14 +11,12 @@
   <link rel="stylesheet" href="/static/settings-page.css">
   <script src="/static/settings.js"></script>
 </head>
-<body>
+<body data-scope="settings">
   <header class="topbar">
-    <a class="brand" href="/">langlang <span class="lang">韓国語</span></a>
-    <nav class="nav" aria-label="画面">
-      <a href="/">ホーム</a>
-      <a href="/learn">学習</a>
-      <a href="/words">単語帳</a>
-      <a href="/settings">設定</a>
+    <nav class="crumbs" aria-label="現在地">
+      <a class="brand" href="/">langlang</a>
+      <span class="crumb-sep" aria-hidden="true">›</span>
+      <span class="crumb-here" aria-current="page">設定</span>
     </nav>
     <span class="spacer"></span>
   </header>
@@ -28,7 +26,7 @@
 
     <section class="card">
       <h2>表示</h2>
-      <p class="muted small">このブラウザにだけ残ります</p>
+      <p class="muted small">すべての言語に共通です。このブラウザにだけ残ります</p>
       <div class="options" id="theme-options">
         <label class="option"><input type="radio" name="theme" value="system"><div><strong>システムに合わせる</strong><span>OS のライト・ダークの設定に合わせて切り替えます</span></div></label>
         <label class="option"><input type="radio" name="theme" value="light"><div><strong>ライト</strong></div></label>
@@ -37,7 +35,15 @@
     </section>
 
     <form id="settings-form" class="card settings-form">
-      <h2>1 日の学習</h2>
+      <div class="lang-head">
+        <h2>言語ごとの学習</h2>
+        <div id="lang-tabs" class="segmented" role="tablist" aria-label="言語"></div>
+        <span class="spacer"></span>
+        <a id="lang-home" class="btn ghost" href="/ko">ホームへ</a>
+      </div>
+      <p class="muted small">言語ごとに分けて残ります</p>
+
+      <h3>1 日の学習</h3>
       <div class="fields">
         <label class="field"><span>新出の単語（語/日）</span><input type="number" name="new_words_per_day" min="0" step="1"></label>
         <label class="field"><span>新しい文（文/日）</span><input type="number" name="new_sentences_per_day" min="0" step="1"></label>
@@ -45,7 +51,7 @@
         <label class="field"><span>復習の上限（枚/日）</span><input type="number" name="review_limit" min="0" step="1"></label>
       </div>
 
-      <h2>矢印ゲームの反応時間（秒）</h2>
+      <h3>矢印ゲームの反応時間（秒）</h3>
       <p class="muted small">速い＝Easy、遅い＝Hard。時間切れは不正解。記録がたまったら自分の中央値を基準にします</p>
       <div class="fields">
         <label class="field"><span>速い（未満）</span><input type="number" name="fast_sec" min="0" step="0.1"></label>
@@ -53,7 +59,7 @@
         <label class="field"><span>時間切れ</span><input type="number" name="timeout_sec" min="1" step="0.5"></label>
       </div>
 
-      <h2>面を出し始める安定度（日）</h2>
+      <h3>面を出し始める安定度（日）</h3>
       <div class="fields">
         <label class="field"><span>聞き取り</span><input type="number" name="unlock_listen_days" min="0" step="1"></label>
         <label class="field"><span>逆引き</span><input type="number" name="unlock_reverse_days" min="0" step="1"></label>
@@ -61,7 +67,7 @@
         <label class="field"><span>定着とみなす</span><input type="number" name="mastered_days" min="0" step="1"></label>
       </div>
 
-      <h2>読み上げとキーボード</h2>
+      <h3>読み上げとキーボード</h3>
       <div class="fields">
         <label class="field"><span>読み上げの速さ</span>
           <select name="tts_rate">
@@ -90,8 +96,6 @@
 
   <div id="toasts" aria-live="polite"></div>
   <script src="/static/toast.js"></script>
-  <script src="/static/langs/ko/keymap.js"></script>
-  <script src="/static/langs/ko/composer.js"></script>
   <script src="/static/components/speak.js"></script>
   <script src="/static/common.js"></script>
   <script src="/static/settings-page.js"></script>

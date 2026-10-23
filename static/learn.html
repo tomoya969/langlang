@@ -4,16 +4,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>学習 – langlang</title>
+  <title data-page="学習">学習 – langlang</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/learn.css">
   <script src="/static/settings.js"></script>
 </head>
-<body class="learn-page">
+<body class="learn-page" data-scope="language">
   <header class="topbar learn-bar">
-    <a class="brand" href="/">langlang <span class="lang">韓国語</span></a>
+    <nav class="crumbs" aria-label="現在地">
+      <a class="brand" href="/">langlang</a>
+      <span class="crumb-sep" aria-hidden="true">›</span>
+      <a href="/ko" data-lang-path="" data-lang-label>韓国語</a>
+    </nav>
     <div class="learn-progress" aria-label="進み具合">
       <ol id="rounds" class="rounds"></ol>
       <div class="meter"><span id="progress-fill" style="width: 0%"></span></div>
@@ -45,14 +49,16 @@
 
   <div id="toasts" aria-live="polite"></div>
   <script src="/static/toast.js"></script>
+  <script src="/static/common.js"></script>
+  <!-- 言語の画面側のパック。言語を足したら、その言語の keymap・composer・pack をここに足す -->
   <script src="/static/langs/ko/keymap.js"></script>
   <script src="/static/langs/ko/composer.js"></script>
+  <script src="/static/langs/ko/pack.js"></script>
   <script src="/static/components/speak.js"></script>
   <script src="/static/components/keyboard.js"></script>
   <script src="/static/components/compose-buffer.js"></script>
   <script src="/static/components/typing-field.js"></script>
   <script src="/static/components/arrow-game.js"></script>
-  <script src="/static/common.js"></script>
   <script src="/static/learn.js"></script>
 </body>
 </html>

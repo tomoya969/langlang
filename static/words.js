@@ -66,12 +66,12 @@ async function select(id) {
   detail.replaceChildren(el("p", { class: "muted", text: "読み込んでいます…" }));
   let w;
   try {
-    w = await api.get(`/api/words/${encodeURIComponent(id)}?language=${LANGUAGE}`);
+    w = await api.get(`/api/words/${encodeURIComponent(id)}?language=${encodeURIComponent(LANGUAGE)}`);
   } catch (err) {
     detail.replaceChildren(el("p", { class: "muted", text: `読み込みに失敗しました: ${err.message}` }));
     return;
   }
-  const speak = el("button", { type: "button", class: "speak-btn", "aria-label": "読み上げる", onClick: () => Speak.speak(w.tts_text, { lang: "ko-KR" }) }, "🔊");
+  const speak = el("button", { type: "button", class: "speak-btn", "aria-label": "読み上げる", onClick: () => Speak.speak(w.tts_text, { lang: ttsLang }) }, "🔊");
   detail.replaceChildren(
     el("div", { class: "detail-lemma", lang: "ko" }, w.lemma, speak),
     el("div", { class: "detail-meaning", text: w.meaning }),
@@ -91,8 +91,8 @@ function faceRow(label, face) {
 }
 
 async function load() {
-  units = await api.get(`/api/units?language=${LANGUAGE}`);
-  allWords = await api.get(`/api/words?language=${LANGUAGE}`);
+  units = await api.get(`/api/units?language=${encodeURIComponent(LANGUAGE)}`);
+  allWords = await api.get(`/api/words?language=${encodeURIComponent(LANGUAGE)}`);
   const levelSel = document.getElementById("f-level");
   for (const level of [...new Set(units.map((u) => u.level))]) levelSel.append(el("option", { value: String(level), text: `L${level}` }));
   const unitSel = document.getElementById("f-unit");
@@ -104,8 +104,11 @@ async function load() {
   for (const id of ["f-q", "f-level", "f-unit", "f-state"]) document.getElementById(id).addEventListener("input", renderList);
 }
 
+let ttsLang = null;
+
 document.addEventListener("DOMContentLoaded", async () => {
-  await checkApiVersion();
+  const meta = await loadMeta();
+  ttsLang = meta && meta.current ? meta.current.tts_lang : null;
   try {
     await load();
   } catch (err) {

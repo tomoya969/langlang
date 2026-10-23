@@ -1,8 +1,10 @@
 "use strict";
 
+const LEVEL_NAMES = { 1: "やさしい", 2: "ふつう", 3: "むずかしい" };
+
 async function loadHome() {
-  const today = await api.get(`/api/today?language=${LANGUAGE}`);
-  document.getElementById("hero-title").textContent = today.unit ? `${today.unit.title}` : "教材がありません";
+  const today = await api.get(`/api/today?language=${encodeURIComponent(LANGUAGE)}`);
+  document.getElementById("hero-title").textContent = today.unit ? today.unit.title : "教材がありません";
   document.getElementById("hero-unit").textContent = today.unit ? `L${today.unit.level} ・ ${today.unit.id} ・ ${today.unit.scene}` : "";
   document.getElementById("stat-review").textContent = today.review_count;
   document.getElementById("stat-new").textContent = today.new_word_count;
@@ -29,7 +31,7 @@ async function loadHome() {
     ...today.units.map((u) =>
       el(
         "a",
-        { class: "unit", href: `/learn?unit=${encodeURIComponent(u.id)}` },
+        { class: "unit", href: languageUrl("learn", `unit=${encodeURIComponent(u.id)}`) },
         el("span", { class: "unit-id", text: u.id }),
         el("span", { class: "unit-title", text: u.title }),
         el("span", { class: "unit-meta", text: `${u.scene} ・ ${u.word_count} 語 ・ ${u.sentence_count} 文` }),
@@ -38,10 +40,8 @@ async function loadHome() {
   );
 }
 
-const LEVEL_NAMES = { 1: "やさしい", 2: "ふつう", 3: "むずかしい" };
-
 document.addEventListener("DOMContentLoaded", async () => {
-  await checkApiVersion();
+  await loadMeta();
   try {
     await loadHome();
   } catch (err) {

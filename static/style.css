@@ -82,21 +82,35 @@ a {
   border-bottom: 1px solid var(--border);
 }
 
-.brand {
+/* 現在地（langlang › 韓国語）。ポータルと設定では langlang だけ、または langlang › 設定 */
+.crumbs {
   display: inline-flex;
   align-items: baseline;
   gap: 8px;
-  color: var(--text);
-  text-decoration: none;
-  font-weight: 700;
-  font-size: 18px;
-  letter-spacing: 0.02em;
 }
 
-.brand .lang {
-  font-weight: 500;
-  font-size: 14px;
+.crumbs a {
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.crumbs a:hover {
+  color: var(--accent);
+}
+
+.crumb-sep {
   color: var(--muted);
+}
+
+.crumb-here {
+  font-weight: 600;
+}
+
+.brand {
+  font-size: 18px;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em;
 }
 
 .nav {

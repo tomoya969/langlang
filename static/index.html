@@ -4,23 +4,27 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>langlang</title>
+  <title data-page="ホーム">ホーム – langlang</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/home.css">
   <script src="/static/settings.js"></script>
 </head>
-<body>
+<body data-scope="language">
   <header class="topbar">
-    <a class="brand" href="/">langlang <span class="lang">韓国語</span></a>
+    <nav class="crumbs" aria-label="現在地">
+      <a class="brand" href="/">langlang</a>
+      <span class="crumb-sep" aria-hidden="true">›</span>
+      <a href="/ko" data-lang-path="" data-lang-label>韓国語</a>
+    </nav>
     <nav class="nav" aria-label="画面">
-      <a href="/">ホーム</a>
-      <a href="/learn">学習</a>
-      <a href="/words">単語帳</a>
-      <a href="/settings">設定</a>
+      <a href="/ko" data-lang-path="">ホーム</a>
+      <a href="/ko/learn" data-lang-path="learn">学習</a>
+      <a href="/ko/words" data-lang-path="words">単語帳</a>
     </nav>
     <span class="spacer"></span>
+    <a class="btn ghost" href="/settings?language=ko" data-settings-link>設定</a>
   </header>
 
   <main class="home">
@@ -37,7 +41,7 @@
         </div>
       </div>
       <div class="hero-side">
-        <a id="btn-start" class="btn primary big" href="/learn">始める</a>
+        <a id="btn-start" class="btn primary big" href="/ko/learn" data-lang-path="learn">始める</a>
         <p class="muted small">単語 → 文 → 産出 → 仕上げ の順に進みます</p>
       </div>
     </section>
@@ -51,7 +55,7 @@
         <h2>苦手な単語</h2>
         <p class="big-num"><span id="stat-weak">–</span><span class="muted"> 語</span></p>
         <p class="muted small">取り違えや反応の遅い単語を、期限の前でも混ぜて出します</p>
-        <a class="btn" href="/words?weak=1">苦手だけを見る</a>
+        <a class="btn" href="/ko/words?weak=1" data-lang-path="words" data-lang-query="weak=1">苦手だけを見る</a>
       </div>
     </section>
 
@@ -63,8 +67,6 @@
 
   <div id="toasts" aria-live="polite"></div>
   <script src="/static/toast.js"></script>
-  <script src="/static/langs/ko/keymap.js"></script>
-  <script src="/static/langs/ko/composer.js"></script>
   <script src="/static/common.js"></script>
   <script src="/static/home.js"></script>
 </body>

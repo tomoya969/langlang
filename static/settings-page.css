@@ -6,12 +6,45 @@
   gap: 20px;
 }
 
-.settings-form h2 {
-  margin-top: 8px;
+.settings-form h3 {
+  font-size: 14px;
+  margin: 24px 0 10px;
 }
 
-.settings-form h2:not(:first-child) {
-  margin-top: 24px;
+.lang-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.lang-head h2 {
+  margin: 0;
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+}
+
+.seg {
+  padding: 4px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.seg[aria-selected="true"] {
+  background: var(--panel);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
 .fields {

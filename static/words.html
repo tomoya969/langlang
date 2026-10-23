@@ -4,29 +4,33 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>単語帳 – langlang</title>
+  <title data-page="単語帳">単語帳 – langlang</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/words.css">
   <script src="/static/settings.js"></script>
 </head>
-<body>
+<body data-scope="language">
   <header class="topbar">
-    <a class="brand" href="/">langlang <span class="lang">韓国語</span></a>
+    <nav class="crumbs" aria-label="現在地">
+      <a class="brand" href="/">langlang</a>
+      <span class="crumb-sep" aria-hidden="true">›</span>
+      <a href="/ko" data-lang-path="" data-lang-label>韓国語</a>
+    </nav>
     <nav class="nav" aria-label="画面">
-      <a href="/">ホーム</a>
-      <a href="/learn">学習</a>
-      <a href="/words">単語帳</a>
-      <a href="/settings">設定</a>
+      <a href="/ko" data-lang-path="">ホーム</a>
+      <a href="/ko/learn" data-lang-path="learn">学習</a>
+      <a href="/ko/words" data-lang-path="words">単語帳</a>
     </nav>
     <span class="spacer"></span>
+    <a class="btn ghost" href="/settings?language=ko" data-settings-link>設定</a>
   </header>
 
   <main class="words">
     <aside class="card filters">
       <h2>絞り込み</h2>
-      <label class="field"><span>検索</span><input id="f-q" type="text" placeholder="韓国語か意味"></label>
+      <label class="field"><span>検索</span><input id="f-q" type="text" placeholder="単語か意味"></label>
       <label class="field"><span>レベル</span>
         <select id="f-level"><option value="">すべて</option></select>
       </label>
@@ -56,8 +60,6 @@
 
   <div id="toasts" aria-live="polite"></div>
   <script src="/static/toast.js"></script>
-  <script src="/static/langs/ko/keymap.js"></script>
-  <script src="/static/langs/ko/composer.js"></script>
   <script src="/static/components/speak.js"></script>
   <script src="/static/common.js"></script>
   <script src="/static/words.js"></script>

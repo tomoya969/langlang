@@ -14,10 +14,11 @@ const ROUND_HINT = {
   finish: "今日の文を、ガイドに沿って打ちます",
 };
 
-const pack = languagePack(LANGUAGE);
+// 言語の部品（キー配列・組み立て・読み上げの言語）とキーボードは、/api/meta で言語を確かめてから作る（start）
+let pack = null;
 const stage = document.getElementById("stage");
 const kbdArea = document.getElementById("kbd-area");
-const keyboard = Keyboard.create(document.getElementById("keyboard"), pack.keymap);
+let keyboard = null;
 
 const state = {
   session: null,
@@ -95,7 +96,7 @@ function updateProgress() {
 
 async function start() {
   const params = new URLSearchParams(location.search);
-  state.settings = await api.get("/api/settings");
+  state.settings = await api.get(`/api/settings/${encodeURIComponent(LANGUAGE)}`);
   keyboard.showLatin(state.settings.keyboard_show_latin);
   Speak.setOnMissing(() => toast("この言語の読み上げの声が見つかりません。OS に韓国語の音声を追加してください", { type: "warn", sticky: true }));
   state.session = await api.post("/api/session/start", { language: LANGUAGE, unit: params.get("unit") || null });
@@ -678,12 +679,12 @@ function summaryScene() {
             tile(avgSpeed === null ? "–" : `${avgSpeed}`, "なぞり ― 字母/分"),
           ),
           el("p", { class: "muted small", style: "text-align:center", text: "記録の仕組みを入れるまでは、この結果は保存されません" }),
-          el("div", { class: "row", style: "justify-content:center" }, el("a", { class: "btn primary big", href: "/" }, "ホームへ ", el("kbd", { text: "⏎" })), el("a", { class: "btn big", href: location.href }, "もう一度")),
+          el("div", { class: "row", style: "justify-content:center" }, el("a", { class: "btn primary big", href: languageUrl() }, "ホームへ ", el("kbd", { text: "⏎" })), el("a", { class: "btn big", href: location.href }, "もう一度")),
         ),
       );
     },
     onKey(e) {
-      if (e.key === "Enter") location.href = "/";
+      if (e.key === "Enter") location.href = languageUrl();
     },
   };
 }
@@ -715,7 +716,7 @@ function askQuit() {
   dialog.addEventListener(
     "close",
     () => {
-      if (dialog.returnValue === "quit") location.href = "/";
+      if (dialog.returnValue === "quit") location.href = languageUrl();
     },
     { once: true },
   );
@@ -725,8 +726,11 @@ function askQuit() {
 document.getElementById("btn-quit").addEventListener("click", askQuit);
 
 document.addEventListener("DOMContentLoaded", async () => {
-  await checkApiVersion();
+  const meta = await loadMeta();
   try {
+    if (!meta || !meta.current) throw new Error("言語の情報を読めませんでした");
+    pack = { ...languagePack(LANGUAGE), tts: meta.current.tts_lang };
+    keyboard = Keyboard.create(document.getElementById("keyboard"), pack.keymap);
     await start();
   } catch (err) {
     stage.replaceChildren(el("p", { class: "muted", text: `学習を始められませんでした: ${err.message}` }));

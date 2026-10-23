@@ -22,6 +22,7 @@ langlang は、ゲーム感覚の反復で日常会話の語彙まで到達す�
 - Python 環境は uv。`uv sync`、`uv run langlang serve`、`uv run pytest`
 - 画面は `static/`（素の HTML/CSS/JS、ビルド不要。React などは使わない）。画面の部品のロジック（ハングルの合成、矢印ゲームの列）は画面から切り離した関数にし、`node --test 'static/**/*.test.js'` で確かめる
 - 言語に依存する処理は言語パックに閉じ込める（サーバー側 `app/langs/`、画面側 `static/langs/`）
+- 画面の URL は `/`（ポータル）、`/settings`、`/{言語}/...`。言語ごとの画面のリンクは `data-lang-path` で書き、JS が今の言語に書き換える。API は言語を必ず受け取る（既定の言語を持たない）
 - サーバーは `127.0.0.1` のみで待ち受ける。変えない
 - `claude` の呼び出しはテストではモックにする
 - `records/` は個人の学習データなので git 管理しない

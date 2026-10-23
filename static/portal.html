@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>langlang</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/portal.css">
+  <script src="/static/settings.js"></script>
+</head>
+<body data-scope="portal">
+  <header class="topbar">
+    <nav class="crumbs" aria-label="現在地">
+      <a class="brand" href="/" aria-current="page">langlang</a>
+    </nav>
+    <span class="spacer"></span>
+    <a class="btn ghost" href="/settings">設定</a>
+  </header>
+
+  <main class="portal">
+    <h1>学習する言語</h1>
+    <div id="language-cards" class="language-cards">
+      <p class="muted">読み込んでいます…</p>
+    </div>
+  </main>
+
+  <div id="toasts" aria-live="polite"></div>
+  <script src="/static/toast.js"></script>
+  <script src="/static/common.js"></script>
+  <script src="/static/portal.js"></script>
+</body>
+</html>
