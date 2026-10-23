@@ -1,30 +1,64 @@
 /* すべての画面で共通の見た目。色は light-dark(ライト, ダーク) で 1 か所に書き、
-   既定は OS のテーマに合わせ、設定でライトかダークを選んだら固定する（settings.js が <html data-theme> を付ける）。 */
+   既定は OS のテーマに合わせ、設定でライトかダークを選んだら固定する（settings.js が <html data-theme> を付ける）。
+
+   値は段階を決めてその中から選ぶ: 余白 4/8/12/16/24/32/48、角丸 --r-*、文字 --fs-*。
+   面の奥行きは枠線より背景の明るさの差で出し、枠で囲むのは押せるものと、ひとまとまりの面だけにする。
+   アクセント色は進み具合・選択中・新出の単語にだけ使う。押すべきボタンは --primary-*、正解と不正解は --ok / --ng。 */
+
+/* 韓国語・日本語・英字を 1 書体で揃える。ローカルで動かすので書体ファイルは同梱する（fonts/LICENSE.txt） */
+@font-face {
+  font-family: "Pretendard JP";
+  src: url("fonts/PretendardJPVariable.woff2") format("woff2");
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
   color-scheme: light dark;
-  --bg: light-dark(#f3f1ec, #15171c);
-  --panel: light-dark(#ffffff, #1e2128);
-  --panel-alt: light-dark(#f8f6f2, #252931);
-  --border: light-dark(#dcd8d0, #363b47);
-  --text: light-dark(#1f2328, #e7e9ee);
-  --muted: light-dark(#6b7280, #9aa3b2);
-  --accent: light-dark(#4f46e5, #8b85f5);
-  --accent-hover: light-dark(#4338ca, #a5a0f8);
-  --accent-soft: light-dark(#ecebff, #2a2a4a);
-  --accent-text: light-dark(#ffffff, #0f1020);
-  --ok: light-dark(#15803d, #4ade80);
-  --ok-soft: light-dark(#e6f6ea, #14301f);
-  --ng: light-dark(#b91c1c, #f87171);
-  --ng-soft: light-dark(#fdecec, #3b1a1a);
-  --warn: light-dark(#b45309, #fbbf24);
-  --warn-soft: light-dark(#fef3c7, #3a2d10);
-  --shadow: 0 8px 28px light-dark(rgba(30, 27, 60, 0.12), rgba(0, 0, 0, 0.55));
-  --radius: 12px;
+  --bg: light-dark(#f6f6f4, #0d0e11);
+  --surface: light-dark(#ffffff, #15171c);
+  --raised: light-dark(#ffffff, #1c1f26);
+  --fill: light-dark(#efeeea, #1f2229);
+  --fill-strong: light-dark(#e4e2dc, #2a2e37);
+  --line: light-dark(#e7e5e0, #23262e);
+  --line-strong: light-dark(#d4d1ca, #343944);
+  --text: light-dark(#15161a, #eceef2);
+  --text-2: light-dark(#5c6270, #a2a8b5);
+  --text-3: light-dark(#8b909b, #6c7280);
+  --accent: light-dark(#5b4bff, #9a8cff);
+  --accent-soft: light-dark(#eeebff, #221f3a);
+  --on-accent: light-dark(#ffffff, #0d0e11);
+  --primary-bg: light-dark(#15161a, #f2f3f5);
+  --primary-bg-hover: light-dark(#2e3038, #ffffff);
+  --primary-fg: light-dark(#ffffff, #0d0e11);
+  --ok: light-dark(#14833b, #3fd07f);
+  --ok-soft: light-dark(#e7f4eb, #11251a);
+  --on-ok: light-dark(#ffffff, #07170d);
+  --ng: light-dark(#c42b2b, #ff6b6b);
+  --ng-soft: light-dark(#fbeaea, #2b1415);
+  --on-ng: light-dark(#ffffff, #1a0606);
+  --warn: light-dark(#9a5b00, #f2b84b);
+  --warn-soft: light-dark(#fbf1df, #2a2211);
+  --shadow-sm: 0 1px 2px light-dark(rgba(20, 20, 30, 0.06), rgba(0, 0, 0, 0.4));
+  --shadow-lg: 0 12px 32px light-dark(rgba(20, 20, 30, 0.14), rgba(0, 0, 0, 0.6));
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --r-full: 999px;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 15px;
+  --fs-lg: 17px;
+  --fs-xl: 20px;
+  --fs-2xl: 24px;
+  --fs-3xl: 32px;
+  /* ハングルの主役（文・単語） */
+  --fs-ko-lg: 36px;
+  --fs-ko-xl: 48px;
+  --font: "Pretendard JP", "Pretendard", "Noto Sans KR", "Noto Sans JP", "Apple SD Gothic Neo", "Hiragino Sans", "Malgun Gothic", "Yu Gothic UI", system-ui, sans-serif;
+  --topbar-h: 56px;
   --toast-duration: 6s;
-  --font-ko: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "Nanum Gothic", sans-serif;
-  --font-ja: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
-  --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 }
 
 :root[data-theme="light"] {
@@ -52,130 +86,171 @@ body {
 body {
   display: flex;
   flex-direction: column;
-  font-family: var(--font-ja);
-  font-size: 15px;
-  line-height: 1.55;
+  font-family: var(--font);
+  font-size: var(--fs-md);
+  line-height: 1.6;
   color: var(--text);
   background: var(--bg);
+  -webkit-font-smoothing: antialiased;
   word-break: auto-phrase;
   text-wrap: pretty;
 }
 
 :lang(ko),
 .ko {
-  font-family: var(--font-ko);
   word-break: keep-all;
 }
 
 a {
-  color: var(--accent);
+  color: inherit;
 }
 
-/* ---- 上部バー ---- */
-
-.topbar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 10px 20px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
+h1,
+h2,
+h3,
+p {
+  margin: 0;
 }
 
-/* 現在地（langlang › 韓国語）。ポータルと設定では langlang だけ、または langlang › 設定 */
-.crumbs {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
+h1 {
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
 }
 
-.crumbs a {
-  color: var(--text);
-  text-decoration: none;
+h2 {
+  font-size: var(--fs-lg);
   font-weight: 600;
+  line-height: 1.4;
 }
 
-.crumbs a:hover {
-  color: var(--accent);
-}
-
-.crumb-sep {
-  color: var(--muted);
-}
-
-.crumb-here {
+h3 {
+  font-size: var(--fs-sm);
   font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-2);
 }
 
-.brand {
-  font-size: 18px;
-  font-weight: 700 !important;
-  letter-spacing: 0.02em;
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
-.nav {
-  display: flex;
-  gap: 4px;
+.muted {
+  color: var(--text-2);
 }
 
-.nav a {
-  padding: 6px 12px;
-  border-radius: 999px;
-  color: var(--muted);
-  text-decoration: none;
-  font-weight: 500;
+.small {
+  font-size: var(--fs-sm);
 }
 
-.nav a:hover {
-  color: var(--text);
-  background: var(--panel-alt);
-}
-
-.nav a[aria-current="page"] {
-  color: var(--accent);
-  background: var(--accent-soft);
+/* 開発中の注記（記録がまだない、AI 採点が仮、など）。本文より一段弱く出す */
+.note {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
 }
 
 .spacer {
   flex: 1;
 }
 
-/* ---- 本文の枠 ---- */
-
-main {
-  flex: 1;
-  width: 100%;
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 24px 20px 40px;
-}
-
-h1 {
-  font-size: 22px;
-  margin: 0 0 16px;
-}
-
-h2 {
-  font-size: 16px;
-  margin: 0 0 10px;
-}
-
-.muted {
-  color: var(--muted);
-}
-
-.card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px;
-}
-
 .row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
+}
+
+.icon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+/* ---- 上部バー ---- */
+
+.topbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: var(--topbar-h);
+  padding: 0 24px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+
+/* 現在地（langlang › 韓国語）。ポータルでは langlang だけ、設定では langlang › 設定 */
+.crumbs {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.crumbs a {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.crumbs a:hover {
+  color: var(--text-2);
+}
+
+.crumb-sep {
+  color: var(--text-3);
+  font-weight: 400;
+}
+
+.brand {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.nav {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.nav a {
+  padding: 6px 12px;
+  border-radius: var(--r-md);
+  color: var(--text-2);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.nav a:hover {
+  color: var(--text);
+  background: var(--fill);
+}
+
+.nav a[aria-current="page"] {
+  color: var(--text);
+  background: var(--fill);
+  font-weight: 600;
+}
+
+/* ---- 本文の枠 ---- */
+
+main {
+  flex: 1 0 auto;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 32px 24px 48px;
+}
+
+/* ひとまとまりの面。押せる面（カード）は画面ごとに作る */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 24px;
 }
 
 /* ---- ボタン ---- */
@@ -185,31 +260,26 @@ h2 {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 8px 16px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--panel);
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
   color: var(--text);
   font: inherit;
   font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s, transform 0.06s;
+  transition: background-color 0.12s, border-color 0.12s, color 0.12s;
 }
 
 .btn:hover {
-  background: var(--panel-alt);
+  background: var(--fill);
 }
 
 .btn:active {
   transform: translateY(1px);
-}
-
-.btn:focus-visible,
-.option:focus-within,
-input:focus-visible,
-select:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 
 .btn:disabled {
@@ -218,86 +288,135 @@ select:focus-visible {
 }
 
 .btn.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-text);
+  background: var(--primary-bg);
+  border-color: var(--primary-bg);
+  color: var(--primary-fg);
 }
 
 .btn.primary:hover {
-  background: var(--accent-hover);
+  background: var(--primary-bg-hover);
+  border-color: var(--primary-bg-hover);
 }
 
 .btn.ghost {
-  border-color: transparent;
   background: transparent;
-  color: var(--muted);
+  border-color: transparent;
+  color: var(--text-2);
 }
 
 .btn.ghost:hover {
+  background: var(--fill);
   color: var(--text);
-  background: var(--panel-alt);
 }
 
 .btn.big {
-  padding: 14px 28px;
-  font-size: 17px;
-  border-radius: 14px;
+  height: 48px;
+  padding: 0 24px;
+  font-size: var(--fs-lg);
 }
 
 .btn.danger {
   background: var(--ng);
   border-color: var(--ng);
-  color: #fff;
+  color: var(--on-ng);
+}
+
+.btn.danger:hover {
+  filter: brightness(1.08);
+}
+
+.btn .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.btn.primary kbd,
+.btn.danger kbd {
+  background: transparent;
+  border-color: color-mix(in srgb, currentColor 35%, transparent);
+  color: inherit;
+}
+
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  background: var(--fill);
+  color: var(--text);
 }
 
 kbd {
-  display: inline-block;
-  padding: 1px 6px;
-  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border: 1px solid var(--line-strong);
   border-bottom-width: 2px;
-  border-radius: 6px;
-  background: var(--panel-alt);
-  font-family: var(--font-ja);
-  font-size: 12px;
-  color: var(--muted);
-  line-height: 1.4;
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  font-family: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  line-height: 1;
+  color: var(--text-2);
+  vertical-align: middle;
 }
 
-/* ---- チップ・バッジ ---- */
+/* ---- チップ ---- */
 
 .chip {
   display: inline-flex;
   align-items: center;
-  padding: 2px 10px;
-  border-radius: 999px;
-  background: var(--panel-alt);
-  border: 1px solid var(--border);
-  font-size: 12px;
-  color: var(--muted);
+  height: 24px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-full);
+  background: var(--fill);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--text-2);
   white-space: nowrap;
+}
+
+button.chip {
+  cursor: pointer;
+}
+
+button.chip:hover {
+  background: var(--fill-strong);
+  color: var(--text);
 }
 
 .chip.accent {
   background: var(--accent-soft);
-  border-color: transparent;
   color: var(--accent);
 }
 
 .chip.ok {
   background: var(--ok-soft);
-  border-color: transparent;
   color: var(--ok);
 }
 
 .chip.ng {
   background: var(--ng-soft);
-  border-color: transparent;
   color: var(--ng);
 }
 
 .chip.warn {
   background: var(--warn-soft);
-  border-color: transparent;
   color: var(--warn);
 }
 
@@ -306,88 +425,123 @@ kbd {
 input[type="text"],
 input[type="number"],
 select {
-  font: inherit;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--panel);
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
   color: var(--text);
+  font: inherit;
+}
+
+input[type="text"]:hover,
+input[type="number"]:hover,
+select:hover {
+  border-color: var(--text-3);
+}
+
+input[type="text"]:focus-visible,
+input[type="number"]:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
 }
 
 label.field {
   display: grid;
-  gap: 4px;
+  gap: 6px;
+  min-width: 0;
 }
 
 label.field > span:first-child {
-  font-size: 13px;
-  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text-2);
 }
 
-.options {
-  display: grid;
-  gap: 8px;
+/* 切り替えボタン（テーマ、言語のタブ）。ラジオボタンを包む使い方もできる */
+.segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--r-md);
+  background: var(--fill);
 }
 
-.option {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  padding: 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
+.seg {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.option:has(input:checked) {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+.seg:hover {
+  color: var(--text);
 }
 
-.option input {
-  margin-top: 4px;
+.seg[aria-selected="true"],
+.seg:has(input:checked) {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm), 0 0 0 1px var(--line);
 }
 
-.option span {
-  display: block;
-  font-size: 13px;
-  color: var(--muted);
+.seg input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.seg:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* ---- ダイアログ ---- */
 
 dialog {
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--raised);
   color: var(--text);
   padding: 24px;
-  width: min(520px, calc(100vw - 32px));
-  box-shadow: var(--shadow);
+  width: min(440px, calc(100vw - 32px));
+  box-shadow: var(--shadow-lg);
 }
 
 dialog::backdrop {
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.45);
 }
 
-dialog h2 {
-  margin-top: 0;
+dialog form {
+  display: grid;
+  gap: 8px;
 }
 
 dialog .actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 20px;
+  margin-top: 16px;
 }
 
 /* ---- メーター ---- */
 
 .meter {
-  height: 8px;
-  border-radius: 999px;
-  background: var(--panel-alt);
-  border: 1px solid var(--border);
+  height: 6px;
+  border-radius: var(--r-full);
+  background: var(--fill-strong);
   overflow: hidden;
 }
 
@@ -395,7 +549,7 @@ dialog .actions {
   display: block;
   height: 100%;
   background: var(--accent);
-  border-radius: 999px;
+  border-radius: inherit;
   transition: width 0.3s;
 }
 
@@ -409,7 +563,7 @@ dialog .actions {
   flex-direction: column;
   gap: 8px;
   z-index: 50;
-  max-width: min(420px, calc(100vw - 32px));
+  max-width: min(400px, calc(100vw - 32px));
 }
 
 .toast {
@@ -417,24 +571,35 @@ dialog .actions {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
+  padding: 12px 12px 12px 16px;
+  border-radius: var(--r-md);
+  background: var(--raised);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--fs-sm);
   overflow: hidden;
 }
 
-.toast.success {
-  border-color: var(--ok);
+.toast::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--text-3);
 }
 
-.toast.error {
-  border-color: var(--ng);
+.toast.success::before {
+  background: var(--ok);
 }
 
-.toast.warn {
-  border-color: var(--warn);
+.toast.error::before {
+  background: var(--ng);
+}
+
+.toast.warn::before {
+  background: var(--warn);
 }
 
 .toast span:first-child {
@@ -444,19 +609,23 @@ dialog .actions {
 .toast-close {
   border: 0;
   background: transparent;
-  color: var(--muted);
-  font-size: 16px;
+  color: var(--text-3);
+  font-size: var(--fs-lg);
   cursor: pointer;
   line-height: 1;
+}
+
+.toast-close:hover {
+  color: var(--text);
 }
 
 .toast-timer {
   position: absolute;
   left: 0;
   bottom: 0;
-  height: 3px;
+  height: 2px;
   width: 100%;
-  background: var(--accent);
+  background: var(--text-3);
   transform-origin: left;
   animation: toast-shrink var(--toast-duration) linear forwards;
 }
@@ -464,7 +633,7 @@ dialog .actions {
 .toast:hover .toast-timer,
 .toast:focus-within .toast-timer {
   animation: none;
-  opacity: 0.9;
+  opacity: 0.6;
 }
 
 @keyframes toast-shrink {
@@ -476,58 +645,139 @@ dialog .actions {
   }
 }
 
-/* ---- キーボード部品 ---- */
+/* ---- 読み上げボタン ---- */
+
+.speak-btn {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-full);
+  background: var(--fill);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background-color 0.12s, color 0.12s;
+}
+
+.speak-btn:hover {
+  background: var(--fill-strong);
+  color: var(--text);
+}
+
+.speak-btn.large {
+  width: 96px;
+  height: 96px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+.speak-btn.large .icon {
+  width: 40px;
+  height: 40px;
+}
+
+.speak-btn.playing {
+  color: var(--accent);
+  animation: speak-pulse 1.2s ease-out infinite;
+}
+
+@keyframes speak-pulse {
+  from {
+    box-shadow: 0 0 0 0 var(--accent-soft);
+  }
+  to {
+    box-shadow: 0 0 0 12px transparent;
+  }
+}
+
+/* ---- キーボード部品 ----
+   実物と同じく段をずらす。キー 1 つの幅 --u は、キーボードの幅から 1 段目（左の余白 0.5u ＋ 字母 10 ＋ ⌫ 1.5u = 12u と
+   隙間 11）が収まるように決め、2 段目は 0.75u、3 段目は Shift（1.25u）のぶんだけ右へずらす。右端のキーは残りを埋める。 */
 
 .kbd {
+  --kg: 6px;
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 12px;
-  border-radius: 14px;
-  background: var(--panel-alt);
-  border: 1px solid var(--border);
-  user-select: none;
-  max-width: 760px;
+  gap: var(--kg);
+  width: 100%;
+  max-width: 720px;
   margin: 0 auto;
+  padding: 12px;
+  border-radius: var(--r-lg);
+  background: var(--fill);
+  user-select: none;
 }
 
 .kbd-row {
+  --u: calc((100cqi - 11 * var(--kg)) / 12);
   display: flex;
-  gap: 6px;
-  justify-content: center;
+  gap: var(--kg);
+}
+
+.kbd-row:nth-child(1) {
+  padding-left: calc(0.5 * var(--u) + var(--kg));
+}
+
+.kbd-row:nth-child(2) {
+  padding-left: calc(0.75 * var(--u) + var(--kg));
+}
+
+/* スペースは C から M の下に置く */
+.kbd-row:nth-child(4) {
+  padding-left: calc(3.25 * var(--u) + 3 * var(--kg));
 }
 
 .kbd-key {
   position: relative;
-  flex: 1 1 0;
-  min-width: 0;
-  height: 48px;
+  flex: none;
+  width: var(--u);
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-bottom-width: 3px;
-  font-family: var(--font-ko);
-  font-size: 18px;
-  transition: transform 0.05s, background 0.1s, border-color 0.1s;
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  box-shadow: 0 1px 0 var(--line-strong), 0 0 0 1px var(--line);
+  font-size: var(--fs-lg);
+  font-weight: 500;
+  transition: transform 0.05s, background-color 0.1s, color 0.1s;
 }
 
 .kbd-special {
-  flex-grow: 1.6;
-  font-family: var(--font-ja);
-  font-size: 12px;
-  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+.kbd-key[data-key="shiftL"] {
+  width: calc(1.25 * var(--u));
+}
+
+.kbd-key[data-key="backspace"],
+.kbd-key[data-key="enter"],
+.kbd-key[data-key="shiftR"] {
+  flex: 1;
+}
+
+.kbd-key[data-key="space"] {
+  width: calc(5 * var(--u) + 4 * var(--kg));
 }
 
 .kbd-latin {
   position: absolute;
   top: 4px;
-  left: 7px;
-  font-family: var(--mono);
+  left: 6px;
   font-size: 10px;
-  color: var(--muted);
+  font-weight: 500;
+  line-height: 1;
+  color: var(--text-3);
+  text-transform: uppercase;
 }
 
 .kbd-no-latin .kbd-latin {
@@ -535,31 +785,33 @@ dialog .actions {
 }
 
 .kbd-down {
-  transform: translateY(2px);
-  border-bottom-width: 1px;
-  background: var(--accent-soft);
-  border-color: var(--accent);
+  transform: translateY(1px);
+  background: var(--fill-strong);
+  box-shadow: 0 0 0 1px var(--line-strong);
 }
 
 .kbd-active {
-  background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--text);
+  background: var(--fill-strong);
 }
 
 .kbd-guide {
   background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-text);
+  color: var(--on-accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .kbd-guide .kbd-latin {
-  color: var(--accent-text);
-  opacity: 0.8;
+  color: inherit;
+  opacity: 0.75;
 }
 
 .kbd-shifted {
   color: var(--accent);
+}
+
+.kbd-guide.kbd-shifted {
+  color: var(--on-accent);
 }
 
 /* ---- 入力欄 ---- */
@@ -568,7 +820,7 @@ dialog .actions {
   position: relative;
 }
 
-.tf-capture {
+.tf .tf-capture {
   position: absolute;
   inset: 0;
   opacity: 0;
@@ -578,32 +830,37 @@ dialog .actions {
 }
 
 .tf-view {
-  min-height: 60px;
-  padding: 12px 16px;
-  border: 2px solid var(--border);
-  border-radius: 12px;
-  background: var(--panel);
-  font-family: var(--font-ko);
-  font-size: 26px;
-  line-height: 1.4;
+  min-height: 64px;
+  padding: 12px 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  font-size: var(--fs-2xl);
+  font-weight: 500;
+  line-height: 1.6;
   cursor: text;
   white-space: pre-wrap;
   word-break: keep-all;
+  transition: border-color 0.12s, box-shadow 0.12s;
 }
 
 .tf-focus .tf-view {
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .tf-disabled .tf-view {
-  opacity: 0.6;
+  background: transparent;
+  color: var(--text-2);
 }
 
 .tf-caret {
   display: inline-block;
   width: 2px;
   height: 1.1em;
+  margin: 0 -1px;
   vertical-align: -0.15em;
+  border-radius: 1px;
   background: var(--accent);
   opacity: 0;
 }
@@ -627,13 +884,13 @@ dialog .actions {
   text-decoration: underline;
   text-decoration-color: var(--accent);
   text-decoration-thickness: 2px;
-  text-underline-offset: 4px;
+  text-underline-offset: 6px;
 }
 
 .tf-placeholder {
-  color: var(--muted);
-  font-size: 16px;
-  font-family: var(--font-ja);
+  color: var(--text-3);
+  font-size: var(--fs-md);
+  font-weight: 400;
 }
 
 .tf-ok {
@@ -647,6 +904,6 @@ dialog .actions {
 }
 
 .tf-rest {
-  color: var(--muted);
-  opacity: 0.55;
+  color: var(--text-3);
+  opacity: 0.6;
 }

@@ -5,8 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <title>設定 – langlang</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/icon-32.png">
+  <link rel="icon" type="image/png" sizes="64x64" href="/static/icons/icon-64.png">
+  <link rel="apple-touch-icon" href="/static/icons/icon-180.png">
+  <link rel="preload" href="/static/fonts/PretendardJPVariable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/settings-page.css">
   <script src="/static/settings.js"></script>
@@ -24,18 +26,22 @@
   <main class="settings-page">
     <h1>設定</h1>
 
-    <section class="card">
-      <h2>表示</h2>
-      <p class="muted small">すべての言語に共通です。このブラウザにだけ残ります</p>
-      <div class="options" id="theme-options">
-        <label class="option"><input type="radio" name="theme" value="system"><div><strong>システムに合わせる</strong><span>OS のライト・ダークの設定に合わせて切り替えます</span></div></label>
-        <label class="option"><input type="radio" name="theme" value="light"><div><strong>ライト</strong></div></label>
-        <label class="option"><input type="radio" name="theme" value="dark"><div><strong>ダーク</strong></div></label>
+    <section class="panel settings-section">
+      <div class="setting-row">
+        <div class="setting-text">
+          <h2>テーマ</h2>
+          <p class="muted small">すべての言語に共通です。このブラウザにだけ残ります</p>
+        </div>
+        <div class="segmented" id="theme-options" role="radiogroup" aria-label="テーマ">
+          <label class="seg"><input type="radio" name="theme" value="system">システム</label>
+          <label class="seg"><input type="radio" name="theme" value="light">ライト</label>
+          <label class="seg"><input type="radio" name="theme" value="dark">ダーク</label>
+        </div>
       </div>
     </section>
 
-    <form id="settings-form" class="card settings-form">
-      <div class="lang-head">
+    <form id="settings-form" class="panel settings-section settings-form">
+      <div class="section-head">
         <h2>言語ごとの学習</h2>
         <div id="lang-tabs" class="segmented" role="tablist" aria-label="言語"></div>
         <span class="spacer"></span>
@@ -43,51 +49,59 @@
       </div>
       <p class="muted small">言語ごとに分けて残ります</p>
 
-      <h3>1 日の学習</h3>
-      <div class="fields">
-        <label class="field"><span>新出の単語（語/日）</span><input type="number" name="new_words_per_day" min="0" step="1"></label>
-        <label class="field"><span>新しい文（文/日）</span><input type="number" name="new_sentences_per_day" min="0" step="1"></label>
-        <label class="field"><span>苦手枠（枚/日）</span><input type="number" name="weak_slots" min="0" step="1"></label>
-        <label class="field"><span>復習の上限（枚/日）</span><input type="number" name="review_limit" min="0" step="1"></label>
-      </div>
+      <fieldset class="group">
+        <legend>1 日の学習</legend>
+        <div class="fields">
+          <label class="field"><span>新出の単語（語/日）</span><input type="number" name="new_words_per_day" min="0" step="1"></label>
+          <label class="field"><span>新しい文（文/日）</span><input type="number" name="new_sentences_per_day" min="0" step="1"></label>
+          <label class="field"><span>苦手枠（枚/日）</span><input type="number" name="weak_slots" min="0" step="1"></label>
+          <label class="field"><span>復習の上限（枚/日）</span><input type="number" name="review_limit" min="0" step="1"></label>
+        </div>
+      </fieldset>
 
-      <h3>矢印ゲームの反応時間（秒）</h3>
-      <p class="muted small">速い＝Easy、遅い＝Hard。時間切れは不正解。記録がたまったら自分の中央値を基準にします</p>
-      <div class="fields">
-        <label class="field"><span>速い（未満）</span><input type="number" name="fast_sec" min="0" step="0.1"></label>
-        <label class="field"><span>遅い（超）</span><input type="number" name="slow_sec" min="0" step="0.1"></label>
-        <label class="field"><span>時間切れ</span><input type="number" name="timeout_sec" min="1" step="0.5"></label>
-      </div>
+      <fieldset class="group">
+        <legend>矢印ゲームの反応時間（秒）</legend>
+        <p class="muted small">速い＝Easy、遅い＝Hard。時間切れは不正解。記録がたまったら自分の中央値を基準にします</p>
+        <div class="fields">
+          <label class="field"><span>速い（未満）</span><input type="number" name="fast_sec" min="0" step="0.1"></label>
+          <label class="field"><span>遅い（超）</span><input type="number" name="slow_sec" min="0" step="0.1"></label>
+          <label class="field"><span>時間切れ</span><input type="number" name="timeout_sec" min="1" step="0.5"></label>
+        </div>
+      </fieldset>
 
-      <h3>面を出し始める安定度（日）</h3>
-      <div class="fields">
-        <label class="field"><span>聞き取り</span><input type="number" name="unlock_listen_days" min="0" step="1"></label>
-        <label class="field"><span>逆引き</span><input type="number" name="unlock_reverse_days" min="0" step="1"></label>
-        <label class="field"><span>綴り</span><input type="number" name="unlock_spell_days" min="0" step="1"></label>
-        <label class="field"><span>定着とみなす</span><input type="number" name="mastered_days" min="0" step="1"></label>
-      </div>
+      <fieldset class="group">
+        <legend>面を出し始める安定度（日）</legend>
+        <div class="fields">
+          <label class="field"><span>聞き取り</span><input type="number" name="unlock_listen_days" min="0" step="1"></label>
+          <label class="field"><span>逆引き</span><input type="number" name="unlock_reverse_days" min="0" step="1"></label>
+          <label class="field"><span>綴り</span><input type="number" name="unlock_spell_days" min="0" step="1"></label>
+          <label class="field"><span>定着とみなす</span><input type="number" name="mastered_days" min="0" step="1"></label>
+        </div>
+      </fieldset>
 
-      <h3>読み上げとキーボード</h3>
-      <div class="fields">
-        <label class="field"><span>読み上げの速さ</span>
-          <select name="tts_rate">
-            <option value="0.75">ゆっくり（0.75）</option>
-            <option value="1">ふつう（1.0）</option>
-          </select>
-        </label>
-        <label class="field"><span>キーボードの英字</span>
-          <select name="keyboard_show_latin">
-            <option value="true">表示する</option>
-            <option value="false">表示しない</option>
-          </select>
-        </label>
-      </div>
-      <div class="row">
-        <button type="button" id="btn-test-voice" class="btn">読み上げを試す</button>
-        <span id="voice-info" class="muted small">–</span>
-      </div>
+      <fieldset class="group">
+        <legend>読み上げとキーボード</legend>
+        <div class="fields">
+          <label class="field"><span>読み上げの速さ</span>
+            <select name="tts_rate">
+              <option value="0.75">ゆっくり（0.75）</option>
+              <option value="1">ふつう（1.0）</option>
+            </select>
+          </label>
+          <label class="field"><span>キーボードの英字</span>
+            <select name="keyboard_show_latin">
+              <option value="true">表示する</option>
+              <option value="false">表示しない</option>
+            </select>
+          </label>
+        </div>
+        <div class="row">
+          <button type="button" id="btn-test-voice" class="btn">読み上げを試す</button>
+          <span id="voice-info" class="muted small">–</span>
+        </div>
+      </fieldset>
 
-      <div class="actions-row">
+      <div class="save-bar">
         <span id="save-state" class="muted small"></span>
         <button type="submit" class="btn primary">保存</button>
       </div>

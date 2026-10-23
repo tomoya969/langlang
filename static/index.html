@@ -5,8 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <title data-page="ホーム">ホーム – langlang</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/icon-32.png">
+  <link rel="icon" type="image/png" sizes="64x64" href="/static/icons/icon-64.png">
+  <link rel="apple-touch-icon" href="/static/icons/icon-180.png">
+  <link rel="preload" href="/static/fonts/PretendardJPVariable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/home.css">
   <script src="/static/settings.js"></script>
@@ -24,12 +26,14 @@
       <a href="/ko/words" data-lang-path="words">単語帳</a>
     </nav>
     <span class="spacer"></span>
-    <a class="btn ghost" href="/settings?language=ko" data-settings-link>設定</a>
+    <a class="icon-btn" href="/settings?language=ko" data-settings-link title="設定" aria-label="設定">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><circle cx="12" cy="12" r="6.25"/><circle cx="12" cy="12" r="8.5" stroke-width="3" pathLength="16" stroke-dasharray="0.9 1.1"/><circle cx="12" cy="12" r="2.25"/></svg>
+    </a>
   </header>
 
   <main class="home">
-    <section class="card hero">
-      <div class="hero-main">
+    <section class="panel today">
+      <div class="today-main">
         <p class="eyebrow">今日の学習</p>
         <h1 id="hero-title">読み込んでいます…</h1>
         <p id="hero-unit" class="muted">–</p>
@@ -40,28 +44,24 @@
           <div class="stat"><span class="stat-num" id="stat-min">–</span><span class="stat-label">目安（分）</span></div>
         </div>
       </div>
-      <div class="hero-side">
+      <div class="today-side">
         <a id="btn-start" class="btn primary big" href="/ko/learn" data-lang-path="learn">始める</a>
-        <p class="muted small">単語 → 文 → 産出 → 仕上げ の順に進みます</p>
+        <p class="muted small">単語 → 文 → 産出 → 仕上げ</p>
       </div>
+      <div id="levels" class="levels" aria-label="レベルの進み"></div>
     </section>
 
-    <section class="grid">
-      <div class="card">
-        <h2>レベルの進み</h2>
-        <div id="levels" class="levels"><p class="muted">読み込んでいます…</p></div>
-      </div>
-      <div class="card">
-        <h2>苦手な単語</h2>
-        <p class="big-num"><span id="stat-weak">–</span><span class="muted"> 語</span></p>
+    <section class="panel weak">
+      <div class="weak-main">
+        <h2>苦手な単語 <span id="stat-weak" class="weak-num">–</span><span class="muted"> 語</span></h2>
         <p class="muted small">取り違えや反応の遅い単語を、期限の前でも混ぜて出します</p>
-        <a class="btn" href="/ko/words?weak=1" data-lang-path="words" data-lang-query="weak=1">苦手だけを見る</a>
       </div>
+      <a class="btn" href="/ko/words?weak=1" data-lang-path="words" data-lang-query="weak=1">苦手だけを見る</a>
     </section>
 
-    <section class="card">
+    <section class="units-section">
       <h2>ユニット</h2>
-      <div id="units" class="units"><p class="muted">読み込んでいます…</p></div>
+      <ol id="units" class="unit-list"><li class="muted">読み込んでいます…</li></ol>
     </section>
   </main>
 

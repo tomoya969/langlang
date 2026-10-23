@@ -5,25 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <title data-page="学習">学習 – langlang</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/icon-32.png">
+  <link rel="icon" type="image/png" sizes="64x64" href="/static/icons/icon-64.png">
+  <link rel="apple-touch-icon" href="/static/icons/icon-180.png">
+  <link rel="preload" href="/static/fonts/PretendardJPVariable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/learn.css">
   <script src="/static/settings.js"></script>
 </head>
 <body class="learn-page" data-scope="language">
   <header class="topbar learn-bar">
-    <nav class="crumbs" aria-label="現在地">
-      <a class="brand" href="/">langlang</a>
-      <span class="crumb-sep" aria-hidden="true">›</span>
-      <a href="/ko" data-lang-path="" data-lang-label>韓国語</a>
-    </nav>
-    <div class="learn-progress" aria-label="進み具合">
-      <ol id="rounds" class="rounds"></ol>
-      <div class="meter"><span id="progress-fill" style="width: 0%"></span></div>
-    </div>
-    <span id="progress-text" class="muted progress-text">–</span>
-    <button id="btn-quit" type="button" class="btn ghost" title="学習を中断する（Esc）">中断 <kbd>Esc</kbd></button>
+    <button id="btn-quit" type="button" class="btn ghost quit-btn" title="学習を中断する（Esc）" aria-label="学習を中断する">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      <kbd>Esc</kbd>
+    </button>
+    <ol id="rounds" class="progress" aria-label="進み具合"></ol>
+    <span id="progress-text" class="progress-text">–</span>
   </header>
 
   <main class="learn">
@@ -32,14 +29,13 @@
     </section>
     <section id="kbd-area" class="kbd-area" hidden>
       <div id="keyboard"></div>
-      <p class="kbd-note muted">英字の位置で打ちます（日本語入力はオフのままで大丈夫）。<kbd>←</kbd><kbd>→</kbd> でカーソル移動、<kbd>⏎</kbd> で送る</p>
     </section>
   </main>
 
   <dialog id="quit-dialog" aria-labelledby="quit-title">
     <form method="dialog">
       <h2 id="quit-title">学習を中断しますか？</h2>
-      <p class="muted">ここまでの答えは、記録の仕組みを入れるまでは残りません。</p>
+      <p class="muted small">ここまでの答えは、記録の仕組みを入れるまでは残りません。</p>
       <div class="actions">
         <button type="submit" value="cancel" class="btn" autofocus>続ける <kbd>Esc</kbd></button>
         <button type="submit" value="quit" class="btn danger">中断する</button>

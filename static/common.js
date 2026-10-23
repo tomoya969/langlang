@@ -1,4 +1,4 @@
-/* すべての画面で使う小さな道具: API の呼び出し、API の版の確認、上部のナビ、言語のパック。
+/* すべての画面で使う小さな道具: API の呼び出し、API の版の確認、上部のナビ、言語のパック、アイコン。
 
    言語ごとの画面（<body data-scope="language">）は、URL の最初の部分（/ko/learn の ko）を言語として読む。
    HTML のリンクには /ko/... を書いておき（JS が動く前もたどれるように）、data-lang-path を持つリンクを
@@ -104,6 +104,19 @@ function markCurrentNav() {
 function languageUrl(sub = "", query = "") {
   const path = `/${encodeURIComponent(LANGUAGE)}${sub ? `/${sub}` : ""}`;
   return query ? `${path}?${query}` : path;
+}
+
+/* 線で描くアイコン。絵文字は OS で見た目が変わり、大きくするとぼやけるので使わない */
+const ICONS = {
+  speaker: '<path d="M4 9.5h3l4.5-4v13L7 14.5H4z"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18.5 6.5a8 8 0 0 1 0 11"/>',
+  close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  chevron: '<path d="M9 6l6 6-6 6"/>',
+};
+
+function icon(name) {
+  const t = document.createElement("template");
+  t.innerHTML = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
+  return t.content.firstChild;
 }
 
 function el(tag, attrs = {}, ...children) {

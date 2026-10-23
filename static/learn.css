@@ -1,100 +1,111 @@
-/* 学習の画面 */
+/* 学習の画面。どの場面も「見出し → 主役と操作 → ヒント」の 3 段（.q）にして、
+   場面が変わっても見出しとヒントの位置が動かないようにする。主役が収まらないときは .stage がスクロールする。 */
 
 .learn-page {
   overflow: hidden;
 }
 
+/* ---- 上部: 中断・ラウンドごとの進み・件数 ---- */
+
 .learn-bar {
-  gap: 20px;
+  gap: 24px;
 }
 
-.learn-progress {
+.quit-btn {
+  padding: 0 8px;
+}
+
+.progress {
+  flex: 1;
+  display: flex;
+  gap: 6px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
+}
+
+.progress-round {
   flex: 1;
   display: grid;
   gap: 6px;
-  max-width: 520px;
+  min-width: 0;
 }
 
-.rounds {
-  display: flex;
-  gap: 14px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: 12px;
-  color: var(--muted);
+.progress-track {
+  height: 6px;
+  border-radius: var(--r-full);
+  background: var(--fill-strong);
+  overflow: hidden;
 }
 
-.rounds li {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
+.progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.3s;
 }
 
-.rounds li::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--border);
+.progress-label {
+  font-size: var(--fs-xs);
+  line-height: 1;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.rounds li.done::before {
-  background: var(--ok);
+.progress-round.done .progress-label {
+  color: var(--text-2);
 }
 
-.rounds li.current {
-  color: var(--accent);
+.progress-round.current .progress-label {
+  color: var(--text);
   font-weight: 600;
 }
 
-.rounds li.current::before {
-  background: var(--accent);
+.progress-text {
+  min-width: 72px;
+  text-align: right;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
 }
 
-.progress-text {
-  font-variant-numeric: tabular-nums;
-  font-size: 13px;
-  min-width: 70px;
-  text-align: right;
-}
+/* ---- 枠 ---- */
 
 .learn {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  max-width: 1040px;
-  padding: 16px 20px 20px;
-  gap: 16px;
-  min-height: 0;
+  max-width: none;
+  padding: 0;
 }
 
 .stage {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 0;
+  overflow-y: auto;
+  padding: 24px 24px 16px;
 }
 
 .kbd-area {
-  display: grid;
-  gap: 6px;
+  flex: none;
+  padding: 0 24px 16px;
 }
-
-.kbd-note {
-  text-align: center;
-  font-size: 12px;
-  margin: 0;
-}
-
-/* ---- 共通: 問題のカード ---- */
 
 .q {
+  flex: 1 0 auto;
   width: 100%;
-  max-width: 760px;
+  max-width: 800px;
+  margin: 0 auto;
   display: grid;
-  gap: 18px;
+  grid-template-rows: auto 1fr auto;
+  gap: 24px;
   animation: q-in 0.18s ease-out;
 }
 
@@ -112,173 +123,208 @@
 .q-head {
   display: flex;
   align-items: center;
-  gap: 10px;
   justify-content: center;
-  color: var(--muted);
-  font-size: 13px;
+  gap: 8px;
+  min-height: 24px;
 }
 
-.q-head .chip {
-  font-size: 12px;
+.q-type {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.q-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  gap: 24px;
+  min-width: 0;
 }
 
 .q-hint {
-  text-align: center;
-  color: var(--muted);
-  font-size: 13px;
   display: flex;
-  gap: 14px;
   justify-content: center;
+  align-items: center;
   flex-wrap: wrap;
+  gap: 8px 20px;
+  min-height: 24px;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
 }
 
-.ko-big {
-  font-family: var(--font-ko);
-  font-size: 44px;
-  font-weight: 700;
-  line-height: 1.2;
-  text-align: center;
-  word-break: keep-all;
-}
-
-.ko-mid {
-  font-family: var(--font-ko);
-  font-size: 30px;
-  font-weight: 500;
-  line-height: 1.4;
-  text-align: center;
-  word-break: keep-all;
-}
-
-.ja-big {
-  font-size: 26px;
-  font-weight: 600;
-  text-align: center;
-}
-
-.ja-mid {
-  font-size: 18px;
-  text-align: center;
-  color: var(--muted);
-}
-
-/* 読み上げボタン（スピーカー） */
-
-.speak-btn {
+.q-hint > span {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--panel);
-  color: var(--accent);
-  cursor: pointer;
-  font-size: 20px;
-  transition: background 0.12s;
+  gap: 6px;
 }
 
-.speak-btn:hover {
-  background: var(--accent-soft);
+/* ---- 文字 ---- */
+
+.ko-xl {
+  font-size: var(--fs-ko-xl);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  text-align: center;
+  word-break: keep-all;
 }
 
-.speak-btn.large {
-  width: 120px;
-  height: 120px;
-  font-size: 52px;
-  border-width: 2px;
-  box-shadow: var(--shadow);
+.ko-lg {
+  font-size: var(--fs-ko-lg);
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+  word-break: keep-all;
 }
 
-.speak-btn.playing {
-  animation: pulse 1s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  50% {
-    box-shadow: 0 0 0 10px var(--accent-soft);
-  }
-}
-
-/* ---- 初見カード ---- */
-
-.intro-card {
-  display: grid;
-  gap: 12px;
-  justify-items: center;
-  padding: 36px 32px;
-  border-radius: 20px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
+.ja-lg {
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+  line-height: 1.4;
   text-align: center;
 }
 
-.intro-card .ko-big {
-  font-size: 56px;
+.ja-md {
+  font-size: var(--fs-lg);
+  color: var(--text-2);
+  text-align: center;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* ---- ラウンドの始まり・まとめ ---- */
+
+.round-intro {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.round-intro .label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.round-intro h2 {
+  font-size: var(--fs-3xl);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.round-intro p {
+  color: var(--text-2);
+}
+
+.round-intro .btn {
+  margin-top: 12px;
+}
+
+.summary-grid {
+  width: 100%;
+  max-width: 640px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+
+.summary-tile {
+  display: grid;
+  gap: 4px;
+  padding: 16px 20px;
+}
+
+.summary-tile + .summary-tile {
+  border-left: 1px solid var(--line);
+}
+
+.summary-tile strong {
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-tile span {
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+/* ---- はじめての単語 ---- */
+
+.intro {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
 }
 
 .intro-meaning {
-  font-size: 24px;
+  font-size: var(--fs-2xl);
   font-weight: 600;
 }
 
-.intro-meta {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: center;
+.intro .speak-btn {
+  margin-top: 8px;
 }
 
-/* ---- 矢印ゲーム ---- */
+/* ---- 矢印ゲーム ----
+   選択肢は 4 つとも同じ大きさにする（訳の長さで高さが変わらないように、3 行で切る） */
 
 .arrow {
+  --opt-w: 256px;
+  --opt-h: 96px;
   display: grid;
-  grid-template-columns: 1fr minmax(220px, 300px) 1fr;
-  grid-template-rows: auto minmax(150px, auto) auto;
-  gap: 14px;
-  align-items: stretch;
-  justify-items: stretch;
+  grid-template-columns: repeat(3, var(--opt-w));
+  grid-template-rows: var(--opt-h) 168px var(--opt-h);
+  gap: 12px;
 }
 
 .arrow-center {
-  grid-column: 2;
-  grid-row: 2;
+  grid-area: 2 / 2;
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 18px;
-  border-radius: 18px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
-  position: relative;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
 
-.arrow-center .ko-big {
-  font-size: 40px;
-}
-
-.arrow-center .ja-big {
-  font-size: 24px;
+.arrow-center .speak-btn.large {
+  box-shadow: none;
 }
 
 .timer {
   position: absolute;
   left: 0;
   bottom: 0;
-  height: 4px;
+  height: 3px;
   width: 100%;
-  background: var(--accent);
+  background: var(--line-strong);
   transform-origin: left;
 }
 
 .timer.run {
   animation: timer-shrink var(--timeout, 10s) linear forwards;
+}
+
+.arrow.answered .timer {
+  animation-play-state: paused;
 }
 
 @keyframes timer-shrink {
@@ -291,61 +337,90 @@
 }
 
 .opt {
+  position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  min-height: 80px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: var(--panel);
-  border: 2px solid var(--border);
-  font-size: 20px;
+  height: var(--opt-h);
+  padding: 8px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  font-size: var(--fs-lg);
   font-weight: 500;
+  line-height: 1.4;
   text-align: center;
   cursor: pointer;
-  transition: border-color 0.1s, background 0.1s, transform 0.08s;
+  transition: border-color 0.1s, background-color 0.1s, color 0.1s, opacity 0.15s;
 }
 
 .opt.ko {
-  font-size: 26px;
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+}
+
+/* 選択肢が文の訳のとき */
+.arrow.long .opt {
+  font-size: var(--fs-md);
+}
+
+.opt-label {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
 }
 
 .opt:hover {
-  border-color: var(--accent);
+  border-color: var(--text-3);
 }
 
 .opt .dir {
-  font-size: 12px;
-  color: var(--muted);
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  font-size: var(--fs-xs);
+  line-height: 1;
+  color: var(--text-3);
 }
 
 .opt-up {
-  grid-column: 2;
-  grid-row: 1;
+  grid-area: 1 / 2;
 }
 
 .opt-right {
-  grid-column: 3;
-  grid-row: 2;
+  grid-area: 2 / 3;
   align-self: center;
 }
 
 .opt-down {
-  grid-column: 2;
-  grid-row: 3;
+  grid-area: 3 / 2;
 }
 
 .opt-left {
-  grid-column: 1;
-  grid-row: 2;
+  grid-area: 2 / 1;
   align-self: center;
 }
 
+.opt:empty {
+  visibility: hidden;
+}
+
+/* 選んで正解は塗る。選ばなかった正解（見逃し）は枠だけ */
 .opt.is-correct {
   border-color: var(--ok);
-  background: var(--ok-soft);
+  background: var(--ok);
+  color: var(--on-ok);
+}
+
+.opt.is-correct .dir {
+  color: inherit;
+  opacity: 0.7;
+}
+
+.opt.is-reveal {
+  border-color: var(--ok);
+  box-shadow: inset 0 0 0 1px var(--ok);
   color: var(--ok);
 }
 
@@ -354,15 +429,6 @@
   background: var(--ng-soft);
   color: var(--ng);
   animation: shake 0.3s;
-}
-
-.opt.is-reveal {
-  border-color: var(--ok);
-  background: var(--ok-soft);
-}
-
-.opt:empty {
-  visibility: hidden;
 }
 
 @keyframes shake {
@@ -378,126 +444,148 @@
   cursor: default;
 }
 
-.arrow.answered .opt:not(.is-correct):not(.is-wrong):not(.is-reveal) {
-  opacity: 0.45;
+.arrow.answered .opt:not(.is-correct, .is-wrong, .is-reveal) {
+  opacity: 0.35;
 }
 
-.arrow-answer {
-  grid-column: 1 / -1;
-  text-align: center;
-  min-height: 24px;
-  color: var(--muted);
+/* 間違えたときの「안녕하세요 ＝ こんにちは」。いちばん覚える瞬間なので大きく出す。高さは先に取っておく */
+.answer-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  min-height: 40px;
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+}
+
+.answer-line .ko {
+  font-weight: 700;
+}
+
+.answer-line .eq,
+.answer-line .why {
+  color: var(--text-3);
+}
+
+.answer-line .why {
+  font-size: var(--fs-sm);
+  font-weight: 500;
 }
 
 /* ---- 文 ---- */
 
 .sentence {
   display: grid;
-  gap: 8px;
   justify-items: center;
+  gap: 12px;
+  text-align: center;
 }
 
 .tokens {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 4px 10px;
-  font-family: var(--font-ko);
-  font-size: 34px;
-  font-weight: 500;
+  gap: 4px 12px;
+  font-size: var(--fs-ko-lg);
+  font-weight: 600;
   line-height: 1.4;
 }
 
 .token {
   position: relative;
   padding: 0 4px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   cursor: pointer;
-  border-bottom: 3px solid transparent;
 }
 
 .token:hover {
-  background: var(--panel-alt);
+  background: var(--fill);
 }
 
 .token.new {
-  border-bottom-color: var(--accent);
+  text-decoration: underline 3px var(--accent);
+  text-underline-offset: 8px;
 }
 
 .token.blank {
-  color: var(--accent);
-  border-bottom: 3px solid var(--accent);
   min-width: 3em;
-  text-align: center;
+  border-bottom: 3px solid var(--accent);
+  border-radius: 0;
+  cursor: default;
+}
+
+.token.blank:hover {
+  background: none;
 }
 
 .token-pop {
   position: absolute;
   left: 50%;
-  top: 100%;
+  top: calc(100% + 8px);
   transform: translateX(-50%);
-  margin-top: 6px;
   padding: 6px 10px;
-  border-radius: 8px;
-  background: var(--text);
-  color: var(--bg);
-  font-family: var(--font-ja);
-  font-size: 13px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--raised);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  line-height: 1.4;
   white-space: nowrap;
   z-index: 2;
 }
 
-.grammar-list {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
 .blank-hint {
-  color: var(--accent);
-  font-size: 14px;
+  font-size: var(--fs-md);
+  color: var(--text-2);
 }
 
-/* 入力欄と結果 */
+/* ---- 入力と採点の結果 ---- */
 
 .answer-area {
   width: 100%;
   max-width: 640px;
   display: grid;
-  gap: 10px;
-  justify-self: center;
+  gap: 12px;
 }
 
 .result {
   display: grid;
   gap: 8px;
-  padding: 14px 16px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--panel);
+  padding: 12px 16px;
+  border-left: 3px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  text-align: left;
 }
 
 .result.ok {
-  border-color: var(--ok);
-  background: var(--ok-soft);
+  border-left-color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 8%, var(--surface));
 }
 
 .result.notes {
-  border-color: var(--warn);
-  background: var(--warn-soft);
+  border-left-color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 8%, var(--surface));
 }
 
 .result.ng {
-  border-color: var(--ng);
-  background: var(--ng-soft);
+  border-left-color: var(--ng);
+  background: color-mix(in srgb, var(--ng) 7%, var(--surface));
+}
+
+.result-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .result-title {
+  flex: 1;
   font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .result.ok .result-title {
@@ -512,147 +600,109 @@
   color: var(--ng);
 }
 
-.diff {
-  font-family: var(--font-ko);
-  font-size: 24px;
-  word-break: keep-all;
+.result-next {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
 }
 
-.diff .same {
-  color: var(--text);
+.model {
+  display: grid;
+  gap: 2px;
+}
+
+.model-label {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.model-text {
+  font-size: var(--fs-xl);
+  font-weight: 600;
+}
+
+.diff {
+  font-size: var(--fs-2xl);
+  font-weight: 500;
+  word-break: keep-all;
 }
 
 .diff .extra {
   color: var(--ng);
   text-decoration: line-through;
-  background: var(--ng-soft);
 }
 
 .diff .missing {
   color: var(--ok);
   background: var(--ok-soft);
-  border-radius: 3px;
+  border-radius: 4px;
 }
 
 .diff .mask {
-  color: var(--muted);
+  color: var(--text-3);
   letter-spacing: 2px;
 }
 
 .issue {
   display: grid;
   gap: 2px;
-  font-size: 14px;
+  font-size: var(--fs-sm);
 }
 
 .issue .span {
-  font-family: var(--font-ko);
   font-weight: 600;
   background: var(--warn-soft);
   padding: 0 4px;
   border-radius: 4px;
 }
 
-.corrected {
-  font-family: var(--font-ko);
-  font-size: 24px;
-}
-
-/* なぞり */
+/* ---- なぞり ---- */
 
 .trace-stats {
   display: flex;
-  gap: 24px;
   justify-content: center;
-  color: var(--muted);
-  font-size: 13px;
+  align-items: baseline;
+  gap: 24px;
+  min-height: 32px;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
   font-variant-numeric: tabular-nums;
 }
 
 .trace-stats strong {
+  margin-right: 4px;
+  font-size: var(--fs-xl);
+  font-weight: 700;
   color: var(--text);
-  font-size: 18px;
 }
 
-/* ---- ラウンドの切り替え・まとめ ---- */
-
-.round-intro {
-  text-align: center;
-  display: grid;
-  gap: 10px;
-  justify-items: center;
-}
-
-.round-intro .label {
-  font-size: 13px;
-  letter-spacing: 0.1em;
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.round-intro h2 {
-  font-size: 30px;
-  margin: 0;
-}
-
-.summary {
-  width: 100%;
-  max-width: 640px;
-  display: grid;
-  gap: 16px;
-}
-
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 12px;
-}
-
-.summary-tile {
-  display: grid;
-  gap: 2px;
-  padding: 14px;
-  border-radius: 12px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-}
-
-.summary-tile strong {
-  font-size: 26px;
-  font-variant-numeric: tabular-nums;
-}
-
-.summary-tile span {
-  font-size: 12px;
-  color: var(--muted);
-}
-
-@media (max-width: 720px) {
+@media (max-width: 800px) {
   .arrow {
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto auto auto auto;
+    grid-template-rows: 168px var(--opt-h) var(--opt-h);
+    width: 100%;
   }
   .arrow-center {
-    grid-column: 1 / -1;
-    grid-row: 1;
+    grid-area: 1 / 1 / 2 / 3;
   }
   .opt-up {
-    grid-column: 1;
-    grid-row: 2;
+    grid-area: 2 / 1;
   }
   .opt-right {
-    grid-column: 2;
-    grid-row: 2;
+    grid-area: 2 / 2;
   }
   .opt-down {
-    grid-column: 1;
-    grid-row: 3;
+    grid-area: 3 / 1;
   }
   .opt-left {
-    grid-column: 2;
-    grid-row: 3;
+    grid-area: 3 / 2;
   }
-  .learn-progress {
+  .summary-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .progress-label {
     display: none;
   }
 }

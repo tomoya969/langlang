@@ -21,22 +21,30 @@ async function loadHome() {
         { class: "level-row" },
         el("span", { class: "level-name", text: `L${lv.level} ${LEVEL_NAMES[lv.level] || ""}` }),
         el("div", { class: "meter" }, el("span", { style: `width: ${pct}%` })),
-        el("span", { class: "level-count", text: `${lv.mastered} / ${lv.total} 語` }),
+        el("span", { class: "level-count", text: `${lv.mastered} / ${lv.total} 語 定着` }),
       );
     }),
   );
 
+  // 記録がまだないので、状態は「今日」と「未着手」だけ
   const units = document.getElementById("units");
   units.replaceChildren(
-    ...today.units.map((u) =>
-      el(
-        "a",
-        { class: "unit", href: languageUrl("learn", `unit=${encodeURIComponent(u.id)}`) },
-        el("span", { class: "unit-id", text: u.id }),
-        el("span", { class: "unit-title", text: u.title }),
-        el("span", { class: "unit-meta", text: `${u.scene} ・ ${u.word_count} 語 ・ ${u.sentence_count} 文` }),
-      ),
-    ),
+    ...today.units.map((u) => {
+      const isToday = today.unit && today.unit.id === u.id;
+      return el(
+        "li",
+        {},
+        el(
+          "a",
+          { class: "unit", href: languageUrl("learn", `unit=${encodeURIComponent(u.id)}`) },
+          el("span", { class: "unit-id", text: u.id }),
+          el("span", { class: "unit-title" }, u.title, el("span", { class: "unit-scene", text: u.scene })),
+          el("span", { class: "unit-meta", text: `${u.word_count} 語 ・ ${u.sentence_count} 文` }),
+          el("span", { class: isToday ? "chip accent" : "chip", text: isToday ? "今日" : "未着手" }),
+          icon("chevron"),
+        ),
+      );
+    }),
   );
 }
 

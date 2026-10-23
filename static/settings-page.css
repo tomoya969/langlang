@@ -3,64 +3,78 @@
 .settings-page {
   max-width: 760px;
   display: grid;
+  gap: 24px;
+  align-content: start;
+}
+
+.crumb-here {
+  color: var(--text);
+}
+
+.settings-section {
+  display: grid;
   gap: 20px;
 }
 
-.settings-form h3 {
-  font-size: 14px;
-  margin: 24px 0 10px;
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.lang-head {
+.setting-text {
+  display: grid;
+  gap: 2px;
+}
+
+.section-head {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
 }
 
-.lang-head h2 {
+.settings-form > .muted {
+  margin-top: -12px;
+}
+
+.group {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
   margin: 0;
-}
-
-.segmented {
-  display: inline-flex;
-  padding: 3px;
-  border-radius: 999px;
-  background: var(--panel-alt);
-  border: 1px solid var(--border);
-}
-
-.seg {
-  padding: 4px 14px;
+  padding: 20px 0 0;
   border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
+  border-top: 1px solid var(--line);
 }
 
-.seg[aria-selected="true"] {
-  background: var(--panel);
-  color: var(--accent);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+.group legend {
+  float: left;
+  width: 100%;
+  padding: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
 }
 
 .fields {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px 16px;
 }
 
-.small {
-  font-size: 13px;
-}
-
-.actions-row {
+/* 長いページでも保存を探さなくて済むように、フォームの下端を画面の下に留める */
+.save-bar {
+  position: sticky;
+  bottom: 0;
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: 12px;
-  margin-top: 24px;
+  margin: 0 -24px -24px;
+  padding: 12px 24px;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
+  background: var(--surface);
 }

@@ -57,7 +57,7 @@ function later(fn, ms) {
 }
 
 function speakBtn(text, { large = false, auto = true } = {}) {
-  const btn = el("button", { type: "button", class: `speak-btn${large ? " large" : ""}`, title: "読み上げる（Space）", "aria-label": "読み上げる" }, "🔊");
+  const btn = el("button", { type: "button", class: `speak-btn${large ? " large" : ""}`, title: "読み上げる（Space）", "aria-label": "読み上げる" }, icon("speaker"));
   const play = () => {
     btn.classList.add("playing");
     Speak.speak(text, { lang: pack.tts, rate: state.settings.tts_rate, onEnd: () => btn.classList.remove("playing") });
@@ -69,27 +69,41 @@ function speakBtn(text, { large = false, auto = true } = {}) {
   return btn;
 }
 
+/** 場面の 3 段（見出し → 主役と操作 → ヒント）。見出しとヒントは空でも高さを取る */
+function frame(headEl, body, hintEl) {
+  return el("div", { class: "q" }, headEl || el("div", { class: "q-head" }), el("div", { class: "q-body" }, ...body), hintEl || el("div", { class: "q-hint" }));
+}
+
 function hint(...parts) {
   return el("div", { class: "q-hint" }, ...parts.map((p) => el("span", {}, ...p)));
 }
 
-function head(...chips) {
-  return el("div", { class: "q-head" }, ...chips.filter(Boolean).map((c) => (typeof c === "string" ? el("span", { class: "chip", text: c }) : c)));
+/** 見出し: 問題の種類と、補足のチップ（品詞・丁寧さ・場面など） */
+function head(type, ...chips) {
+  return el("div", { class: "q-head" }, el("span", { class: "q-type", text: type }), ...chips.filter(Boolean).map((c) => el("span", { class: "chip", text: c })));
+}
+
+function typingHint(...extra) {
+  return hint([el("kbd", { text: "⏎" }), " 送る"], [el("kbd", { text: "←" }), el("kbd", { text: "→" }), " カーソル"], ...extra, ["日本語入力はオフのままで打てます"]);
 }
 
 function updateProgress() {
-  const rounds = document.getElementById("rounds");
-  rounds.replaceChildren(
-    ...state.session.rounds.map((r, i) =>
-      el("li", { class: i < state.roundIndex ? "done" : i === state.roundIndex ? "current" : "" }, `${r.label} ${r.count}`),
-    ),
+  const rounds = state.session.rounds;
+  const inRound = state.game ? ArrowGame.progress(state.game).done : state.index;
+  document.getElementById("rounds").replaceChildren(
+    ...rounds.map((r, i) => {
+      const done = i < state.roundIndex ? r.count : i === state.roundIndex ? Math.min(r.count, inRound) : 0;
+      return el(
+        "li",
+        { class: `progress-round${i < state.roundIndex ? " done" : i === state.roundIndex ? " current" : ""}` },
+        el("span", { class: "progress-track" }, el("span", { class: "progress-fill", style: `width: ${r.count ? (done / r.count) * 100 : 0}%` })),
+        el("span", { class: "progress-label", text: `${r.label} ${r.count}` }),
+      );
+    }),
   );
   const total = state.session.items.length;
-  const before = state.session.rounds.slice(0, Math.max(0, state.roundIndex)).reduce((n, r) => n + r.count, 0);
-  const inRound = state.game ? ArrowGame.progress(state.game).done : state.index;
-  const done = Math.min(total, before + inRound);
-  document.getElementById("progress-fill").style.width = `${total ? (done / total) * 100 : 0}%`;
-  document.getElementById("progress-text").textContent = `${done} / ${total}`;
+  const before = rounds.slice(0, Math.max(0, state.roundIndex)).reduce((n, r) => n + r.count, 0);
+  document.getElementById("progress-text").textContent = `${Math.min(total, before + inRound)} / ${total}`;
 }
 
 // ---- 流れ ----
@@ -110,6 +124,7 @@ function nextRound() {
   state.index = 0;
   const round = state.session.rounds[state.roundIndex];
   if (!round) {
+    updateProgress();
     show(summaryScene());
     return;
   }
@@ -158,9 +173,9 @@ function sceneFor(item) {
       return arrowScene(item);
     case "word_spell":
       return typingScene(item, {
-        title: head("綴り", el("span", { class: "chip accent", text: item.word.pos })),
+        title: head("綴り", item.word.pos),
         prompt: (box) => {
-          box.append(el("div", { class: "ja-big", text: item.word.meaning }), speakBtn(item.tts));
+          box.append(el("div", { class: "ja-lg", text: item.word.meaning }), speakBtn(item.tts));
         },
         expected: item.expected,
         body: { type: "word_spell", word_id: item.word.id },
@@ -174,20 +189,20 @@ function sceneFor(item) {
       return clozeScene(item);
     case "sentence_dictation":
       return typingScene(item, {
-        title: head("書き取り", el("span", { class: "chip", text: item.sentence.register })),
+        title: head("書き取り", item.sentence.register),
         prompt: (box) => {
           box.append(speakBtn(item.sentence.ko, { large: true }));
         },
         expected: item.expected,
         body: { type: "sentence_dictation", sentence_id: item.sentence.id },
         placeholder: "聞こえたとおりに打つ",
-        reveal: (box) => box.append(el("div", { class: "ja-mid", text: item.sentence.ja })),
+        reveal: (box) => box.append(el("div", { class: "muted", text: item.sentence.ja })),
       });
     case "sentence_ja_to_ko":
       return typingScene(item, {
-        title: head("日本語 → 韓国語", el("span", { class: "chip accent", text: item.sentence.register }), el("span", { class: "chip", text: item.sentence.scene })),
+        title: head("日本語 → 韓国語", item.sentence.register, item.sentence.scene),
         prompt: (box) => {
-          box.append(el("div", { class: "ja-big", text: item.sentence.ja }));
+          box.append(el("div", { class: "ja-lg", text: item.sentence.ja }));
         },
         expected: item.expected,
         body: { type: "sentence_ja_to_ko", sentence_id: item.sentence.id },
@@ -196,9 +211,9 @@ function sceneFor(item) {
       });
     case "sentence_compose":
       return typingScene(item, {
-        title: head("応用作文", el("span", { class: "chip accent", text: item.required })),
+        title: head("応用作文", item.required),
         prompt: (box) => {
-          box.append(el("div", { class: "ja-big", text: item.task }), el("div", { class: "ja-mid", text: `例: ${item.sentence.ko}` }));
+          box.append(el("div", { class: "ja-lg", text: item.task }), el("div", { class: "ja-md", lang: "ko", text: `例: ${item.sentence.ko}` }));
         },
         expected: item.sentence.ko,
         body: { type: "sentence_compose", sentence_id: item.sentence.id },
@@ -225,14 +240,16 @@ function roundIntroScene(round) {
   return {
     render(box) {
       box.append(
-        el(
-          "div",
-          { class: "round-intro q" },
-          el("span", { class: "label", text: `ラウンド ${state.roundIndex + 1} / ${state.session.rounds.length}` }),
-          el("h2", { text: round.label }),
-          el("p", { class: "muted", text: `${round.count} 問 ・ ${ROUND_HINT[round.key] || ""}` }),
-          el("button", { type: "button", class: "btn primary big", onClick: () => nextItem() }, "始める ", el("kbd", { text: "⏎" })),
-        ),
+        frame(null, [
+          el(
+            "div",
+            { class: "round-intro" },
+            el("span", { class: "label", text: `ラウンド ${state.roundIndex + 1} / ${state.session.rounds.length}` }),
+            el("h2", { text: round.label }),
+            el("p", { text: `${round.count} 問 ・ ${ROUND_HINT[round.key] || ""}` }),
+            el("button", { type: "button", class: "btn primary big", onClick: () => nextItem() }, "始める", el("kbd", { text: "⏎" })),
+          ),
+        ]),
       );
     },
     onKey(e) {
@@ -253,19 +270,19 @@ function wordIntroScene(item) {
     render(box) {
       btn = speakBtn(item.tts);
       box.append(
-        el(
-          "div",
-          { class: "q" },
-          head("はじめての単語"),
-          el(
-            "div",
-            { class: "intro-card" },
-            el("div", { class: "ko-big", lang: "ko", text: w.lemma }),
-            el("div", { class: "intro-meaning", text: w.meaning }),
-            el("div", { class: "intro-meta" }, el("span", { class: "chip", text: w.pos }), w.hanja ? el("span", { class: "chip accent", text: `漢字: ${w.hanja}` }) : null, el("span", { class: "chip", text: w.origin })),
-            btn,
-          ),
-          hint(["矢印キーで次へ"], [el("kbd", { text: "Space" }), " もう一度聞く"]),
+        frame(
+          head("はじめての単語", w.pos),
+          [
+            el(
+              "div",
+              { class: "intro" },
+              el("div", { class: "ko-xl", lang: "ko", text: w.lemma }),
+              el("div", { class: "intro-meaning", text: w.meaning }),
+              el("div", { class: "chips" }, w.hanja ? el("span", { class: "chip", text: `漢字 ${w.hanja}` }) : null, el("span", { class: "chip", text: w.origin })),
+              btn,
+            ),
+          ],
+          hint([el("kbd", { text: "⏎" }), " か矢印キーで次へ"], [el("kbd", { text: "Space" }), " もう一度聞く"]),
         ),
       );
     },
@@ -282,6 +299,19 @@ function wordIntroScene(item) {
 }
 
 // ---- 場面: 矢印ゲーム ----
+
+/** 真ん中の問題と、上右下左の選択肢。optionEls に方向ごとの要素を入れる */
+function arrowGrid(center, placed, optionEls, { ko = false, long = false, onChoose }) {
+  const grid = el("div", { class: `arrow${long ? " long" : ""}` }, center);
+  for (const dir of ArrowGame.DIRECTIONS) {
+    const opt = placed[dir];
+    const node = el("div", { class: `opt opt-${dir}${ko ? " ko" : ""}`, lang: ko ? "ko" : "ja", role: "button", tabindex: "-1", onClick: () => onChoose(dir) });
+    if (opt) node.append(el("span", { class: "dir", text: DIR_GLYPH[dir] }), el("span", { class: "opt-label", text: opt.label }));
+    optionEls[dir] = node;
+    grid.append(node);
+  }
+  return grid;
+}
 
 function arrowScene(item) {
   const placed = ArrowGame.placeOptions(item.options);
@@ -312,38 +342,33 @@ function arrowScene(item) {
     }
     if (picked) optionEls[dir].classList.add("is-wrong");
     correctEl.classList.add("is-reveal");
-    const answerLine = grid.querySelector(".arrow-answer");
+    const why = gaveUp ? "わからない" : dir ? null : "時間切れ";
     answerLine.replaceChildren(
-      el("span", { class: "ko", lang: "ko", text: item.word.lemma }),
-      " ＝ ",
-      el("strong", { text: item.word.meaning }),
-      gaveUp ? el("span", { class: "muted", text: "（わからない）" }) : dir ? "" : el("span", { class: "muted", text: "（時間切れ）" }),
+      ...[
+        el("span", { class: "ko", lang: "ko", text: item.word.lemma }),
+        el("span", { class: "eq", text: "＝" }),
+        el("span", { text: item.word.meaning }),
+        why ? el("span", { class: "why", text: why }) : null,
+      ].filter(Boolean),
     );
     Speak.speak(item.tts, { lang: pack.tts, rate: state.settings.tts_rate });
     later(() => finishItem(false, { elapsed, rating, gaveUp }), 1300);
   }
 
+  let answerLine;
   return {
     render(box) {
       const center = el("div", { class: "arrow-center" });
-      if (item.prompt.text) center.append(el("div", { class: isKo ? "ja-big" : "ko-big", lang: isKo ? "ja" : "ko", text: item.prompt.text }));
+      if (item.prompt.text) center.append(el("div", { class: isKo ? "ja-lg" : "ko-lg", lang: isKo ? "ja" : "ko", text: item.prompt.text }));
       if (item.prompt.tts) {
         btn = speakBtn(item.prompt.tts, { large: !item.prompt.text });
         center.append(btn);
       }
-      const timerBar = el("div", { class: "timer run", style: `--timeout: ${state.settings.timeout_sec}s` });
-      center.append(timerBar);
-      grid = el("div", { class: "arrow" }, center);
-      for (const dir of ArrowGame.DIRECTIONS) {
-        const opt = placed[dir];
-        const node = el("div", { class: `opt opt-${dir}${isKo ? " ko" : ""}`, lang: isKo ? "ko" : "ja", role: "button", tabindex: "-1", onClick: () => choose(dir) });
-        if (opt) node.append(el("span", { class: "dir", text: DIR_GLYPH[dir] }), el("span", { text: opt.label }));
-        optionEls[dir] = node;
-        grid.append(node);
-      }
-      grid.append(el("div", { class: "arrow-answer" }));
+      center.append(el("div", { class: "timer run", style: `--timeout: ${state.settings.timeout_sec}s` }));
+      grid = arrowGrid(center, placed, optionEls, { ko: isKo, onChoose: choose });
+      answerLine = el("div", { class: "answer-line" });
       const faceLabel = { meaning: "意味", listen: "聞き取り", reverse: "逆引き" }[item.face];
-      box.append(el("div", { class: "q" }, head(faceLabel, el("span", { class: "chip", text: item.word.pos })), grid, hint(["↑ → ↓ ← で選ぶ"], [el("kbd", { text: "⏎" }), " わからない"], [el("kbd", { text: "Space" }), " もう一度聞く"])));
+      box.append(frame(head(faceLabel, item.word.pos), [grid, answerLine], hint(["↑ → ↓ ← で選ぶ"], [el("kbd", { text: "⏎" }), " わからない"], [el("kbd", { text: "Space" }), " もう一度聞く"])));
       shownAt = performance.now();
       timer = later(() => choose(null), state.settings.timeout_sec * 1000);
     },
@@ -370,7 +395,7 @@ function tokensView(sentence, { blankEojeol = null, clickable = true } = {}) {
   let pop = null;
   for (const token of sentence.tokens) {
     if (blankEojeol !== null && token.eojeol === blankEojeol) {
-      line.append(el("span", { class: "token blank", text: "____" }));
+      line.append(el("span", { class: "token blank", "aria-label": "空欄" }));
       continue;
     }
     const node = el("span", { class: `token${token.is_new ? " new" : ""}`, text: token.surface });
@@ -398,13 +423,10 @@ function sentenceIntroScene(item) {
     render(box) {
       btn = speakBtn(s.ko);
       box.append(
-        el(
-          "div",
-          { class: "q" },
-          head("新しい文", el("span", { class: "chip accent", text: s.register }), el("span", { class: "chip", text: s.scene })),
-          el("div", { class: "sentence" }, tokensView(s), el("div", { class: "ja-mid", text: s.ja }), btn),
-          el("div", { class: "grammar-list" }, ...s.grammar.map((g) => el("span", { class: "chip", text: g }))),
-          hint(["単語を押すとその語だけ読み上げます。下線は新しい単語"], [el("kbd", { text: "⏎" }), " 次へ"], [el("kbd", { text: "Space" }), " もう一度聞く"]),
+        frame(
+          head("新しい文", s.register, s.scene),
+          [el("div", { class: "sentence" }, tokensView(s), el("div", { class: "ja-md", text: s.ja })), el("div", { class: "chips" }, ...s.grammar.map((g) => el("span", { class: "chip", text: g }))), btn],
+          hint([el("kbd", { text: "⏎" }), " 次へ"], [el("kbd", { text: "Space" }), " もう一度聞く"], ["単語を押すとその語だけ読み上げます。下線は新しい単語"]),
         ),
       );
     },
@@ -443,24 +465,17 @@ function listenChooseScene(item) {
       if (picked) optionEls[dir].classList.add("is-wrong");
       optionEls[correctDir].classList.add("is-reveal");
     }
-    grid.querySelector(".arrow-answer").replaceChildren(el("span", { class: "ko", lang: "ko", text: item.sentence.ko }));
+    answerLine.replaceChildren(el("span", { class: "ko", lang: "ko", text: item.sentence.ko }));
     later(() => finishItem(correct), correct ? 900 : 1800);
   }
 
+  let answerLine;
   return {
     render(box) {
       btn = speakBtn(item.sentence.ko, { large: true });
-      const center = el("div", { class: "arrow-center" }, btn);
-      grid = el("div", { class: "arrow" }, center);
-      for (const dir of ArrowGame.DIRECTIONS) {
-        const opt = placed[dir];
-        const node = el("div", { class: `opt opt-${dir}`, role: "button", tabindex: "-1", onClick: () => choose(dir) });
-        if (opt) node.append(el("span", { class: "dir", text: DIR_GLYPH[dir] }), el("span", { text: opt.label }));
-        optionEls[dir] = node;
-        grid.append(node);
-      }
-      grid.append(el("div", { class: "arrow-answer" }));
-      box.append(el("div", { class: "q" }, head("聞いて意味を選ぶ", el("span", { class: "chip", text: item.sentence.register })), grid, hint(["↑ → ↓ ← で選ぶ"], [el("kbd", { text: "⏎" }), " わからない"], [el("kbd", { text: "Space" }), " もう一度聞く"])));
+      grid = arrowGrid(el("div", { class: "arrow-center" }, btn), placed, optionEls, { long: true, onChoose: choose });
+      answerLine = el("div", { class: "answer-line" });
+      box.append(frame(head("聞いて意味を選ぶ", item.sentence.register), [grid, answerLine], hint(["↑ → ↓ ← で選ぶ"], [el("kbd", { text: "⏎" }), " わからない"], [el("kbd", { text: "Space" }), " もう一度聞く"])));
       shownAt = performance.now();
     },
     onKey(e) {
@@ -484,10 +499,10 @@ function listenChooseScene(item) {
 function clozeScene(item) {
   const s = item.sentence;
   return typingScene(item, {
-    title: head("穴埋め", el("span", { class: "chip", text: s.register })),
+    title: head("穴埋め", s.register),
     prompt: (box) => {
       box.append(
-        el("div", { class: "sentence" }, tokensView(s, { blankEojeol: item.cloze.eojeol }), el("div", { class: "blank-hint", text: `____ ＝ ${item.cloze.hint_ja}` }), el("div", { class: "ja-mid", text: s.ja })),
+        el("div", { class: "sentence" }, tokensView(s, { blankEojeol: item.cloze.eojeol }), el("div", { class: "ja-md", text: s.ja }), el("div", { class: "blank-hint", text: `空欄 ＝ ${item.cloze.hint_ja}` })),
       );
     },
     expected: item.expected,
@@ -528,39 +543,39 @@ function typingScene(item, { title, prompt, expected, body, placeholder, aiGrade
   }
 
   function renderResult(j) {
-    resultBox.replaceChildren();
     const ok = j.verdict === "correct";
     const notes = j.verdict === "correct_with_notes";
+    const done = ok || notes || attempts >= 2;
     const cls = ok ? "ok" : notes ? "notes" : "ng";
-    const titleText = ok ? "正解" : notes ? "正解（注意つき）" : attempts >= 2 ? "不正解 ― 答え" : "不正解 ― 直してみましょう";
-    const box = el("div", { class: `result ${cls}` }, el("div", { class: "result-title", text: titleText }));
-    if (j.comment_ja && (ok || notes || attempts >= 2)) box.append(el("div", { text: j.comment_ja }));
+    const titleText = ok ? "正解" : notes ? "正解（注意つき）" : done ? "不正解" : "不正解 ― 直してみましょう";
+    const next = done ? el("span", { class: "result-next" }, el("kbd", { text: "⏎" }), "次へ") : el("span", { class: "result-next" }, "直して", el("kbd", { text: "⏎" }));
+    const box = el("div", { class: `result ${cls}` }, el("div", { class: "result-head" }, el("span", { class: "result-title", text: titleText }), next));
+    if (j.comment_ja && done) box.append(el("div", { class: "small", text: j.comment_ja }));
     for (const issue of j.issues || []) {
       box.append(
         el(
           "div",
           { class: "issue" },
           el("div", {}, el("span", { class: "chip warn", text: issue.tag }), " ", el("span", { class: "span", lang: "ko", text: issue.span })),
-          attempts >= 2 || ok || notes ? el("div", { class: "muted", text: issue.note + (issue.suggestion ? ` → ${issue.suggestion}` : "") }) : null,
+          done ? el("div", { class: "muted", text: issue.note + (issue.suggestion ? ` → ${issue.suggestion}` : "") }) : null,
         ),
       );
     }
-    if (!ok && !notes) {
-      if (j.diff) box.append(diffView(j.diff, attempts < 2));
-      if (attempts >= 2 && j.corrected) box.append(el("div", { class: "corrected", lang: "ko", text: j.corrected }));
-    }
-    if (ok || notes || attempts >= 2) {
+    if (!ok && !notes && j.diff) box.append(diffView(j.diff, !done));
+    if (done) {
+      const model = j.corrected || expected;
+      if (model) box.append(el("div", { class: "model" }, el("span", { class: "model-label", text: "模範解答" }), el("span", { class: "model-text", lang: "ko", text: model })));
+      if (reveal) reveal(box);
+      if (!ok && !notes && j.source === "placeholder") box.append(el("div", { class: "note", text: "AI 採点はまだ作っていません（仮の判定）" }));
       finished = true;
       field.setEnabled(false);
-      if (reveal) reveal(box);
       if (speakText) Speak.speak(speakText, { lang: pack.tts, rate: state.settings.tts_rate });
-      box.append(el("div", { class: "q-hint" }, el("span", {}, el("kbd", { text: "⏎" }), " 次へ")));
-      if (!ok && !notes && j.source === "placeholder") box.append(el("div", { class: "muted small", text: "AI 採点はまだ作っていません（仮の判定）" }));
     } else {
-      box.append(el("div", { class: "q-hint" }, el("span", {}, "直して ", el("kbd", { text: "⏎" }))));
       field.focus();
     }
-    resultBox.append(box);
+    // 結果を読む場所を空けるため、キーボードは畳む（打ち直しも物理キーでそのまま続けられる）
+    kbdArea.hidden = true;
+    resultBox.replaceChildren(box);
   }
 
   return {
@@ -571,7 +586,8 @@ function typingScene(item, { title, prompt, expected, body, placeholder, aiGrade
       const fieldBox = el("div");
       field = TypingField.create(fieldBox, { keymap: pack.keymap, composer: pack.composer, keyboard, onSubmit: submit, placeholder });
       resultBox = el("div");
-      box.append(el("div", { class: "q" }, title, promptBox, el("div", { class: "answer-area" }, fieldBox, resultBox), aiGraded ? el("p", { class: "muted small", style: "text-align:center;margin:0", text: "模範解答と一致しないときは AI が判定します（今は仮の判定）" }) : null));
+      const aiNote = aiGraded ? [["違う書き方は AI が判定（今は仮）"]] : [];
+      box.append(frame(title, [promptBox, el("div", { class: "answer-area" }, fieldBox, resultBox)], typingHint(...aiNote)));
       field.focus();
     },
     onKey(e) {
@@ -614,7 +630,7 @@ function traceScene(item) {
     const jamoCount = pack.composer.decompose(s.ko).length;
     const perMin = Math.round((jamoCount / seconds) * 60);
     state.log.traces.push({ id: item.id, seconds, perMin });
-    statsBox.replaceChildren(el("span", {}, el("strong", { text: `${perMin}` }), " 字母/分"), el("span", {}, el("strong", { text: seconds.toFixed(1) }), " 秒"), el("span", {}, el("kbd", { text: "⏎" }), " 次へ"));
+    statsBox.replaceChildren(el("span", {}, el("strong", { text: `${perMin}` }), "字母/分"), el("span", {}, el("strong", { text: seconds.toFixed(1) }), "秒"), el("span", { class: "result-next" }, el("kbd", { text: "⏎" }), "次へ"));
     field.setEnabled(false);
     keyboard.guide(null);
   }
@@ -632,13 +648,20 @@ function traceScene(item) {
           if (done) finishItem(null);
           else if (field.isComplete()) finish();
         },
-        onChange: () => {
-          if (!startedAt && field.jamos().length) startedAt = performance.now();
+        // TypingField.create の中でも呼ばれる（field に代入される前）ので、field ではなく渡された値を見る
+        onChange: (value) => {
+          if (!startedAt && value.length) startedAt = performance.now();
         },
       });
       field.setTarget(s.ko);
-      statsBox = el("div", { class: "trace-stats" }, el("span", { class: "muted", text: "薄い字をなぞって打ちます。光っているキーが次のキー" }));
-      box.append(el("div", { class: "q" }, head("なぞりタイピング", el("span", { class: "chip", text: s.register })), el("div", { class: "sentence" }, el("div", { class: "ja-mid", text: s.ja }), btn), el("div", { class: "answer-area" }, fieldBox, statsBox)));
+      statsBox = el("div", { class: "trace-stats" });
+      box.append(
+        frame(
+          head("なぞりタイピング", s.register),
+          [el("div", { class: "sentence" }, el("div", { class: "ja-lg", text: s.ja }), btn), el("div", { class: "answer-area" }, fieldBox, statsBox)],
+          hint(["薄い字をなぞって打ちます。光っているキーが次のキー"], [el("kbd", { text: "⏎" }), " 打ち終わったら送る"]),
+        ),
+      );
       field.focus();
     },
     onKey(e) {
@@ -666,20 +689,21 @@ function summaryScene() {
       const minutes = Math.round((Date.now() - state.startedAt) / 60000);
       const avgSpeed = traces.length ? Math.round(traces.reduce((n, t) => n + t.perMin, 0) / traces.length) : null;
       box.append(
-        el(
-          "div",
-          { class: "summary q" },
-          el("div", { class: "round-intro" }, el("span", { class: "label", text: "今日の学習" }), el("h2", { text: "おつかれさまでした" }), el("p", { class: "muted", text: `${state.session.unit.title} ・ 約 ${minutes} 分` })),
-          el(
-            "div",
-            { class: "summary-grid" },
-            tile(`${firstCorrect} / ${words.length}`, "単語 ― 1 回目で正解"),
-            tile(`${retries}`, "単語 ― やり直し"),
-            tile(`${sentences.filter((s) => s.correct).length} / ${sentences.length}`, "文 ― 正解"),
-            tile(avgSpeed === null ? "–" : `${avgSpeed}`, "なぞり ― 字母/分"),
-          ),
-          el("p", { class: "muted small", style: "text-align:center", text: "記録の仕組みを入れるまでは、この結果は保存されません" }),
-          el("div", { class: "row", style: "justify-content:center" }, el("a", { class: "btn primary big", href: languageUrl() }, "ホームへ ", el("kbd", { text: "⏎" })), el("a", { class: "btn big", href: location.href }, "もう一度")),
+        frame(
+          null,
+          [
+            el("div", { class: "round-intro" }, el("span", { class: "label", text: "今日の学習" }), el("h2", { text: "おつかれさまでした" }), el("p", { text: `${state.session.unit.title} ・ 約 ${minutes} 分` })),
+            el(
+              "div",
+              { class: "summary-grid" },
+              tile(`${firstCorrect} / ${words.length}`, "単語 ― 1 回目で正解"),
+              tile(`${retries}`, "単語 ― やり直し"),
+              tile(`${sentences.filter((s) => s.correct).length} / ${sentences.length}`, "文 ― 正解"),
+              tile(avgSpeed === null ? "–" : `${avgSpeed}`, "なぞり ― 字母/分"),
+            ),
+            el("div", { class: "row" }, el("a", { class: "btn primary big", href: languageUrl() }, "ホームへ", el("kbd", { text: "⏎" })), el("a", { class: "btn big", href: location.href }, "もう一度")),
+          ],
+          el("div", { class: "q-hint" }, el("span", { class: "note", text: "記録の仕組みを入れるまでは、この結果は保存されません" })),
         ),
       );
     },

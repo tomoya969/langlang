@@ -3,16 +3,17 @@
 function languageCard(summary) {
   const lang = summary.language;
   const home = `/${encodeURIComponent(lang.code)}`;
-  const head = el("div", { class: "lc-head" }, el("a", { class: "lc-name", href: home, text: lang.label }), el("span", { class: "lc-native", lang: lang.code, text: lang.native }));
   if (!summary.available) {
-    return el("section", { class: "card language-card unavailable" }, head, el("p", { class: "muted", text: "教材がまだありません" }));
+    const head = el("div", { class: "lc-head" }, el("span", { class: "lc-name", text: lang.label }), el("span", { class: "lc-native", lang: lang.code, text: lang.native }));
+    return el("section", { class: "language-card unavailable" }, head, el("p", { class: "muted small", text: "教材がまだありません" }));
   }
+  const head = el("div", { class: "lc-head" }, el("a", { class: "lc-name", href: home, text: lang.label }), el("span", { class: "lc-native", lang: lang.code, text: lang.native }), icon("chevron"));
   const total = summary.levels.reduce((n, lv) => n + lv.total, 0);
   const mastered = summary.levels.reduce((n, lv) => n + lv.mastered, 0);
   const pct = total ? Math.round((mastered / total) * 100) : 0;
   return el(
     "section",
-    { class: "card language-card" },
+    { class: "language-card" },
     head,
     summary.unit ? el("div", { class: "lc-unit" }, "次のユニット: ", el("strong", { text: summary.unit.title }), ` ・ ${summary.unit.id}`) : null,
     el(
@@ -28,7 +29,7 @@ function languageCard(summary) {
       el("div", { class: "lc-progress-label" }, el("span", { text: "定着した単語" }), el("span", { text: `${mastered} / ${total} 語` })),
       el("div", { class: "meter" }, el("span", { style: `width: ${pct}%` })),
     ),
-    el("div", { class: "lc-actions" }, el("a", { class: "btn primary", href: `${home}/learn`, text: "今日の学習を始める" }), el("a", { class: "btn", href: home, text: "ホーム" })),
+    el("div", { class: "lc-actions" }, el("a", { class: "btn primary", href: `${home}/learn`, text: "今日の学習を始める" })),
   );
 }
 

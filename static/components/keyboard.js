@@ -5,12 +5,13 @@
 "use strict";
 
 const Keyboard = (() => {
+  // 特別なキーの幅は style.css が段のずれと合わせて決める
   const SPECIAL = {
-    shiftL: { label: "Shift", wide: 1.6, key: "shift" },
-    shiftR: { label: "Shift", wide: 1.6, key: "shift" },
-    backspace: { label: "⌫", wide: 1.6, key: "backspace" },
-    enter: { label: "⏎", wide: 1.4, key: "enter" },
-    space: { label: "space", wide: 6, key: " " },
+    shiftL: { label: "Shift", key: "shift" },
+    shiftR: { label: "Shift", key: "shift" },
+    backspace: { label: "⌫", key: "backspace" },
+    enter: { label: "⏎", key: "enter" },
+    space: { label: "space", key: " " },
   };
 
   function create(container, keymap) {
@@ -19,11 +20,10 @@ const Keyboard = (() => {
     const keys = new Map();
     let shiftOn = false;
 
-    const makeKey = (key, { label, latin, wide } = {}) => {
+    const makeKey = (key, { label, latin } = {}) => {
       const el = document.createElement("div");
       el.className = "kbd-key";
       el.dataset.key = key;
-      if (wide) el.style.flexGrow = String(wide);
       const main = document.createElement("span");
       main.className = "kbd-main";
       main.textContent = label || "";
@@ -50,7 +50,7 @@ const Keyboard = (() => {
       for (const key of row) {
         if (SPECIAL[key]) {
           const spec = SPECIAL[key];
-          const el = makeKey(key, { label: spec.label, wide: spec.wide });
+          const el = makeKey(key, { label: spec.label });
           el.classList.add("kbd-special");
           el.dataset.role = spec.key;
           rowEl.append(el);

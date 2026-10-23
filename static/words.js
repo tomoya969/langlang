@@ -35,7 +35,7 @@ function renderList() {
   const list = document.getElementById("word-list");
   list.replaceChildren();
   if (!rows.length) {
-    list.append(el("p", { class: "muted", text: "当てはまる単語がありません" }));
+    list.append(el("p", { class: "muted small", text: "当てはまる単語がありません" }));
     return;
   }
   let lastUnit = null;
@@ -51,8 +51,8 @@ function renderList() {
         { type: "button", class: "word-row", "aria-current": selected === w.id ? "true" : null, onClick: () => select(w.id) },
         el("span", { class: "word-lemma", lang: "ko", text: w.lemma }),
         el("span", { class: "word-meaning", text: w.meaning }),
-        el("span", { class: "chip", text: w.pos }),
-        el("span", { class: `state ${w.state}`, text: STATE_LABELS[w.state] || w.state }),
+        el("span", { class: "word-pos", text: w.pos }),
+        el("span", { class: `chip state-${w.state}`, text: STATE_LABELS[w.state] || w.state }),
       ),
     );
   }
@@ -62,32 +62,46 @@ async function select(id) {
   selected = id;
   renderList();
   const detail = document.getElementById("detail");
-  detail.hidden = false;
-  detail.replaceChildren(el("p", { class: "muted", text: "読み込んでいます…" }));
+  detail.replaceChildren(el("p", { class: "detail-empty", text: "読み込んでいます…" }));
   let w;
   try {
     w = await api.get(`/api/words/${encodeURIComponent(id)}?language=${encodeURIComponent(LANGUAGE)}`);
   } catch (err) {
-    detail.replaceChildren(el("p", { class: "muted", text: `読み込みに失敗しました: ${err.message}` }));
+    detail.replaceChildren(el("p", { class: "detail-empty", text: `読み込みに失敗しました: ${err.message}` }));
     return;
   }
-  const speak = el("button", { type: "button", class: "speak-btn", "aria-label": "読み上げる", onClick: () => Speak.speak(w.tts_text, { lang: ttsLang }) }, "🔊");
+  const speak = el("button", { type: "button", class: "speak-btn", title: "読み上げる", "aria-label": "読み上げる", onClick: () => Speak.speak(w.tts_text, { lang: ttsLang }) }, icon("speaker"));
+  const wordChips = (words) => el("div", { class: "row" }, ...words.map((c) => el("button", { type: "button", class: "chip", lang: "ko", text: `${c.lemma} ${c.meaning}`, onClick: () => select(c.id) })));
+  // replaceChildren は null を "null" という文字にするので、出さない節は先に除く
   detail.replaceChildren(
-    el("div", { class: "detail-lemma", lang: "ko" }, w.lemma, speak),
-    el("div", { class: "detail-meaning", text: w.meaning }),
-    el("div", { class: "row" }, el("span", { class: "chip", text: w.pos }), el("span", { class: "chip", text: w.origin }), w.hanja ? el("span", { class: "chip accent", text: `漢字: ${w.hanja}` }) : null, el("span", { class: "chip", text: `L${w.level} ${w.unit}` }), ...w.tags.map((t) => el("span", { class: "chip", text: t }))),
-    el("div", {}, el("h2", { text: "面ごとの状態" }), el("div", { class: "faces" }, ...FACES.map(([key, label]) => faceRow(label, w.faces[key])))),
-    w.confusable_words.length ? el("div", {}, el("h2", { text: "取り違えやすい語" }), el("div", { class: "row" }, ...w.confusable_words.map((c) => el("button", { type: "button", class: "chip", lang: "ko", text: `${c.lemma} ${c.meaning}`, onClick: () => select(c.id) })))) : null,
-    w.homograph_words.length ? el("div", {}, el("h2", { text: "同じ綴りの別の語" }), el("div", { class: "row" }, ...w.homograph_words.map((c) => el("button", { type: "button", class: "chip", lang: "ko", text: `${c.lemma} ${c.meaning}`, onClick: () => select(c.id) })))) : null,
-    el("div", {}, el("h2", { text: `出てくる文（${w.sentences.length}）` }), el("div", { class: "detail-sentences" }, ...(w.sentences.length ? w.sentences.map((s) => el("div", { class: "detail-sentence" }, el("span", { class: "ko", lang: "ko", text: s.ko }), el("span", { class: "ja", text: s.ja }))) : [el("p", { class: "muted small", text: "まだありません" })]))),
-    el("div", {}, el("h2", { text: "履歴" }), el("p", { class: "muted small", text: w.history.length ? "" : "記録の仕組みを入れるまでは、ここは空です" })),
+    ...[
+      el(
+        "div",
+        { class: "detail-head" },
+        el("div", { class: "detail-lemma", lang: "ko" }, w.lemma, speak),
+        el("div", { class: "detail-meaning", text: w.meaning }),
+        el("div", { class: "row" }, el("span", { class: "chip", text: w.pos }), el("span", { class: "chip", text: w.origin }), w.hanja ? el("span", { class: "chip", text: `漢字 ${w.hanja}` }) : null, el("span", { class: "chip", text: `L${w.level} ・ ${w.unit}` }), ...w.tags.map((t) => el("span", { class: "chip", text: t }))),
+      ),
+      section("面ごとの状態", el("div", { class: "faces" }, ...FACES.map(([key, label]) => faceRow(label, w.faces[key])))),
+      w.confusable_words.length ? section("取り違えやすい語", wordChips(w.confusable_words)) : null,
+      w.homograph_words.length ? section("同じ綴りの別の語", wordChips(w.homograph_words)) : null,
+      section(
+        `出てくる文（${w.sentences.length}）`,
+        w.sentences.length ? el("div", {}, ...w.sentences.map((s) => el("div", { class: "detail-sentence" }, el("span", { class: "ko", lang: "ko", text: s.ko }), el("span", { class: "ja", text: s.ja })))) : el("p", { class: "note", text: "まだありません" }),
+      ),
+      section("履歴", w.history.length ? null : el("p", { class: "note", text: "記録の仕組みを入れるまでは、ここは空です" })),
+    ].filter(Boolean),
   );
 }
 
+function section(title, ...children) {
+  return el("section", { class: "detail-section" }, el("h3", { text: title }), ...children);
+}
+
 function faceRow(label, face) {
-  if (!face) return el("div", { class: "face-row" }, el("span", { text: label }), el("div", { class: "meter" }, el("span", { style: "width:0%" })), el("span", { class: "muted", text: "まだ出していません" }));
+  if (!face) return el("div", { class: "face-row" }, el("span", { text: label }), el("div", { class: "meter" }, el("span", { style: "width:0%" })), el("span", { class: "note", text: "まだ出していません" }));
   const pct = Math.min(100, Math.round((face.stability / 21) * 100));
-  return el("div", { class: "face-row" }, el("span", { text: label }), el("div", { class: "meter" }, el("span", { style: `width:${pct}%` })), el("span", { class: "muted", text: `安定度 ${face.stability} 日` }));
+  return el("div", { class: "face-row" }, el("span", { text: label }), el("div", { class: "meter" }, el("span", { style: `width:${pct}%` })), el("span", { class: "note", text: `安定度 ${face.stability} 日` }));
 }
 
 async function load() {
