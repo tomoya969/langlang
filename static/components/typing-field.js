@@ -75,7 +75,8 @@ const TypingField = (() => {
       [...after].forEach((ch, i) => view.append(charSpan(ch, beforeChars.length + i)));
     }
 
-    /** なぞり: 目標と一致している部分と、違っている部分を色分けする */
+    /** なぞり: 目標と一致している部分と、違っている部分を色分けする。
+        打ち間違えても、お手本の残り（ずれ始めた所から先）は薄い字で出したままにする */
     function renderTrace(composed) {
       const expected = composer.compose(target);
       const ok = jamosMatchPrefix();
@@ -92,12 +93,10 @@ const TypingField = (() => {
         view.append(bad);
       }
       view.append(caretSpan());
-      if (ok) {
-        const rest = document.createElement("span");
-        rest.className = "tf-rest";
-        rest.textContent = expected.slice(composed.length);
-        view.append(rest);
-      }
+      const rest = document.createElement("span");
+      rest.className = "tf-rest";
+      rest.textContent = expected.slice(ok ? composed.length : common);
+      view.append(rest);
     }
 
     function jamosMatchPrefix() {
@@ -138,6 +137,7 @@ const TypingField = (() => {
       if (event.key === "Enter") {
         event.preventDefault();
         ComposeBuffer.commit(buf);
+        render();
         onSubmit(value());
         return;
       }

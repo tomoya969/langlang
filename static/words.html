@@ -32,22 +32,21 @@
   </header>
 
   <main class="words">
-    <section class="list-pane">
-      <div class="toolbar" role="search">
-        <input id="f-q" class="search" type="text" placeholder="単語か意味で探す" aria-label="検索">
-        <select id="f-level" aria-label="レベル"><option value="">すべてのレベル</option></select>
-        <select id="f-unit" aria-label="ユニット"><option value="">すべてのユニット</option></select>
-        <select id="f-state" aria-label="状態">
-          <option value="">すべての状態</option>
-          <option value="new">未学習</option>
-          <option value="learning">学習中</option>
-          <option value="mastered">定着</option>
-          <option value="weak">苦手</option>
-        </select>
-        <span id="f-count" class="count">–</span>
-      </div>
-      <div id="word-list" class="word-list"><p class="muted">読み込んでいます…</p></div>
-    </section>
+    <div class="toolbar" role="search">
+      <input id="f-q" class="search" type="text" placeholder="単語か意味で探す" aria-label="検索">
+      <select id="f-level" aria-label="レベル"><option value="">すべてのレベル</option></select>
+      <select id="f-unit" aria-label="ユニット"><option value="">すべてのユニット</option></select>
+      <select id="f-state" aria-label="状態">
+        <option value="">すべての状態</option>
+        <option value="new">未学習</option>
+        <option value="learning">学習中</option>
+        <option value="mastered">定着</option>
+        <option value="weak">苦手</option>
+      </select>
+      <span id="f-count" class="count">–</span>
+    </div>
+
+    <div id="word-list" class="word-list"><p class="muted">読み込んでいます…</p></div>
 
     <aside id="detail" class="panel detail">
       <p class="detail-empty">単語を選ぶと、ここに詳細が出ます</p>

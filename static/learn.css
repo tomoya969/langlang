@@ -50,14 +50,10 @@
 .progress-label {
   font-size: var(--fs-xs);
   line-height: 1;
-  color: var(--text-3);
+  color: var(--text-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.progress-round.done .progress-label {
-  color: var(--text-2);
 }
 
 .progress-round.current .progress-label {
@@ -95,7 +91,7 @@
 
 .kbd-area {
   flex: none;
-  padding: 0 24px 16px;
+  padding: 0 24px 12px;
 }
 
 .q {
@@ -143,6 +139,11 @@
   min-width: 0;
 }
 
+/* 打つ場面は上に揃える。結果が出たりキーボードを畳んだりしても、問題と入力欄の位置が動かないように */
+.q.typing .q-body {
+  justify-content: flex-start;
+}
+
 .q-hint {
   display: flex;
   justify-content: center;
@@ -151,7 +152,7 @@
   gap: 8px 20px;
   min-height: 24px;
   font-size: var(--fs-sm);
-  color: var(--text-3);
+  color: var(--text-2);
 }
 
 .q-hint > span {
@@ -211,7 +212,7 @@
 .round-intro .label {
   font-size: var(--fs-sm);
   font-weight: 600;
-  color: var(--text-3);
+  color: var(--text-2);
 }
 
 .round-intro h2 {
@@ -466,7 +467,7 @@
 
 .answer-line .eq,
 .answer-line .why {
-  color: var(--text-3);
+  color: var(--text-2);
 }
 
 .answer-line .why {
@@ -509,10 +510,11 @@
   text-underline-offset: 8px;
 }
 
+/* 下線は影で描く（枠線だと、答えを入れたときに行の高さが変わる） */
 .token.blank {
   min-width: 3em;
-  border-bottom: 3px solid var(--accent);
   border-radius: 0;
+  box-shadow: inset 0 -3px 0 var(--accent);
   cursor: default;
 }
 
@@ -520,10 +522,17 @@
   background: none;
 }
 
+/* 答えが決まったら空欄に答えを入れて見せる */
+.token.blank.filled {
+  color: var(--ok);
+  box-shadow: inset 0 -3px 0 var(--ok);
+}
+
+/* 単語の上に出す（下はすぐ和訳なので、被せると読めなくなる） */
 .token-pop {
   position: absolute;
   left: 50%;
-  top: calc(100% + 8px);
+  bottom: calc(100% + 4px);
   transform: translateX(-50%);
   padding: 6px 10px;
   border: 1px solid var(--line-strong);
@@ -605,7 +614,7 @@
   align-items: center;
   gap: 6px;
   font-size: var(--fs-sm);
-  color: var(--text-3);
+  color: var(--text-2);
 }
 
 .model {
@@ -615,7 +624,7 @@
 
 .model-label {
   font-size: var(--fs-xs);
-  color: var(--text-3);
+  color: var(--text-2);
 }
 
 .model-text {
@@ -704,5 +713,12 @@
   }
   .progress-label {
     display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .q,
+  .opt.is-wrong {
+    animation: none;
   }
 }

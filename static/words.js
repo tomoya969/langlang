@@ -32,6 +32,11 @@ function renderList() {
     return true;
   });
   document.getElementById("f-count").textContent = `${rows.length} 語`;
+  // 選んでいた単語が絞り込みで一覧から消えたら、詳細も空に戻す（一覧にない単語の詳細が残らないように）
+  if (selected && !rows.some((w) => w.id === selected)) {
+    selected = null;
+    document.getElementById("detail").replaceChildren(el("p", { class: "detail-empty", text: "単語を選ぶと、ここに詳細が出ます" }));
+  }
   const list = document.getElementById("word-list");
   list.replaceChildren();
   if (!rows.length) {
@@ -70,6 +75,8 @@ async function select(id) {
     detail.replaceChildren(el("p", { class: "detail-empty", text: `読み込みに失敗しました: ${err.message}` }));
     return;
   }
+  // 読み込みの間に別の単語を選んだか、絞り込みで外れた
+  if (selected !== id) return;
   const speak = el("button", { type: "button", class: "speak-btn", title: "読み上げる", "aria-label": "読み上げる", onClick: () => Speak.speak(w.tts_text, { lang: ttsLang }) }, icon("speaker"));
   const wordChips = (words) => el("div", { class: "row" }, ...words.map((c) => el("button", { type: "button", class: "chip", lang: "ko", text: `${c.lemma} ${c.meaning}`, onClick: () => select(c.id) })));
   // replaceChildren は null を "null" という文字にするので、出さない節は先に除く

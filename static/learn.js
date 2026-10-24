@@ -83,6 +83,11 @@ function head(type, ...chips) {
   return el("div", { class: "q-head" }, el("span", { class: "q-type", text: type }), ...chips.filter(Boolean).map((c) => el("span", { class: "chip", text: c })));
 }
 
+/** 答えが決まったら、下のヒントを「次へ」だけにする */
+function showNextHint(hintEl) {
+  hintEl.replaceChildren(el("span", {}, el("kbd", { text: "⏎" }), " 次へ"));
+}
+
 function typingHint(...extra) {
   return hint([el("kbd", { text: "⏎" }), " 送る"], [el("kbd", { text: "←" }), el("kbd", { text: "→" }), " カーソル"], ...extra, ["日本語入力はオフのままで打てます"]);
 }
@@ -498,17 +503,23 @@ function listenChooseScene(item) {
 
 function clozeScene(item) {
   const s = item.sentence;
+  let line;
   return typingScene(item, {
     title: head("穴埋め", s.register),
     prompt: (box) => {
-      box.append(
-        el("div", { class: "sentence" }, tokensView(s, { blankEojeol: item.cloze.eojeol }), el("div", { class: "ja-md", text: s.ja }), el("div", { class: "blank-hint", text: `空欄 ＝ ${item.cloze.hint_ja}` })),
-      );
+      line = tokensView(s, { blankEojeol: item.cloze.eojeol });
+      box.append(el("div", { class: "sentence" }, line, el("div", { class: "ja-md", text: s.ja }), el("div", { class: "blank-hint", text: `空欄 ＝ ${item.cloze.hint_ja}` })));
     },
     expected: item.expected,
     body: { type: "sentence_cloze", sentence_id: s.id },
     placeholder: "空欄に入る語を打つ",
     speakText: s.ko,
+    reveal: () => {
+      const blank = line.querySelector(".token.blank");
+      blank.textContent = item.expected;
+      blank.removeAttribute("aria-label");
+      blank.classList.add("filled");
+    },
   });
 }
 
@@ -517,6 +528,7 @@ function clozeScene(item) {
 function typingScene(item, { title, prompt, expected, body, placeholder, aiGraded = false, reveal = null, speakText = null }) {
   let field;
   let resultBox;
+  let hintEl;
   let attempts = 0;
   let finished = false;
   let waiting = false;
@@ -569,13 +581,16 @@ function typingScene(item, { title, prompt, expected, body, placeholder, aiGrade
       if (!ok && !notes && j.source === "placeholder") box.append(el("div", { class: "note", text: "AI 採点はまだ作っていません（仮の判定）" }));
       finished = true;
       field.setEnabled(false);
+      // 答えが決まったらキーボードは要らないので畳む。打ち直しの間は配列を見たいので出したまま
+      kbdArea.hidden = true;
+      showNextHint(hintEl);
       if (speakText) Speak.speak(speakText, { lang: pack.tts, rate: state.settings.tts_rate });
     } else {
       field.focus();
     }
-    // 結果を読む場所を空けるため、キーボードは畳む（打ち直しも物理キーでそのまま続けられる）
-    kbdArea.hidden = true;
     resultBox.replaceChildren(box);
+    // 画面の低いウィンドウでは、キーボードを出したままだと結果が下にはみ出すことがある
+    box.scrollIntoView({ block: "nearest" });
   }
 
   return {
@@ -587,7 +602,10 @@ function typingScene(item, { title, prompt, expected, body, placeholder, aiGrade
       field = TypingField.create(fieldBox, { keymap: pack.keymap, composer: pack.composer, keyboard, onSubmit: submit, placeholder });
       resultBox = el("div");
       const aiNote = aiGraded ? [["違う書き方は AI が判定（今は仮）"]] : [];
-      box.append(frame(title, [promptBox, el("div", { class: "answer-area" }, fieldBox, resultBox)], typingHint(...aiNote)));
+      hintEl = typingHint(...aiNote);
+      const q = frame(title, [promptBox, el("div", { class: "answer-area" }, fieldBox, resultBox)], hintEl);
+      q.classList.add("typing");
+      box.append(q);
       field.focus();
     },
     onKey(e) {
@@ -621,6 +639,7 @@ function traceScene(item) {
   let startedAt = 0;
   let done = false;
   let statsBox;
+  let hintEl;
   let btn;
 
   function finish() {
@@ -631,6 +650,7 @@ function traceScene(item) {
     const perMin = Math.round((jamoCount / seconds) * 60);
     state.log.traces.push({ id: item.id, seconds, perMin });
     statsBox.replaceChildren(el("span", {}, el("strong", { text: `${perMin}` }), "字母/分"), el("span", {}, el("strong", { text: seconds.toFixed(1) }), "秒"), el("span", { class: "result-next" }, el("kbd", { text: "⏎" }), "次へ"));
+    showNextHint(hintEl);
     field.setEnabled(false);
     keyboard.guide(null);
   }
@@ -655,13 +675,10 @@ function traceScene(item) {
       });
       field.setTarget(s.ko);
       statsBox = el("div", { class: "trace-stats" });
-      box.append(
-        frame(
-          head("なぞりタイピング", s.register),
-          [el("div", { class: "sentence" }, el("div", { class: "ja-lg", text: s.ja }), btn), el("div", { class: "answer-area" }, fieldBox, statsBox)],
-          hint(["薄い字をなぞって打ちます。光っているキーが次のキー"], [el("kbd", { text: "⏎" }), " 打ち終わったら送る"]),
-        ),
-      );
+      hintEl = hint(["薄い字をなぞって打ちます。光っているキーが次のキー"], [el("kbd", { text: "⏎" }), " 打ち終わったら送る"]);
+      const q = frame(head("なぞりタイピング", s.register), [el("div", { class: "sentence" }, el("div", { class: "ja-lg", text: s.ja }), btn), el("div", { class: "answer-area" }, fieldBox, statsBox)], hintEl);
+      q.classList.add("typing");
+      box.append(q);
       field.focus();
     },
     onKey(e) {

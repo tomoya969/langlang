@@ -25,6 +25,7 @@
   --line-strong: light-dark(#d4d1ca, #343944);
   --text: light-dark(#15161a, #eceef2);
   --text-2: light-dark(#5c6270, #a2a8b5);
+  /* 背景とのコントラストが 3:1 ほどしかないので、飾り（区切り記号・アイコン・枠）と大きな文字にだけ使う。読ませる文字は --text-2 */
   --text-3: light-dark(#8b909b, #6c7280);
   --accent: light-dark(#5b4bff, #9a8cff);
   --accent-soft: light-dark(#eeebff, #221f3a);
@@ -148,7 +149,7 @@ h3 {
 /* 開発中の注記（記録がまだない、AI 採点が仮、など）。本文より一段弱く出す */
 .note {
   font-size: var(--fs-xs);
-  color: var(--text-3);
+  color: var(--text-2);
 }
 
 .spacer {
@@ -708,7 +709,7 @@ dialog .actions {
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
-  padding: 12px;
+  padding: 8px;
   border-radius: var(--r-lg);
   background: var(--fill);
   user-select: none;
@@ -737,7 +738,7 @@ dialog .actions {
   position: relative;
   flex: none;
   width: var(--u);
-  height: 44px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -752,7 +753,7 @@ dialog .actions {
 .kbd-special {
   font-size: var(--fs-xs);
   font-weight: 500;
-  color: var(--text-3);
+  color: var(--text-2);
 }
 
 .kbd-key[data-key="shiftL"] {
@@ -776,7 +777,7 @@ dialog .actions {
   font-size: 10px;
   font-weight: 500;
   line-height: 1;
-  color: var(--text-3);
+  color: var(--text-2);
   text-transform: uppercase;
 }
 
@@ -905,5 +906,21 @@ dialog .actions {
 
 .tf-rest {
   color: var(--text-3);
-  opacity: 0.6;
+}
+
+/* 動きを減らす設定では、飾りの動き（出てくる・揺れる・脈打つ・点滅）を止める。
+   残り時間を見せる線（トースト・矢印ゲームの時間）は情報なので残す */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+  }
+  .speak-btn.playing {
+    animation: none;
+  }
+  .tf-focus .tf-caret {
+    animation: none;
+    opacity: 1;
+  }
 }

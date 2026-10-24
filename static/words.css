@@ -4,30 +4,26 @@
   max-width: 1200px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 380px;
-  gap: 24px;
+  gap: 16px 24px;
   align-items: start;
 }
 
-.list-pane {
-  display: grid;
-  gap: 12px;
-  min-width: 0;
-}
-
+/* 絞り込みは 2 列の上に全幅で置く（リストの列の幅だけだと、選択肢の文字が切れる） */
 .toolbar {
+  grid-column: 1 / -1;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 
 .toolbar .search {
-  flex: 1 1 160px;
+  flex: 1 1 240px;
 }
 
 .toolbar select {
-  flex: 0 1 auto;
+  flex: none;
   width: auto;
-  max-width: 200px;
 }
 
 .toolbar .count {
@@ -40,6 +36,7 @@
 }
 
 .word-list {
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   background: var(--surface);
@@ -57,7 +54,7 @@
   padding: 8px 16px;
   background: var(--bg);
   font-size: var(--fs-xs);
-  color: var(--text-3);
+  color: var(--text-2);
 }
 
 .unit-head:not(:first-child) {
@@ -113,7 +110,7 @@
 
 .word-pos {
   font-size: var(--fs-xs);
-  color: var(--text-3);
+  color: var(--text-2);
   white-space: nowrap;
 }
 
@@ -150,7 +147,7 @@
   place-items: center;
   min-height: 200px;
   font-size: var(--fs-sm);
-  color: var(--text-3);
+  color: var(--text-2);
   text-align: center;
 }
 
