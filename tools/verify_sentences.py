@@ -1,7 +1,8 @@
 """文の検算（docs/plan.md 6.3「文の検算」）。生成の流れ（gen_sentences.py）から呼ぶ。
 
 - 機械（Kiwi）: 語節と word_ids が文と合っているか、使ってよい単語だけでできているか、そのユニットの単語が 1〜3 語か
-- AI: 韓国語の自然さ、訳の意味、文体と文法の表示、穴埋めのヒント。許容例の誤りは、文を不合格にせずに取り除く
+- AI: 韓国語の自然さ、訳の意味、文体の表示、まだ使えない文法を使っていないか、穴埋めのヒント。
+  文法の表示と許容例の誤りは、文を不合格にせずに直す（表示の付け方は検算でもぶれるため）
 """
 
 from __future__ import annotations
@@ -81,8 +82,9 @@ class Checker:
 def ai_check(
     ask: AskFn, unit: dict[str, Any], items: list[tuple[str, dict[str, Any]]], grammar: list[dict[str, Any]], words: dict[str, dict[str, Any]]
 ) -> dict[str, dict[str, Any]]:
-    """AI の検算。items は (キー, 文)。キーごとに ok・problems・取り除く許容例を返す。"""
+    """AI の検算。items は (キー, 文)。キーごとに ok・problems・正しい文法の表示・取り除く許容例を返す。"""
     keys = [key for key, _ in items]
+    forms = [g["form"] for g in grammar]
     prompt_items = [
         {
             "key": key,
@@ -96,14 +98,16 @@ def ai_check(
         }
         for key, s in items
     ]
-    result = ask(build_verify_sentences_prompt(unit, prompt_items, grammar), verify_sentences_schema(keys))["sentences"]
+    result = ask(build_verify_sentences_prompt(unit, prompt_items, grammar), verify_sentences_schema(keys, forms))["sentences"]
     missing = [k for k in keys if k not in result]
     if missing:
         raise BadOutput(f"検算が返ってこなかった文があります: {'、'.join(missing)}")
     return result
 
 
-def drop_variants(sentence: dict[str, Any], verdict: dict[str, Any]) -> None:
+def apply_fixes(sentence: dict[str, Any], verdict: dict[str, Any]) -> None:
+    """検算が直した文法の表示に置き換え、受け入れられない許容例を取り除く。"""
+    sentence["grammar"] = list(dict.fromkeys(verdict["grammar"]))
     bad_ko = {" ".join(v.split()) for v in verdict["bad_ko_variants"]}
     bad_ja = {v.strip() for v in verdict["bad_ja_variants"]}
     sentence["variants"]["ko"] = [v for v in sentence["variants"]["ko"] if v not in bad_ko]

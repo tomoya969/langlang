@@ -28,8 +28,10 @@ WORDS = {
     "w-차2": {"lemma": "차", "pos": "名詞"},
     "w-안녕히가세요": {"lemma": "안녕히 가세요", "pos": "表現"},
     "w-이름": {"lemma": "이름", "pos": "名詞"},
+    "w-이거": {"lemma": "이거", "pos": "代名詞"},
+    "w-뭐": {"lemma": "뭐", "pos": "代名詞"},
 }
-LEXICON = Lexicon(allowed=WORDS, known={"사과": "L1-U09「果物」で出る語"})
+LEXICON = Lexicon(allowed=WORDS, known={"사과": "L1-U09「果物」で出る語", "이것": "L1-U03「お店で買い物」で出る語"})
 UNIT = {"w-물", "w-커피", "w-마시다", "w-공부하다", "w-차1", "w-스물", "w-다섯", "w-안녕히가세요"}
 
 
@@ -60,6 +62,15 @@ def test_missing_word_id_is_added(checker):
 def test_contraction_and_hada_verb(checker):
     s = sentence("제 이름을 공부해요.", [("제", ["w-저"]), ("이름을", ["w-이름"]), ("공부해요", ["w-공부하다"])], eojeol=2)
     assert checker.check(s, LEXICON, UNIT) == []
+
+
+def test_contracted_demonstrative_counts_as_the_listed_word(checker):
+    # Kiwi は 이게 を 이것＋이 に戻すが、見出しの 이거 と同じ語として扱う
+    s = sentence("이게 커피예요?", [("이게", ["w-이거"]), ("커피예요", ["w-커피"])], eojeol=1)
+    assert checker.check(s, LEXICON, UNIT) == []
+    s = sentence("이게 뭐예요?", [("이게", []), ("뭐예요", ["w-뭐"])])
+    checker.check(s, LEXICON, UNIT)
+    assert s["tokens"][0]["word_ids"] == ["w-이거"]
 
 
 def test_word_from_later_unit_is_a_problem(checker):

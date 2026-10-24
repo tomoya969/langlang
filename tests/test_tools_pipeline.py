@@ -153,8 +153,9 @@ class FakeAI:
         ko = re.search(r"- ko: (.+)", block).group(1)
         self.verified[ko] = self.verified.get(ko, 0) + 1
         if ko == "학교에 가요." and self.verified[ko] == 1:
-            return {"ok": False, "problems": ["テストの不合格"], "bad_ko_variants": [], "bad_ja_variants": []}
-        return {"ok": True, "problems": [], "bad_ko_variants": [], "bad_ja_variants": ["別訳"]}
+            return {"ok": False, "problems": ["テストの不合格"], "grammar": [], "bad_ko_variants": [], "bad_ja_variants": []}
+        grammar = ["-(으)세요"] if "주세요" in ko else ["-아/어요"]
+        return {"ok": True, "problems": [], "grammar": grammar, "bad_ko_variants": [], "bad_ja_variants": ["別訳"]}
 
 
 def test_pipeline_from_list_to_content(tmp_path):
@@ -195,6 +196,7 @@ def test_pipeline_from_list_to_content(tmp_path):
     assert "우유 마셔요." not in by_ko and by_ko["물 마셔요."].status == "approved"
     assert by_ko["학교에 가요."].status == "approved"  # 1 回目は不合格、作り直して合格
     assert by_ko["물 주세요."].variants["ja"] == []  # 検算で取り除いた許容例
+    assert by_ko["물 주세요."].grammar == ("-(으)세요",)  # 検算が直した文法の表示
     assert by_ko["물 주세요."].word_ids == [words["물"].id, words["주다"].id]
     approved = content.load(tmp_path, "ko")
     assert "커피 마셔요." not in {s.ko for s in approved.sentences}  # 要確認の単語を含む文は出さない

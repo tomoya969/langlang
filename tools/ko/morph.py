@@ -26,6 +26,9 @@ CONTENT_TAGS = {"NNG", "NNP", "NNB", "NP", "NR", "VV", "VA", "VCN", "MM", "MAG",
 PREDICATE_TAGS = {"VV", "VA", "VX", "VCN"}
 # 前の形態素とつながって 1 つの語になるもの（공부＋하 → 공부하다、회사＋원 → 회사원）
 JOINING_TAGS = {"XSN", "XSV", "XSA", "NNG", "XR"}
+# Kiwi は縮約形を元の形に戻す（이게 → 이것＋이）。見出しには縮約した形（이거）もあるので、同じ語として扱う
+_SAME_WORDS = {"이것": "이거", "그것": "그거", "저것": "저거", "것": "거", "무엇": "뭐"}
+SAME_WORDS = {**_SAME_WORDS, **{v: k for k, v in _SAME_WORDS.items()}}
 EXPRESSION_POS = "表現"
 # 数詞の合成を分けるときに使う品詞。열두 시 の 두 のように、数を表す冠形詞（한・두・세・네）も合成に入る
 NUMERAL_POS = ("数詞", "冠形詞")
@@ -137,16 +140,14 @@ class Analyzer:
         for i, token in enumerate(tokens):
             if i in expression_spans:
                 continue
-            referenced = [normalize(lexicon.allowed[w]["lemma"]) for w in token["word_ids"] if w in lexicon.allowed]
             morphs = by_eojeol[i]
             for j, m in enumerate(morphs):
+                referenced = _referenced(token, lexicon)
                 if m.tag not in CONTENT_TAGS or any(m.form in lemma for lemma in referenced):
                     continue
                 problem = self._unlisted(m, _candidates(morphs, j), token, i, lexicon, result)
                 if problem:
                     result.problems.append(problem)
-                else:
-                    referenced = [normalize(lexicon.allowed[w]["lemma"]) for w in token["word_ids"] if w in lexicon.allowed]
         return result
 
     @staticmethod
@@ -177,6 +178,12 @@ class Analyzer:
         return f"単語の一覧にない語「{candidates[0] if candidates else m.form}」を使っている"
 
 
+def _referenced(token: dict[str, Any], lexicon: Lexicon) -> list[str]:
+    """語節の word_ids の単語の見出し（同じ語として扱う縮約形も含む）。"""
+    lemmas = [normalize(lexicon.allowed[w]["lemma"]) for w in token["word_ids"] if w in lexicon.allowed]
+    return lemmas + [SAME_WORDS[lemma] for lemma in lemmas if lemma in SAME_WORDS]
+
+
 def _candidates(morphs: list[Morph], index: int) -> list[str]:
     """index の形態素から始まる語の原形の候補。長くつながったものから順に（공부하다 → 공부）。"""
     m = morphs[index]
@@ -191,7 +198,8 @@ def _candidates(morphs: list[Morph], index: int) -> list[str]:
         text += nxt.form
         end = nxt.start + len(nxt.form)
         found.append(text + "다" if nxt.tag in ("XSV", "XSA") else text)
-    return [normalize(c) for c in reversed(found)]
+    result = [normalize(c) for c in reversed(found)]
+    return result + [SAME_WORDS[c] for c in result if c in SAME_WORDS]
 
 
 def _found(lemma: str, surface: str, morphs: list[Morph]) -> bool:

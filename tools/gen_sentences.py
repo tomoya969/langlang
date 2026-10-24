@@ -24,7 +24,7 @@ from tools.assign_levels import IDS, LEVEL_REST, RANKING, layout
 from tools.batch import BadOutput
 from tools.enrich_words import ENRICH
 from tools.ko.morph import Lexicon, normalize
-from tools.verify_sentences import Checker, ai_check, clean, drop_variants
+from tools.verify_sentences import Checker, ai_check, apply_fixes, clean
 from tools.verify_words import VERIFY_WORDS
 from tools.work import BuildError, Workspace, fingerprint, now_iso
 
@@ -226,7 +226,7 @@ class UnitBuilder:
         for s in targets:
             verdict = verdicts[f"s{s['slot']}"]
             if verdict["ok"]:
-                drop_variants(s, verdict)
+                apply_fixes(s, verdict)
                 s.update(status=APPROVED, problems=[])
             else:
                 s.update(checked=False, problems=verdict["problems"] or ["検算で不合格（理由なし）"])
