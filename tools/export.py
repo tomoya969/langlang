@@ -23,7 +23,8 @@ from tools.verify_words import VERIFY_WORDS, origin_of, problems, suggestion
 from tools.work import Workspace, now_iso, write_json
 
 REPORT = "report.md"
-HANJA_ORIGINS = ("漢字語", "混種語")
+# 漢字表記が要る語種。混種語は 카톡하다（外来語＋하다）のように漢字を含まないこともあるので入れない
+HANJA_ORIGINS = ("漢字語",)
 
 
 def run(ws: Workspace, level: int = 1) -> str:
