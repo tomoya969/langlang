@@ -62,11 +62,11 @@ def test_validate_rejects_duplicate_ids(tmp_path):
         content.load(tmp_path, "ko")
 
 
-def test_repo_test_content_is_consistent():
-    """リポジトリのテストデータ（content/ko/）が整合していること。"""
+def test_repo_content_is_consistent():
+    """リポジトリの教材（content/ko/）が整合していること。"""
     loaded = content.load(REPO_ROOT, "ko")
-    assert len(loaded.units) == 3
-    assert loaded.words and loaded.sentences
+    assert loaded.units and loaded.words and loaded.sentences
     for w in loaded.words:
         if w.origin == "漢字語":
             assert w.hanja, f"漢字語に漢字表記がありません: {w.lemma}"
+        assert sum(1 for m in w.meanings if m.get("primary")) == 1, f"主な意味がちょうど 1 つではありません: {w.lemma}"

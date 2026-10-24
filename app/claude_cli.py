@@ -34,7 +34,8 @@
 - `ANTHROPIC_API_KEY`        設定されていたら中断する（API 課金に切り替わるため）
 
 失敗したときの ClaudeError は、str() が画面に出せる短い文（認証切れなら /login の案内など）、
-`detail` が claude の生の出力（ログや折りたたみ表示用）。
+`detail` が claude の生の出力（ログや折りたたみ表示用）、`kind` が失敗の種類（教材づくりで、
+やり直すか止めるかを決めるのに使う）。
 """
 
 from __future__ import annotations
@@ -82,12 +83,23 @@ PURPOSE_DEFAULTS: dict[str, tuple[str, str | None]] = {
 AskFn = Callable[[str, dict], dict[str, Any]]
 
 
-class ClaudeError(Exception):
-    """claude の呼び出しに失敗した。str() は画面に出せる短い文、detail は生の出力（なければ None）。"""
+KIND_AUTH = "auth"
+KIND_USAGE_LIMIT = "usage_limit"
+KIND_OVERLOADED = "overloaded"
+KIND_MODEL = "model"
+KIND_NETWORK = "network"
+# 時間をおくか設定を直すまで、何度呼んでも失敗する種類
+STOPPING_KINDS = (KIND_AUTH, KIND_USAGE_LIMIT, KIND_MODEL)
 
-    def __init__(self, message: str, detail: str | None = None):
+
+class ClaudeError(Exception):
+    """claude の呼び出しに失敗した。str() は画面に出せる短い文、detail は生の出力（なければ None）、
+    kind は失敗の種類（KIND_*。分からなければ None）。"""
+
+    def __init__(self, message: str, detail: str | None = None, kind: str | None = None):
         super().__init__(message)
         self.detail = detail
+        self.kind = kind
 
 
 @dataclass(frozen=True)
@@ -223,38 +235,48 @@ def parse_result(stdout: str) -> dict[str, Any]:
 
 # ---- 失敗の説明 ----
 
-_FAILURE_HINTS: list[tuple[re.Pattern[str], str]] = [
+_FAILURE_HINTS: list[tuple[re.Pattern[str], str, str]] = [
     (
         re.compile(
             r"failed to authenticate|authentication_error|invalid api key|oauth token has expired"
             r"|not logged in|please run /login|\b401\b",
             re.IGNORECASE,
         ),
+        KIND_AUTH,
         "claude にログインしていないか、ログインの期限が切れています。ターミナルで claude を起動して /login してください",
     ),
     (
         re.compile(r"usage limit|rate[ _]limit|limit reached|\b429\b", re.IGNORECASE),
+        KIND_USAGE_LIMIT,
         "Claude の利用枠の上限に達しました。上限がリセットされてから、もう一度実行してください",
     ),
     (
         re.compile(r"overloaded|\b529\b", re.IGNORECASE),
+        KIND_OVERLOADED,
         "Anthropic のサーバーが混み合っています。少し待ってから、もう一度実行してください",
     ),
     (
         re.compile(r"not_found_error|model.{0,40}(not found|not available|invalid)|invalid model", re.IGNORECASE),
+        KIND_MODEL,
         "指定したモデルを使えません。LANGLANG_CLAUDE_MODEL などのモデルの設定を確認してください",
     ),
     (
         re.compile(r"ENOTFOUND|ECONNREFUSED|ETIMEDOUT|connection error|fetch failed|network", re.IGNORECASE),
+        KIND_NETWORK,
         "Anthropic に接続できません。ネットワークを確認してください",
     ),
 ]
 
 
 def explain_failure(raw: str) -> str | None:
-    for pattern, hint in _FAILURE_HINTS:
+    found = _classify(raw)
+    return found[1] if found else None
+
+
+def _classify(raw: str) -> tuple[str, str] | None:
+    for pattern, kind, hint in _FAILURE_HINTS:
         if pattern.search(raw):
-            return hint
+            return kind, hint
     return None
 
 
@@ -262,14 +284,13 @@ def failure(what: str, raw: str) -> ClaudeError:
     """生の出力を detail に残し、画面向けには短い文だけを持つ ClaudeError を作る。"""
     raw = (raw or "").strip()
     summary = _result_text(raw) or raw
-    hint = explain_failure(summary) or explain_failure(raw)
-    if hint:
-        message = hint
-    elif summary:
-        message = f"{what}: {_one_line(summary, 160)}"
+    found = _classify(summary) or _classify(raw)
+    if found:
+        kind, message = found
     else:
-        message = what
-    return ClaudeError(message, detail=raw[:4000] or None)
+        kind = None
+        message = f"{what}: {_one_line(summary, 160)}" if summary else what
+    return ClaudeError(message, detail=raw[:4000] or None, kind=kind)
 
 
 # ---- helpers ----

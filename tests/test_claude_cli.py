@@ -91,5 +91,9 @@ def test_parse_result_errors():
         parse_result("not json")
     with pytest.raises(ClaudeError, match="structured_output"):
         parse_result(json.dumps({"type": "result", "result": "text only"}))
-    with pytest.raises(ClaudeError, match="利用枠"):
+    with pytest.raises(ClaudeError, match="利用枠") as info:
         parse_result(json.dumps({"type": "result", "is_error": True, "result": "usage limit reached"}))
+    assert info.value.kind == claude_cli.KIND_USAGE_LIMIT
+    with pytest.raises(ClaudeError) as info:
+        parse_result(json.dumps({"type": "result", "is_error": True, "result": "something odd"}))
+    assert info.value.kind is None
