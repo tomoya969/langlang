@@ -9,7 +9,7 @@
     langlang-build grammar [--level 1]        文法リストを作る（AI）
     langlang-build enrich [--level 1]         詳しい付与（AI）
     langlang-build verify-words [--level 1]   単語の検算（AI）
-    langlang-build sentences [--level 1] [--units L1-U01,L1-U02]   文の生成と検算（AI）
+    langlang-build sentences [--level 1] [--units L1-U01,L1-U02] [--recheck]   文の生成と検算（AI）
     langlang-build export [--level 1]         content/ko/ に書き出す
     langlang-build all [--level 1]            上を順に全部
 
@@ -102,6 +102,9 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--level", type=int, default=1)
         p.add_argument("--parallel", type=int, default=3)
         p.add_argument("--units", help="作るユニット（カンマ区切り。既定: すべて）")
+    sub.choices["sentences"].add_argument(
+        "--recheck", action="store_true", help="機械の検算で要確認になった文を、今の検算で確かめ直してから進める"
+    )
     return parser
 
 
@@ -125,6 +128,8 @@ def steps_for(args: argparse.Namespace) -> list[tuple[str, Step]]:
         "sentences": lambda ws: gen_sentences.run(ws, asker("enrich"), asker("verify"), level, unit_ids, parallel),
         "export": lambda ws: export.run(ws, level),
     }
+    if args.command == "sentences" and args.recheck:
+        return [("recheck", lambda ws: gen_sentences.recheck(ws, level, unit_ids)), ("sentences", steps["sentences"])]
     if args.command == "all":
         # 取り込み済みなら元のリストがなくても続けられるように、取り込みは候補がないときだけ
         steps["import"] = lambda ws: "済み" if ws.exists(import_nikl.CANDIDATES) else import_nikl.run(ws)

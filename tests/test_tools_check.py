@@ -30,8 +30,17 @@ WORDS = {
     "w-이름": {"lemma": "이름", "pos": "名詞"},
     "w-이거": {"lemma": "이거", "pos": "代名詞"},
     "w-뭐": {"lemma": "뭐", "pos": "代名詞"},
+    "w-하다": {"lemma": "하다", "pos": "動詞"},
+    "w-결혼": {"lemma": "결혼", "pos": "名詞"},
+    "w-역사": {"lemma": "역사", "pos": "名詞"},
+    "w-책": {"lemma": "책", "pos": "名詞"},
+    "w-읽다": {"lemma": "읽다", "pos": "動詞"},
+    "w-없다": {"lemma": "없다", "pos": "形容詞"},
 }
-LEXICON = Lexicon(allowed=WORDS, known={"사과": "L1-U09「果物」で出る語", "이것": "L1-U03「お店で買い物」で出る語"})
+LEXICON = Lexicon(
+    allowed=WORDS,
+    known={"사과": "L1-U09「果物」で出る語", "이것": "L1-U03「お店で買い物」で出る語", "수": "L4 候補の語"},
+)
 UNIT = {"w-물", "w-커피", "w-마시다", "w-공부하다", "w-차1", "w-스물", "w-다섯", "w-안녕히가세요"}
 
 
@@ -71,6 +80,57 @@ def test_contracted_demonstrative_counts_as_the_listed_word(checker):
     s = sentence("이게 뭐예요?", [("이게", []), ("뭐예요", ["w-뭐"])])
     checker.check(s, LEXICON, UNIT)
     assert s["tokens"][0]["word_ids"] == ["w-이거"]
+
+
+def test_noun_with_hada_suffix_may_list_hada(checker):
+    # 결혼했어요 の 하 は Kiwi では接尾辞（XSV）だが、単語の 하다 を付けてよい
+    s = sentence("오월에 결혼했어요.", [("오월에", []), ("결혼했어요", ["w-결혼", "w-하다"])], eojeol=1)
+    assert not any("見当たらない" in p for p in checker.check(s, LEXICON, UNIT))
+
+
+def test_dependent_noun_in_grammar_and_compound_noun(checker):
+    # -(으)ㄹ 수 없다 の 수 は文法の一部。L4 の「수（数）」と取り違えない
+    s = sentence("역사책을 읽을 수 없어요.", [("역사책을", []), ("읽을", ["w-읽다"]), ("수", []), ("없어요", ["w-없다"])])
+    problems = checker.check(s, LEXICON, UNIT)
+    assert not any("수" in p or "역사책" in p for p in problems)
+    assert s["tokens"][0]["word_ids"] == ["w-역사", "w-책"]
+
+
+@pytest.mark.parametrize(
+    "ko, target, lemma",
+    [
+        ("부모님이 거기 사세요.", "사세요", "살다"),  # ㄹ が落ちる活用。Kiwi は 사다 と読む
+        ("할머니는 안 계세요.", "계세요", "계시다"),  # 尊敬の -시- が縮まった形
+        ("할머니는 지금 집에 계세요?", "계세요", "계시다"),  # 文によっては Kiwi が 계세＋요 と読む
+        ("할머니께서 많이 잡수셨어요.", "잡수셨어요", "잡수시다"),
+        ("말씀 좀 물어볼게요.", "물어볼게요", "물어보다"),  # 文の中では 묻＋보 に分かれる
+        ("밤에 들어와도 돼요?", "들어와도", "들어오다"),
+        ("이 핸드폰은 어때요?", "어때요", "어떠하다"),  # Kiwi では 어떻다
+    ],
+)
+def test_conjugated_predicates_are_found(checker, ko, target, lemma):
+    words = {
+        **WORDS,
+        "w-x": {"lemma": lemma, "pos": "動詞"},
+        "w-사다": {"lemma": "사다", "pos": "動詞"},
+        "w-부모님": {"lemma": "부모님", "pos": "名詞"},
+        "w-할머니": {"lemma": "할머니", "pos": "名詞"},
+        "w-안": {"lemma": "안", "pos": "副詞"},
+        "w-많이": {"lemma": "많이", "pos": "副詞"},
+        "w-말씀": {"lemma": "말씀", "pos": "名詞"},
+        "w-좀": {"lemma": "좀", "pos": "副詞"},
+        "w-밤": {"lemma": "밤", "pos": "名詞"},
+        "w-되다": {"lemma": "되다", "pos": "動詞"},
+        "w-거기": {"lemma": "거기", "pos": "代名詞"},
+        "w-핸드폰": {"lemma": "핸드폰", "pos": "名詞"},
+        "w-지금": {"lemma": "지금", "pos": "副詞"},
+        "w-집": {"lemma": "집", "pos": "名詞"},
+    }
+    lexicon = Lexicon(allowed=words, known={})
+    s = sentence(ko, [(e, ["w-x"] if e == target else []) for e, _, _ in eojeols(ko)])
+    problems = checker.check(s, lexicon, {"w-x"})
+    assert not any("見当たらない" in p or "一覧にない" in p for p in problems), problems
+    assert "w-사다" not in {w for t in s["tokens"] for w in t["word_ids"]}
 
 
 def test_word_from_later_unit_is_a_problem(checker):

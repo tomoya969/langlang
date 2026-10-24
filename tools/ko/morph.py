@@ -9,8 +9,8 @@
 
 Kiwi の分け方と単語の見出しは食い違うことがあるので、確かな誤りだけを問題にする。
 - 人名などの固有名詞（NNP）で、単語の一覧にないものは名前として許す
-- 依存名詞（NNB。-(으)ㄹ 수 있다 の 수 など文法の一部になる）は、一覧にないものは見ない
-- 数詞の合成（스물다섯、삼십오）は、使ってよい数詞に分けられれば許す
+- 依存名詞（NNB。-(으)ㄹ 수 있다 の 수 など文法の一部になる）は、使ってよい単語にないものは見ない
+- 数詞の合成（스물다섯、삼십오）と名詞の合成（역사책）は、使ってよい語に分けられれば許す
 - 表現（あいさつなど）は、文の中にその形があればよい
 """
 
@@ -23,15 +23,27 @@ from functools import cached_property
 from typing import Any
 
 CONTENT_TAGS = {"NNG", "NNP", "NNB", "NP", "NR", "VV", "VA", "VCN", "MM", "MAG", "MAJ", "IC", "XR"}
-PREDICATE_TAGS = {"VV", "VA", "VX", "VCN"}
+# 原形に「다」を付ける形態素。결혼했어요 の 하（XSV）も、単語の 하다 として word_ids に付けてよい
+PREDICATE_TAGS = {"VV", "VA", "VX", "VCN", "XSV", "XSA"}
 # 前の形態素とつながって 1 つの語になるもの（공부＋하 → 공부하다、회사＋원 → 회사원）
 JOINING_TAGS = {"XSN", "XSV", "XSA", "NNG", "XR"}
-# Kiwi は縮約形を元の形に戻す（이게 → 이것＋이）。見出しには縮約した形（이거）もあるので、同じ語として扱う
-_SAME_WORDS = {"이것": "이거", "그것": "그거", "저것": "저거", "것": "거", "무엇": "뭐"}
+# Kiwi は縮約形を元の形に戻す（이게 → 이것＋이）。見出しには縮約した形（이거）もあるので、同じ語として扱う。
+# 어때요 は Kiwi では 어떻다、国立国語院の見出しでは 어떠하다
+_SAME_WORDS = {
+    "이것": "이거", "그것": "그거", "저것": "저거", "것": "거", "무엇": "뭐",
+    "어떻다": "어떠하다", "이렇다": "이러하다", "그렇다": "그러하다", "저렇다": "저러하다",
+}
 SAME_WORDS = {**_SAME_WORDS, **{v: k for k, v in _SAME_WORDS.items()}}
 EXPRESSION_POS = "表現"
+# word_ids の用言が語節にあれば、その語節の用言はそれで覆われたものとする（사세요 の 사 を 사다 と取り違えない）
+COVERED_PREDICATE_TAGS = {"VV", "VA", "VCN"}
+# Kiwi が文の中で 1 つに決め打ちした解析で見つからないとき、語節だけを解析し直して上位いくつまで見るか
+ALTERNATIVES = 5
+_RIEUL = 8  # ハングルの音節の終声 ㄹ の番号
+_HONORIFIC = "세셨시십실신셔"  # 尊敬の -시- が語尾と縮まった音節（계세요、잡수셨어요）
 # 数詞の合成を分けるときに使う品詞。열두 시 の 두 のように、数を表す冠形詞（한・두・세・네）も合成に入る
 NUMERAL_POS = ("数詞", "冠形詞")
+NOUN_POS = ("名詞", "依存名詞", "固有名詞")
 
 _EDGE_PUNCT = re.compile(r"^[\s.,?!。、？！…·:;\"'“”‘’()\[\]「」~]+|[\s.,?!。、？！…·:;\"'“”‘’()\[\]「」~]+$")
 
@@ -85,6 +97,15 @@ class Lexicon:
                     found.setdefault(normalize(word["lemma"]), wid)
         return found
 
+    @cached_property
+    def nouns(self) -> dict[str, str]:
+        """合成語を分けるのに使う名詞。同じ綴りの名詞が複数あるもの（どれか決められない）は入れない。"""
+        found: dict[str, list[str]] = {}
+        for wid, word in self.allowed.items():
+            if word["pos"] in NOUN_POS:
+                found.setdefault(normalize(word["lemma"]), []).append(wid)
+        return {lemma: ids[0] for lemma, ids in found.items() if len(ids) == 1}
+
 
 @dataclass
 class Check:
@@ -100,6 +121,14 @@ class Analyzer:
 
     def morphs(self, text: str) -> list[Morph]:
         return [Morph(t.form, t.tag.split("-")[0], t.start) for t in self.kiwi.tokenize(text)]
+
+    def alternatives(self, surface: str) -> set[str]:
+        """語節だけを解析したときの、上位の解析すべての原形の候補（물어볼게요 → 물어보다 など）。"""
+        found: set[str] = set()
+        for tokens, _ in self.kiwi.analyze(surface, top_n=ALTERNATIVES):
+            morphs = [Morph(t.form, t.tag.split("-")[0], t.start) for t in tokens]
+            found |= {c for j in range(len(morphs)) for c in _candidates(morphs, j)}
+        return found
 
     def check(self, sentence: dict[str, Any], lexicon: Lexicon) -> Check:
         """sentence の ko と tokens を確かめる。直せる word_ids の抜けは sentence["tokens"] を書き換えて直す。"""
@@ -123,7 +152,8 @@ class Analyzer:
                     break
 
         sentence_text = normalize(ko)
-        expression_spans: set[int] = set()
+        # 表現が覆う語節と、Kiwi の最上位の解析とは別の読みで単語が見つかった語節。どちらも残りの形態素は問わない
+        settled: set[int] = set()
         for i, token in enumerate(tokens):
             for wid in token["word_ids"]:
                 word = lexicon.allowed.get(wid)
@@ -133,17 +163,23 @@ class Analyzer:
                     lemma = normalize(word["lemma"])
                     if lemma not in sentence_text:
                         result.problems.append(f"表現「{word['lemma']}」がそのままの形で文にない")
-                    expression_spans |= {j for j, (s, _, _) in enumerate(spans) if s in lemma or lemma in s}
-                elif not _found(word["lemma"], spans[i][0], by_eojeol[i]):
+                    settled |= {j for j, (s, _, _) in enumerate(spans) if s in lemma or lemma in s}
+                elif _found(word["lemma"], spans[i][0], by_eojeol[i]):
+                    continue
+                elif _conjugated(word["lemma"], spans[i][0]) or normalize(word["lemma"]) in self.alternatives(spans[i][0]):
+                    settled.add(i)
+                else:
                     result.problems.append(f"「{spans[i][0]}」に単語 {word['lemma']}（{wid}）が見当たらない")
 
         for i, token in enumerate(tokens):
-            if i in expression_spans:
+            if i in settled:
                 continue
             morphs = by_eojeol[i]
             for j, m in enumerate(morphs):
                 referenced = _referenced(token, lexicon)
                 if m.tag not in CONTENT_TAGS or any(m.form in lemma for lemma in referenced):
+                    continue
+                if m.tag in COVERED_PREDICATE_TAGS and any(lemma.endswith("다") for lemma in referenced):
                     continue
                 problem = self._unlisted(m, _candidates(morphs, j), token, i, lexicon, result)
                 if problem:
@@ -161,9 +197,11 @@ class Analyzer:
                 return None
             if len(ids) > 1:
                 return f"word_ids が足りない:「{m.form}」（同じ綴りの単語が複数あるので、どれか決められない）"
-        if m.tag == "NR":
-            parts = _split_numeral(normalize(m.form), lexicon.numerals)
-            if parts is not None:
+        if m.tag == "NNB":
+            return None
+        if m.tag in ("NR", "NNG"):
+            parts = _split(normalize(m.form), lexicon.numerals if m.tag == "NR" else lexicon.nouns)
+            if parts is not None and (m.tag == "NR" or len(parts) > 1):
                 for wid in parts:
                     if wid not in token["word_ids"]:
                         token["word_ids"].append(wid)
@@ -173,7 +211,7 @@ class Analyzer:
             where = lexicon.known.get(lemma)
             if where:
                 return f"まだ出ていない単語「{lemma}」を使っている（{where}）"
-        if m.tag in ("NNP", "NNB"):
+        if m.tag == "NNP":
             return None
         return f"単語の一覧にない語「{candidates[0] if candidates else m.form}」を使っている"
 
@@ -213,14 +251,28 @@ def _found(lemma: str, surface: str, morphs: list[Morph]) -> bool:
     return stem in normalize(surface)
 
 
-def _split_numeral(text: str, numerals: dict[str, str]) -> list[str] | None:
-    """数詞の合成（스물다섯、삼십오）を、使ってよい数詞に分ける。分けられなければ None。"""
+def _conjugated(lemma: str, surface: str) -> bool:
+    """Kiwi が別の語と読みやすい活用の形か（살다 → 사세요、계시다 → 계세요）。"""
+    lemma = normalize(lemma)
+    surface = normalize(surface)
+    if not lemma.endswith("다") or len(lemma) < 2:
+        return False
+    stem = lemma[:-1]
+    last = ord(stem[-1]) - 0xAC00
+    if 0 <= last < 11172 and last % 28 == _RIEUL and surface.startswith(stem[:-1] + chr(ord(stem[-1]) - _RIEUL)):
+        return True  # ㄹ 語幹の ㄹ が落ちる活用（살다 → 사세요）
+    base = lemma[:-2]
+    return lemma.endswith("시다") and bool(base) and surface.startswith(base) and surface[len(base) : len(base) + 1] in _HONORIFIC
+
+
+def _split(text: str, parts: dict[str, str]) -> list[str] | None:
+    """合成語（스물다섯、역사책）を、使ってよい語（parts の見出し → id）に分ける。分けられなければ None。"""
     if not text:
         return []
     for size in range(len(text), 0, -1):
-        wid = numerals.get(text[:size])
+        wid = parts.get(text[:size])
         if wid:
-            rest = _split_numeral(text[size:], numerals)
+            rest = _split(text[size:], parts)
             if rest is not None:
                 return [wid, *rest]
     return None

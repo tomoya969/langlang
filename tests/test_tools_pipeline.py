@@ -212,3 +212,15 @@ def test_pipeline_from_list_to_content(tmp_path):
     gen_sentences.run(ws, ai, ai, 1)
     assert len(ai.calls) == before
     assert (ws.dir / "report.md").read_text(encoding="utf-8").startswith("# 教材づくりの報告（L1）")
+
+    # 機械の検算で要確認になった文は、検算を直したあとに --recheck で AI の検算に回せる
+    path = gen_sentences.unit_path("L1-U02")
+    state = ws.read(path)
+    target = next(s for s in state["sentences"] if s["ko"] == "물 주세요.")
+    target.update(status="needs_review", failures=2, checked=False, problems=["機械の誤検出"], failed_by="machine")
+    state["status"] = "done"
+    ws.write(path, state)
+    assert "1 文" in gen_sentences.recheck(ws, 1)
+    gen_sentences.run(ws, ai, ai, 1)
+    assert next(s for s in ws.read(path)["sentences"] if s["ko"] == "물 주세요.")["status"] == "approved"
+    assert ai.calls[-1] == "verify-sentences"

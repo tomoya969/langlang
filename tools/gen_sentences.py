@@ -8,10 +8,13 @@
 
 ユニットの途中の状態は AI を呼ぶたびに work/sentences/<ユニット>.json に残す。止まっても、再実行すれば続きから進む。
 文の id はユニットの中の枠の番号（slot）で決まり、作り直しても同じ枠なら変わらない。
+落ちた文には、どちらの検算で落ちたか（failed_by）を残す。機械の検算を直したら、--recheck で
+機械の検算で要確認になった文だけを確かめ直し、通った文を AI の検算に回せる。
 """
 
 from __future__ import annotations
 
+import copy
 import logging
 import math
 from dataclasses import dataclass
@@ -44,6 +47,8 @@ APPROVED = "approved"
 NEEDS_REVIEW = "needs_review"
 STATE_WORKING = "working"
 STATE_DONE = "done"
+FAILED_BY_MACHINE = "machine"
+FAILED_BY_AI = "ai"
 
 
 def sentence_count(word_count: int) -> int:
@@ -227,9 +232,9 @@ class UnitBuilder:
             verdict = verdicts[f"s{s['slot']}"]
             if verdict["ok"]:
                 apply_fixes(s, verdict)
-                s.update(status=APPROVED, problems=[])
+                s.update(status=APPROVED, problems=[], failed_by=None)
             else:
-                s.update(checked=False, problems=verdict["problems"] or ["検算で不合格（理由なし）"])
+                s.update(checked=False, problems=verdict["problems"] or ["検算で不合格（理由なし）"], failed_by=FAILED_BY_AI)
         self.save()
         return True
 
@@ -308,7 +313,7 @@ class UnitBuilder:
     def _fill(self, sentence: dict[str, Any], raw: dict[str, Any]) -> None:
         sentence.update(clean(raw))
         problems = self.checker.check(sentence, self.lexicon, self.unit_ids)
-        sentence.update(checked=not problems, problems=problems)
+        sentence.update(checked=not problems, problems=problems, failed_by=FAILED_BY_MACHINE if problems else None)
 
     @staticmethod
     def _covered(sentences: list[dict[str, Any]], statuses: tuple[str, ...]) -> set[str]:
@@ -317,6 +322,39 @@ class UnitBuilder:
 
 def _ids(sentence: dict[str, Any]) -> set[str]:
     return {w for t in sentence.get("tokens", []) for w in t["word_ids"]}
+
+
+def recheck(ws: Workspace, level: int = 1, unit_ids: list[str] | None = None) -> str:
+    """機械の検算で要確認になった文を、今の機械の検算で確かめ直す。
+
+    通った文は AI の検算待ちに戻す（作り直しはしない。AI の検算で落ちたらそのまま要確認）。
+    """
+    ctx = Context.load(ws, level)
+    checker = Checker()
+    reopened = 0
+    for unit in ctx.units:
+        if unit_ids and unit["id"] not in unit_ids:
+            continue
+        state = ws.read(unit_path(unit["id"]))
+        if not state or state.get("fingerprint") != unit_fingerprint(ctx, unit):
+            continue
+        lexicon = ctx.lexicon(unit)
+        unit_word_ids = {w["id"] for w in ctx.unit_words(unit)}
+        found = 0
+        for s in state["sentences"]:
+            if s["status"] != NEEDS_REVIEW or s.get("failed_by") != FAILED_BY_MACHINE:
+                continue
+            trial = copy.deepcopy(s)
+            if checker.check(trial, lexicon, unit_word_ids):
+                continue
+            s.update(trial, status=PENDING, checked=True, problems=[], failed_by=None, failures=MAX_FAILURES - 1)
+            found += 1
+        if found:
+            state["status"] = STATE_WORKING
+            state["updated_at"] = now_iso()
+            ws.write(unit_path(unit["id"]), state)
+            reopened += found
+    return f"機械の検算で要確認になっていた文のうち {reopened} 文が、今の検算を通りました（AI の検算に回します）"
 
 
 def build_unit(ctx: Context, unit: dict[str, Any], checker: Checker, ask_write: AskFn, ask_check: AskFn) -> dict[str, Any]:
