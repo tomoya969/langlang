@@ -87,7 +87,7 @@ class FakeAI:
     def _tag(key):
         return {
             "hanken": "5級",
-            "origin": "漢字語" if key == "학교" else "固有語",
+            "origin": "漢字語" if key in ("학교", "네03") else "固有語",
             "pos": "表現" if key.startswith("s:") else "名詞",
             "ja_cognate": key == "학교",
             "exclude": "固有名詞" if key == "부산" else "なし",
@@ -110,10 +110,10 @@ class FakeAI:
         return {
             "meaning_ok": not bad,
             "hanja_ok": True,
-            "origin_ok": True,
+            "origin_ok": key != "네03",
             "suggested_meaning": "コーヒー（飲み物）" if bad else "",
             "suggested_hanja": "",
-            "suggested_origin": "",
+            "suggested_origin": "固有語" if key == "네03" else "",
             "note": "",
         }
 
@@ -185,6 +185,7 @@ def test_pipeline_from_list_to_content(tmp_path):
     assert words["안녕하세요"].unit == "L1-U01" and words["안녕하세요"].pos == "表現"
     assert words["학교"].hanja == "学校"
     assert words["네"].meanings[0]["primary"] is True
+    assert words["네"].origin == "固有語" and words["네"].status == "approved"  # 語種だけの食い違いは検算の案に直す
     assert words["커피"].status == "needs_review"
     assert words["커피"].raw["review"]["proposals"][1]["meaning"] == "コーヒー（飲み物）"
     assert words["커피"].confusables == (words["물"].id,)

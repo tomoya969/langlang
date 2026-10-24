@@ -19,7 +19,7 @@ from tools.enrich_words import ENRICH
 from tools.gen_sentences import APPROVED, NEEDS_REVIEW, STATE_DONE, unit_path
 from tools.ko.morph import normalize
 from tools.tag_candidates import TAGS
-from tools.verify_words import VERIFY_WORDS, problems, suggestion
+from tools.verify_words import VERIFY_WORDS, origin_of, problems, suggestion
 from tools.work import Workspace, now_iso, write_json
 
 REPORT = "report.md"
@@ -69,6 +69,8 @@ def build_words(ws: Workspace, level: int, units: list[dict[str, Any]]) -> list[
             if key not in enrich:
                 continue
             c, e, tag = by_key[key], enrich[key], tags[key]
+            result = verified.get(key)
+            origin = origin_of(result, tag["origin"])
             word: dict[str, Any] = {
                 "id": ids[key],
                 "lemma": c["lemma"],
@@ -77,7 +79,7 @@ def build_words(ws: Workspace, level: int, units: list[dict[str, Any]]) -> list[
                 "unit": unit["id"],
                 "order": order,
                 "meanings": e["meanings"],
-                "origin": tag["origin"],
+                "origin": origin,
                 "hanja": e["hanja"],
                 "confusables": e["confusables"],
                 "synonyms": e["synonyms"],
@@ -88,10 +90,9 @@ def build_words(ws: Workspace, level: int, units: list[dict[str, Any]]) -> list[
                 "score": ranking[key]["score"],
                 "status": "draft",
             }
-            result = verified.get(key)
             if result and result.get("of"):
                 found = problems(result)
-                if not found and tag["origin"] in HANJA_ORIGINS and not e["hanja"]:
+                if not found and origin in HANJA_ORIGINS and not e["hanja"]:
                     found = ["漢字（漢字語なのに漢字がない）"]
                 word["status"] = "needs_review" if found else "approved"
                 if found:
@@ -220,6 +221,14 @@ def write_report(
         lines += ["| 文 | 訳 | 問題 |", "| --- | --- | --- |"]
         for s in review_sentences:
             lines.append(f"| {s['id']}: {s['ko']} | {s['ja']} | {' / '.join(s['review']['problems'])} |")
+    tags = ws.read(TAGS, {})
+    key_of = {wid: key for key, wid in ws.read(IDS, {}).items()}
+    fixed_origin = [
+        f"{w['lemma']}（{tags[key_of[w['id']]]['origin']} → {w['origin']}）"
+        for w in words
+        if w["origin"] != tags[key_of[w["id"]]]["origin"]
+    ]
+    lines += ["", f"## 語種を検算の案に直した語（{len(fixed_origin)} 語）", "", "、".join(fixed_origin) or "（なし）"]
     reasons = Counter(e["excluded"] for e in excluded)
     lines += ["", "## 除外した語", ""]
     for reason, count in reasons.most_common():

@@ -489,6 +489,7 @@ def build_sentences_prompt(
 - 使える単語は「このユニットの単語」と「前のユニットまでの単語」だけ。一覧にない名詞・動詞・形容詞・副詞・代名詞・数詞などは使わない
   - 人名だけは一覧になくてよい（민수、지은、다나카 など）。地名・店名・商品名などの名前は使わない
   - 助詞・語尾・이다 は文法なので一覧にない。使える文法は「使える文法」の範囲だけ
+  - 品詞が「表現」の語（あいさつなど）は、一覧の形のまま使う（活用させない・語尾を変えない）。表現の中の語尾は「使える文法」になくてよい
 - 1 つの文に入れる「このユニットの単語」は 1〜3 語
 - 日常会話で実際に言う、自然で短い文にする（2〜6 語節ほど）。その文だけで意味が分かるようにする。同じ文型ばかりにしない
 - 文体: {register_rule}
@@ -538,10 +539,10 @@ def verify_sentences_schema(keys: list[str]) -> dict:
 
 
 def build_verify_sentences_prompt(unit: dict, items: list[dict], grammar: list[dict]) -> str:
-    """items: key, ko, ja, register, grammar, words（[{lemma, meaning}]）, cloze（answer, hint_ja）, variants。"""
+    """items: key, ko, ja, register, grammar, words（[{lemma, pos, meaning}]）, cloze（answer, hint_ja）, variants。"""
     blocks = []
     for item in items:
-        words = "、".join(f"{w['lemma']}＝{w['meaning']}" for w in item["words"]) or "（なし）"
+        words = "、".join(f"{w['lemma']}（{w['pos']}）＝{w['meaning']}" for w in item["words"]) or "（なし）"
         cloze = item.get("cloze")
         blocks.append(
             f"""## {item['key']}
@@ -570,7 +571,7 @@ def build_verify_sentences_prompt(unit: dict, items: list[dict], grammar: list[d
 - ja が ko の意味を過不足なく訳しているか
 - register（文体）の表示が ko と合っているか
 - grammar の表示が、ko で実際に使っている文法か。また ko が「使える文法」にない語尾や文型を使っていないか
-  （助詞の省略など、話し言葉で自然な形はよい）
+  （助詞の省略など、話し言葉で自然な形はよい。品詞が「表現」の語（あいさつなど）の中の語尾は、決まった形なので問わない）
 - 「単語」の意味が、ko の中での使われ方と合っているか（同じ綴りの別の語と取り違えていないか）
 - 穴埋めの hint_ja が answer の意味と合っているか
 

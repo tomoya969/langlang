@@ -1,6 +1,8 @@
 """単語の検算（langlang-build verify-words。docs/plan.md 6.1 の 9）。
 
-詳しい付与とは別の呼び出しで、意味・漢字・語種を確かめる。食い違いは「要確認」にし、2 つの案を残す（6.5）。
+詳しい付与とは別の呼び出しで、意味・漢字・語種を確かめる。
+- 意味と漢字の食い違いは「要確認」にし、2 つの案を残す（6.5）
+- 語種の食い違いは、検算の案に直す（語種は粗い付与で速いモデルが付けたもので、学習の正誤には関わらないため）
 付与をやり直したら、その語の検算もやり直す（検算した付与の指紋を of に残して見比べる）。
 """
 
@@ -57,14 +59,20 @@ def _current(result: dict[str, Any] | None, enriched: dict[str, Any]) -> bool:
 
 
 def problems(result: dict[str, Any]) -> list[str]:
+    """要確認にする食い違い（意味と漢字）。"""
     found = []
     if not result["meaning_ok"]:
         found.append("意味")
     if not result["hanja_ok"]:
         found.append("漢字")
-    if not result["origin_ok"]:
-        found.append("語種")
     return found
+
+
+def origin_of(result: dict[str, Any] | None, origin: str) -> str:
+    """語種。検算が直していれば検算の案。"""
+    if result and not result["origin_ok"] and result["suggested_origin"]:
+        return result["suggested_origin"]
+    return origin
 
 
 def suggestion(result: dict[str, Any], enriched: dict[str, Any], origin: str) -> dict[str, Any]:
@@ -76,5 +84,5 @@ def suggestion(result: dict[str, Any], enriched: dict[str, Any], origin: str) ->
     return {
         "meaning": result["suggested_meaning"].strip() if not result["meaning_ok"] and result["suggested_meaning"].strip() else primary,
         "hanja": hanja,
-        "origin": result["suggested_origin"] if not result["origin_ok"] and result["suggested_origin"] else origin,
+        "origin": origin_of(result, origin),
     }

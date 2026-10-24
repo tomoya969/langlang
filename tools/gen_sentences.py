@@ -114,8 +114,8 @@ class Context:
 
     def missing_words(self, unit: dict[str, Any]) -> int:
         """そのユニットまでで、詳しい付与がまだの語の数（意味が分からないと文を作れない）。"""
-        keys = [k for u in self.units if u["order"] <= unit["order"] for k in u["keys"]]
-        return sum(1 for k in keys if not any(w["key"] == k for w in self.words.values()))
+        enriched = {w["key"] for w in self.words.values()}
+        return sum(1 for u in self.units if u["order"] <= unit["order"] for k in u["keys"] if k not in enriched)
 
 
 def _meaning(enriched: dict[str, Any], verified: dict[str, Any] | None) -> str:
