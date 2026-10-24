@@ -79,9 +79,7 @@
   "너01": {"meanings": [{"ja": "君（親しい間で）", "primary": true}, {"ja": "お前", "primary": false}], "hanja": null, "confusables": ["나", "네"], "synonyms": ["당신"], "tags": ["人"], "style": 1},
   "왜02": {"meanings": [{"ja": "なぜ", "primary": true}, {"ja": "どうして", "primary": false}], "hanja": null, "confusables": ["외"], "synonyms": ["어째서"], "tags": ["質問"], "style": 1},
   "거기01": {"meanings": [{"ja": "そこ", "primary": true}, {"ja": "あそこ（話に出た所）", "primary": false}], "hanja": null, "confusables": ["여기", "저기", "그거"], "synonyms": [], "tags": ["場所", "指示"], "style": 1},
-  "있다01": {"meanings": [{"ja": "ある", "primary": true}, {"ja": "いる", "primary": false}, {"ja": "持っている", "primary": false}], "hanja": null, "confusables": ["잇다", "잊다"], "synonyms": ["계시다"], "tags": ["基本"], "style": 1},
   "하다01": {"meanings": [{"ja": "する", "primary": true}, {"ja": "（〜と）言う", "primary": false}], "hanja": null, "confusables": ["되다"], "synonyms": [], "tags": ["基本"], "style": 1},
-  "없다01": {"meanings": [{"ja": "ない", "primary": true}, {"ja": "いない", "primary": false}], "hanja": null, "confusables": ["업다", "엎다"], "synonyms": [], "tags": ["基本"], "style": 1},
   "아니다": {"meanings": [{"ja": "〜ではない", "primary": true}, {"ja": "違う（否定）", "primary": false}], "hanja": null, "confusables": ["아니요", "안"], "synonyms": [], "tags": ["基本"], "style": 1},
   "안02": {"meanings": [{"ja": "〜ない（否定）", "primary": true}, {"ja": "〜しない", "primary": false}], "hanja": null, "confusables": ["않다", "못"], "synonyms": ["아니"], "tags": ["基本"], "style": 1},
   "좋다01": {"meanings": [{"ja": "いい", "primary": true}, {"ja": "好きだ", "primary": false}], "hanja": null, "confusables": ["좁다", "쫓다"], "synonyms": [], "tags": ["気持ち"], "style": 1},
@@ -103,7 +101,6 @@
   "저희01": {"meanings": [{"ja": "私たち（へりくだって）", "primary": true}], "hanja": null, "confusables": ["저", "제"], "synonyms": ["우리"], "tags": ["人"], "style": 1},
   "명03": {"meanings": [{"ja": "〜人（人数）", "primary": true}, {"ja": "〜名", "primary": false}], "hanja": "名", "confusables": ["몇"], "synonyms": ["사람", "분"], "tags": ["食事", "数"], "style": 1},
   "개10": {"meanings": [{"ja": "〜個", "primary": true}], "hanja": "個", "confusables": ["게"], "synonyms": [], "tags": ["食事", "数"], "style": 1},
-  "주다01": {"meanings": [{"ja": "あげる", "primary": true}, {"ja": "くれる", "primary": false}, {"ja": "与える", "primary": false}], "hanja": null, "confusables": ["죽다", "줍다"], "synonyms": ["드리다"], "tags": ["食事", "買い物"], "style": 1},
   "한01": {"meanings": [{"ja": "一つの", "primary": true}, {"ja": "約（およそ）", "primary": false}, {"ja": "ある〜", "primary": false}], "hanja": null, "confusables": ["안"], "synonyms": ["하나", "일"], "tags": ["数"], "style": 1},
   "두01": {"meanings": [{"ja": "二つの", "primary": true}], "hanja": null, "confusables": ["두다", "도"], "synonyms": ["둘", "이"], "tags": ["数"], "style": 1},
   "하나": {"meanings": [{"ja": "一つ", "primary": true}, {"ja": "1", "primary": false}], "hanja": null, "confusables": ["하루"], "synonyms": ["한", "일"], "tags": ["数"], "style": 1},
@@ -998,5 +995,8 @@
   "s:로그인": {"meanings": [{"ja": "ログイン", "primary": true}], "hanja": null, "confusables": ["로그아웃"], "synonyms": [], "tags": ["スマホ"], "style": 1},
   "s:링크": {"meanings": [{"ja": "リンク", "primary": true}], "hanja": null, "confusables": ["핑크"], "synonyms": [], "tags": ["スマホ"], "style": 1},
   "질문하다": {"meanings": [{"ja": "質問する", "primary": true}], "hanja": "質問", "confusables": [], "synonyms": ["묻다", "물어보다"], "tags": ["学校"], "style": 1},
-  "가격03": {"meanings": [{"ja": "値段", "primary": true}, {"ja": "価格", "primary": false}], "hanja": "価格", "confusables": ["간격"], "synonyms": ["값"], "tags": ["買い物"], "style": 1}
+  "가격03": {"meanings": [{"ja": "値段", "primary": true}, {"ja": "価格", "primary": false}], "hanja": "価格", "confusables": ["간격"], "synonyms": ["값"], "tags": ["買い物"], "style": 1},
+  "있다01": {"meanings": [{"ja": "ある・いる", "primary": true}, {"ja": "持っている", "primary": false}], "hanja": null, "confusables": ["잊다", "잇다"], "synonyms": ["계시다"], "tags": ["日常"], "style": 1},
+  "없다01": {"meanings": [{"ja": "ない・いない", "primary": true}, {"ja": "持っていない", "primary": false}], "hanja": null, "confusables": ["업다", "엎다"], "synonyms": [], "tags": ["日常"], "style": 1},
+  "주다01": {"meanings": [{"ja": "あげる・くれる", "primary": true}, {"ja": "与える", "primary": false}, {"ja": "（〜て）あげる・くれる", "primary": false}], "hanja": null, "confusables": ["추다", "줍다", "쥐다"], "synonyms": ["드리다"], "tags": ["食事", "買い物"], "style": 1}
 }

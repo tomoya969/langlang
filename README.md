@@ -5,8 +5,8 @@
 
 ## 今の状態
 
-**画面を作っている段階。** `content/ko/` はテストデータ（3 ユニット・54 語・26 文）で、学習の記録はまだ保存しない。
-本番の教材と、SQLite・FSRS による記憶の管理は、UI が固まってから入れる。
+**画面のたたき台に、L1 の本番の教材を入れた段階。** `content/ko/` は国立国語院の学習用語彙リストをもとに `tools/`（`uv run langlang-build`）で作った L1 の教材（39 ユニット・1,000 語・549 文。学習に出すのは検算を通った 997 語・516 文）。
+学習の記録はまだ保存しない。SQLite・FSRS による記憶の管理は、UI が固まってから入れる。教材の作り方は `content/README.md`。
 
 ## セットアップ
 
@@ -17,7 +17,8 @@
 uv sync
 uv run langlang serve          # http://127.0.0.1:8766/ をブラウザで開く（Ctrl+C で止める）
 uv run langlang validate       # 教材の整合を確かめる
-uv run pytest                  # app/ のテスト
+uv run langlang-build status   # 教材づくりがどこまで済んだか（作り方は content/README.md）
+uv run pytest                  # app/ と tools/ のテスト
 node --test 'static/**/*.test.js'   # 画面の部品（ハングルの合成、矢印ゲームの列）のテスト
 ```
 
