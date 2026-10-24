@@ -58,12 +58,11 @@
     "ja": "この犬は大きいので、大人が持たなければなりません。",
     "register": "해요체",
     "scene": "診察室で獣医が飼い主に",
-    "tokens": [{"surface": "이", "word_ids": ["ko-w-0075"], "eojeol": 0}, {"surface": "개는", "word_ids": ["ko-w-0484"], "eojeol": 1}, {"surface": "커서", "word_ids": ["ko-w-0226"], "eojeol": 2}, {"surface": "어른이", "word_ids": ["ko-w-0506"], "eojeol": 3}, {"surface": "들어야", "word_ids": ["ko-w-0487", "ko-w-0129"], "eojeol": 4}, {"surface": "해요", "word_ids": ["ko-w-0002"], "eojeol": 5}],
+    "tokens": [{"surface": "이", "word_ids": ["ko-w-0075"], "eojeol": 0}, {"surface": "개는", "word_ids": ["ko-w-0484"], "eojeol": 1}, {"surface": "커서", "word_ids": ["ko-w-0226"], "eojeol": 2}, {"surface": "어른이", "word_ids": ["ko-w-0506"], "eojeol": 3}, {"surface": "들어야", "word_ids": ["ko-w-0487"], "eojeol": 4}, {"surface": "해요", "word_ids": ["ko-w-0002"], "eojeol": 5}],
     "grammar": ["-아/어야 하다", "-아/어서", "이/가"],
     "cloze": [{"eojeol": 3, "answer": "어른이", "hint_ja": "大人が"}],
     "variants": {"ko": ["이 개는 커서 어른이 들어야 돼요."], "ja": ["この犬は大きいから、大人が持たないといけません。", "この犬は大きいので、大人が抱えなければなりません。"]},
-    "status": "needs_review",
-    "review": {"problems": ["単語に「듣다（聞く）」があるが、ko の 들어야 は 들다（持つ）の活用で、듣다 は文中にない。듣다 を単語から削除する"]}
+    "status": "approved"
   },
   {
     "id": "ko-s-L1-U20-006",
@@ -176,11 +175,10 @@
     "ja": "子どもが猫を持ってはいけません。大人が持ってください。",
     "register": "해요체",
     "scene": "診察室で獣医が飼い主に",
-    "tokens": [{"surface": "아이가", "word_ids": ["ko-w-0107"], "eojeol": 0}, {"surface": "고양이를", "word_ids": ["ko-w-0494"], "eojeol": 1}, {"surface": "들면", "word_ids": ["ko-w-0487"], "eojeol": 2}, {"surface": "안", "word_ids": ["ko-w-0005"], "eojeol": 3}, {"surface": "돼요", "word_ids": ["ko-w-0176"], "eojeol": 4}, {"surface": "어른이", "word_ids": ["ko-w-0506"], "eojeol": 5}, {"surface": "들어", "word_ids": ["ko-w-0487", "ko-w-0129"], "eojeol": 6}, {"surface": "주세요", "word_ids": ["ko-w-0025"], "eojeol": 7}],
+    "tokens": [{"surface": "아이가", "word_ids": ["ko-w-0107"], "eojeol": 0}, {"surface": "고양이를", "word_ids": ["ko-w-0494"], "eojeol": 1}, {"surface": "들면", "word_ids": ["ko-w-0487"], "eojeol": 2}, {"surface": "안", "word_ids": ["ko-w-0005"], "eojeol": 3}, {"surface": "돼요", "word_ids": ["ko-w-0176"], "eojeol": 4}, {"surface": "어른이", "word_ids": ["ko-w-0506"], "eojeol": 5}, {"surface": "들어", "word_ids": ["ko-w-0487"], "eojeol": 6}, {"surface": "주세요", "word_ids": ["ko-w-0025"], "eojeol": 7}],
     "grammar": ["-(으)면 안 되다", "-아/어 주세요", "이/가"],
     "cloze": [{"eojeol": 5, "answer": "어른이", "hint_ja": "大人が"}],
     "variants": {"ko": ["고양이를 아이가 들면 안 돼요. 어른이 들어 주세요."], "ja": ["子どもが猫を持ってはだめです。大人が持ってください。", "子どもが猫を持ってはいけません。大人の人が持ってください。"]},
-    "status": "needs_review",
-    "review": {"problems": ["単語に「듣다（動詞）＝聞く」があるが、ko の「들어」は 들다（持つ）の活用形で、듣다 は文中にない。この単語は削除する"]}
+    "status": "approved"
   }
 ]

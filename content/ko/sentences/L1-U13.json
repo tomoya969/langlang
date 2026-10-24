@@ -97,12 +97,11 @@
     "ja": "私の故郷は小さな都市です。両親がそこに住んでいます。",
     "register": "해요체",
     "scene": "故郷の写真を友達に見せて",
-    "tokens": [{"surface": "제", "word_ids": ["ko-w-0007"], "eojeol": 0}, {"surface": "고향은", "word_ids": ["ko-w-0318"], "eojeol": 1}, {"surface": "작은", "word_ids": ["ko-w-0166"], "eojeol": 2}, {"surface": "도시예요", "word_ids": ["ko-w-0313"], "eojeol": 3}, {"surface": "부모님이", "word_ids": ["ko-w-0158"], "eojeol": 4}, {"surface": "그곳에", "word_ids": ["ko-w-0319"], "eojeol": 5}, {"surface": "사세요", "word_ids": ["ko-w-0206", "ko-w-0112"], "eojeol": 6}],
+    "tokens": [{"surface": "제", "word_ids": ["ko-w-0007"], "eojeol": 0}, {"surface": "고향은", "word_ids": ["ko-w-0318"], "eojeol": 1}, {"surface": "작은", "word_ids": ["ko-w-0166"], "eojeol": 2}, {"surface": "도시예요", "word_ids": ["ko-w-0313"], "eojeol": 3}, {"surface": "부모님이", "word_ids": ["ko-w-0158"], "eojeol": 4}, {"surface": "그곳에", "word_ids": ["ko-w-0319"], "eojeol": 5}, {"surface": "사세요", "word_ids": ["ko-w-0206"], "eojeol": 6}],
     "grammar": ["-(으)시-", "-예요/이에요", "에"],
     "cloze": [{"eojeol": 5, "answer": "그곳에", "hint_ja": "そこに"}],
     "variants": {"ko": ["제 고향은 작은 도시예요. 그곳에 부모님이 사세요."], "ja": ["私の故郷は小さい都市です。両親はそこに住んでいます。", "私のふるさとは小さな町です。両親がそこに住んでいます。"]},
-    "status": "needs_review",
-    "review": {"problems": ["単語に「사다（動詞）＝買う」が入っているが、文中の 사세요 は 살다（住む）の尊敬形で、사다 は文に出てこない。外すこと"]}
+    "status": "approved"
   },
   {
     "id": "ko-s-L1-U13-009",
@@ -176,11 +175,10 @@
     "ja": "祖母は今も故郷に住んでいます。そこは山が多いです。",
     "register": "해요체",
     "scene": "アルバムを見ながら友達に",
-    "tokens": [{"surface": "할머니는", "word_ids": ["ko-w-0308"], "eojeol": 0}, {"surface": "지금도", "word_ids": ["ko-w-0213"], "eojeol": 1}, {"surface": "고향에", "word_ids": ["ko-w-0318"], "eojeol": 2}, {"surface": "사세요", "word_ids": ["ko-w-0206", "ko-w-0112"], "eojeol": 3}, {"surface": "그곳은", "word_ids": ["ko-w-0319"], "eojeol": 4}, {"surface": "산이", "word_ids": ["ko-w-0100"], "eojeol": 5}, {"surface": "많아요", "word_ids": ["ko-w-0228"], "eojeol": 6}],
-    "grammar": ["-(으)시-", "에", "은/는"],
+    "tokens": [{"surface": "할머니는", "word_ids": ["ko-w-0308"], "eojeol": 0}, {"surface": "지금도", "word_ids": ["ko-w-0213"], "eojeol": 1}, {"surface": "고향에", "word_ids": ["ko-w-0318"], "eojeol": 2}, {"surface": "사세요", "word_ids": ["ko-w-0206"], "eojeol": 3}, {"surface": "그곳은", "word_ids": ["ko-w-0319"], "eojeol": 4}, {"surface": "산이", "word_ids": ["ko-w-0100"], "eojeol": 5}, {"surface": "많아요", "word_ids": ["ko-w-0228"], "eojeol": 6}],
+    "grammar": ["-(으)시-", "에", "도"],
     "cloze": [{"eojeol": 2, "answer": "고향에", "hint_ja": "故郷に"}],
     "variants": {"ko": ["할머니는 지금도 고향에서 사세요. 그곳은 산이 많아요."], "ja": ["おばあさんは今も故郷に住んでいます。そこは山が多いです。", "祖母は今も故郷に住んでいらっしゃいます。そこは山が多いです。", "祖母は今でも故郷に住んでいます。そこには山がたくさんあります。"]},
-    "status": "needs_review",
-    "review": {"problems": ["単語に「사다（動詞）＝買う」が入っているが、文中の 사세요 は 살다（住む）の尊敬形で、사다 は文に出てこない。外すこと"]}
+    "status": "approved"
   }
 ]
