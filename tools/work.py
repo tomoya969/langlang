@@ -10,7 +10,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import tempfile
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -61,13 +60,13 @@ def write_json(path: Path, data: Any, style: str = "lines") -> None:
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     text = dumps_keys(data) if style == "keys" else dumps_lines(data)
-    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    # mkstemp は 600 で作るので使わない（ほかのファイルと同じく umask どおりにする）
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(text)
+        tmp.write_text(text, encoding="utf-8")
         os.replace(tmp, path)
     except BaseException:
-        Path(tmp).unlink(missing_ok=True)
+        tmp.unlink(missing_ok=True)
         raise
 
 
