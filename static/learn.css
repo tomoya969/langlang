@@ -722,3 +722,8 @@
     animation: none;
   }
 }
+
+.result.pending .result-title {
+  font-weight: 500;
+  color: var(--text-2);
+}

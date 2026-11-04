@@ -82,26 +82,111 @@ def test_session_start(client):
     assert client.post("/api/session/start", json={"language": "ko", "unit": "nope"}).status_code == 404
 
 
-def test_answer_cloze_and_dictation(client):
-    ok = client.post("/api/answer", json={"language": "ko", "type": "sentence_cloze", "sentence_id": "t-s-U01-001", "answer": "물"}).json()
-    assert ok["verdict"] == "correct"
-    ng = client.post("/api/answer", json={"language": "ko", "type": "sentence_dictation", "sentence_id": "t-s-U01-001", "answer": "물 조세요"}).json()
-    assert ng["verdict"] == "incorrect"
-    assert ng["diff"]
-    variant = client.post("/api/answer", json={"language": "ko", "type": "sentence_dictation", "sentence_id": "t-s-U01-001", "answer": "물 좀 주세요"}).json()
-    assert variant["verdict"] == "correct"
+AI_INCORRECT = {
+    "verdict": "incorrect",
+    "meaning_ok": False,
+    "issues": [{"axis": "meaning", "tag": "語彙の選択", "span": "없어요", "note": "意味が逆です", "suggestion": "있어요", "word_id": None}],
+    "corrected": "커피가 있어요.",
+    "comment_ja": "있어요 と 없어요 で意味が逆なので不正解です。",
+}
 
 
-def test_answer_spell(client):
-    ok = client.post("/api/answer", json={"language": "ko", "type": "word_spell", "word_id": "t-w-0003", "answer": "커피"}).json()
-    assert ok["verdict"] == "correct"
+@pytest.fixture
+def ai(root):
+    """AI の代わり。呼ばれたプロンプトを calls に残し、result を返す。"""
+
+    class FakeAI:
+        result = AI_INCORRECT
+        calls: list[str] = []
+
+        def __call__(self, prompt, schema):
+            self.calls.append(prompt)
+            return self.result
+
+    return FakeAI()
+
+
+@pytest.fixture
+def ai_client(root, ai):
+    app = create_app(root, jobs=JobStore(inline=True), ask=ai)
+    with TestClient(app) as c:
+        yield c
+
+
+def test_answer_machine(ai_client, ai):
+    def post(**body):
+        return ai_client.post("/api/answer", json={"language": "ko", **body}).json()
+
+    assert post(type="sentence_cloze", sentence_id="t-s-U01-001", answer="물")["verdict"] == "correct"
+    assert post(type="sentence_dictation", sentence_id="t-s-U01-001", answer="물 좀 주세요")["verdict"] == "correct"
+    assert post(type="sentence_dictation", sentence_id="t-s-U01-002", answer="커피가 이써요")["source"] == "pronunciation"
+    assert post(type="word_spell", word_id="t-w-0003", answer="커피")["verdict"] == "correct"
+    assert not ai.calls
+
+
+def test_cloze_variants_come_from_sentence_variants():
+    from app import langs
+    from app.server import _cloze_variants
+
+    pack = langs.get("ko")
+    variants = ("미안해요. 괜찮아요?", "미안합니다. 괜찮으세요?", "정말 미안해요. 괜찮아요?")
+    # 空欄の語節だけが違う許容例だけを使う
+    assert _cloze_variants(pack, "미안합니다. 괜찮아요?", 0, variants) == ("미안해요",)
+
+
+def test_answer_goes_to_ai_and_is_saved(ai_client, ai, root):
+    body = {"language": "ko", "type": "sentence_dictation", "sentence_id": "t-s-U01-002", "answer": "커피가 없어요"}
+    first = ai_client.post("/api/answer", json=body).json()
+    job = first["job"]
+    assert job["status"] == "done"
+    assert job["result"]["verdict"] == "incorrect"
+    assert job["result"]["comment_ja"].startswith("있어요")
+    assert job["result"]["diff"]
+    assert "読み上げた文（模範解答）: 커피가 있어요." in ai.calls[0]
+    assert (root / "records" / "graded" / "ko.json").exists()
+
+    again = ai_client.post("/api/answer", json={**body, "answer": "커피가  없어요."}).json()
+    assert again["source"] == "cache"
+    assert again["verdict"] == "incorrect"
+    assert len(ai.calls) == 1
+
+
+def test_saved_judgement_is_ignored_when_sentence_changes(ai_client, ai, root):
+    import json
+
+    body = {"language": "ko", "type": "sentence_ja_to_ko", "sentence_id": "t-s-U01-002", "answer": "커피가 없어요"}
+    ai_client.post("/api/answer", json=body)
+    path = root / "content" / "ko" / "sentences" / "T-U01.json"
+    items = json.loads(path.read_text(encoding="utf-8"))
+    items[1]["ko"] = "커피가 있어요!"
+    path.write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
+    assert "job" in ai_client.post("/api/answer", json=body).json()
+    assert len(ai.calls) == 2
+
+
+def test_answer_cloze_prompt_shows_blank(ai_client, ai):
+    ai_client.post("/api/answer", json={"language": "ko", "type": "sentence_cloze", "sentence_id": "t-s-U02-001", "answer": "먹어"})
+    assert "빵을 ＿＿＿." in ai.calls[0]
+    assert "t-w-0007: 먹다（食べる）" in ai.calls[0]
+
+
+def test_answer_ai_failure_is_job_error(root):
+    from app.claude_cli import ClaudeError
+
+    def broken(prompt, schema):
+        raise ClaudeError("Claude の利用枠の上限に達しました")
+
+    app = create_app(root, jobs=JobStore(inline=True), ask=broken)
+    with TestClient(app) as c:
+        job = c.post("/api/answer", json={"language": "ko", "type": "word_spell", "word_id": "t-w-0003", "answer": "코피"}).json()["job"]
+    assert job["status"] == "error"
+    assert "利用枠" in job["error"]
+    assert not (root / "records" / "graded" / "ko.json").exists()
+
+
+def test_answer_requires_ids_and_text(client):
     assert client.post("/api/answer", json={"language": "ko", "type": "word_spell", "answer": "커피"}).status_code == 400
-
-
-def test_answer_ja_to_ko_placeholder(client):
-    data = client.post("/api/answer", json={"language": "ko", "type": "sentence_ja_to_ko", "sentence_id": "t-s-U01-002", "answer": "커피가 없어요"}).json()
-    assert data["verdict"] == "incorrect"
-    assert data["source"] == "placeholder"
+    assert client.post("/api/answer", json={"language": "ko", "type": "word_spell", "word_id": "t-w-0003", "answer": " . "}).status_code == 400
 
 
 def test_answer_unknown_type(client):

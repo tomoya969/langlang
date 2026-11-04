@@ -212,7 +212,7 @@ function sceneFor(item) {
         expected: item.expected,
         body: { type: "sentence_ja_to_ko", sentence_id: item.sentence.id },
         placeholder: `${item.sentence.register}で書く`,
-        aiGraded: true,
+        aiHint: true,
       });
     case "sentence_compose":
       return typingScene(item, {
@@ -223,7 +223,7 @@ function sceneFor(item) {
         expected: item.sentence.ko,
         body: { type: "sentence_compose", sentence_id: item.sentence.id },
         placeholder: "自分のことを書く",
-        aiGraded: true,
+        aiHint: true,
       });
     case "sentence_trace":
       return traceScene(item);
@@ -525,7 +525,7 @@ function clozeScene(item) {
 
 // ---- 場面: 入力して採点（綴り・穴埋め・書き取り・日→韓・応用作文） ----
 
-function typingScene(item, { title, prompt, expected, body, placeholder, aiGraded = false, reveal = null, speakText = null }) {
+function typingScene(item, { title, prompt, expected, body, placeholder, aiHint = false, reveal = null, speakText = null }) {
   let field;
   let resultBox;
   let hintEl;
@@ -544,12 +544,21 @@ function typingScene(item, { title, prompt, expected, body, placeholder, aiGrade
     let judgement;
     try {
       judgement = await api.post("/api/answer", { language: LANGUAGE, answer: value, ...body });
+      if (judgement.job) {
+        if (judgement.job.status === "running") resultBox.replaceChildren(el("div", { class: "result pending" }, el("span", { class: "result-title", text: "AI が採点しています…" })));
+        judgement = await api.waitJob(judgement.job);
+      }
     } catch (err) {
       waiting = false;
+      attempts -= 1;
+      if (state.scene !== scene) return;
+      resultBox.replaceChildren();
       toast(`採点に失敗しました: ${err.message}`, { type: "error" });
       return;
     }
     waiting = false;
+    // AI の採点を待つ間に中断や次の問題へ進んでいたら、結果は出さない
+    if (state.scene !== scene) return;
     if (attempts === 1) state.log.sentences.push({ id: item.id, type: item.type, correct: judgement.verdict !== "incorrect", verdict: judgement.verdict });
     renderResult(judgement);
   }
@@ -573,12 +582,12 @@ function typingScene(item, { title, prompt, expected, body, placeholder, aiGrade
         ),
       );
     }
-    if (!ok && !notes && j.diff) box.append(diffView(j.diff, !done));
+    if (!ok && j.diff) box.append(diffView(j.diff, !done));
     if (done) {
-      const model = j.corrected || expected;
-      if (model) box.append(el("div", { class: "model" }, el("span", { class: "model-label", text: "模範解答" }), el("span", { class: "model-text", lang: "ko", text: model })));
+      // AI の corrected は模範解答ではなく、学習者の答えを最小限直したもの。違えば両方を見せる
+      if (!ok && j.corrected && j.corrected !== expected) box.append(modelLine("直した答え", j.corrected));
+      if (expected) box.append(modelLine("模範解答", expected));
       if (reveal) reveal(box);
-      if (!ok && !notes && j.source === "placeholder") box.append(el("div", { class: "note", text: "AI 採点はまだ作っていません（仮の判定）" }));
       finished = true;
       field.setEnabled(false);
       // 答えが決まったらキーボードは要らないので畳む。打ち直しの間は配列を見たいので出したまま
@@ -593,7 +602,7 @@ function typingScene(item, { title, prompt, expected, body, placeholder, aiGrade
     box.scrollIntoView({ block: "nearest" });
   }
 
-  return {
+  const scene = {
     keyboard: true,
     render(box) {
       const promptBox = el("div", { class: "sentence" });
@@ -601,8 +610,7 @@ function typingScene(item, { title, prompt, expected, body, placeholder, aiGrade
       const fieldBox = el("div");
       field = TypingField.create(fieldBox, { keymap: pack.keymap, composer: pack.composer, keyboard, onSubmit: submit, placeholder });
       resultBox = el("div");
-      const aiNote = aiGraded ? [["違う書き方は AI が判定（今は仮）"]] : [];
-      hintEl = typingHint(...aiNote);
+      hintEl = typingHint(...(aiHint ? [["違う書き方は AI が判定"]] : []));
       const q = frame(title, [promptBox, el("div", { class: "answer-area" }, fieldBox, resultBox)], hintEl);
       q.classList.add("typing");
       box.append(q);
@@ -620,6 +628,11 @@ function typingScene(item, { title, prompt, expected, body, placeholder, aiGrade
       keyboard.guide(null);
     },
   };
+  return scene;
+}
+
+function modelLine(label, text) {
+  return el("div", { class: "model" }, el("span", { class: "model-label", text: label }), el("span", { class: "model-text", lang: "ko", text }));
 }
 
 function diffView(diff, maskMissing) {

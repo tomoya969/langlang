@@ -21,7 +21,7 @@
 - `tag`      語彙候補の粗い付与。量が多いので速さを優先（sonnet / low）
 - `enrich`   詳しい付与と文の生成。事前に作るので質を優先（opus / claude の既定）
 - `verify`   教材の検算。誤りを見逃さないため（opus / medium）
-- `grade`    翻訳・作文の採点。学習中なので速さを優先（sonnet / low）
+- `grade`    採点（機械で決まらなかった答え）。学習中なので速さを優先（sonnet / low）
 - `explain`  解説。誤りを教えないよう正確さを優先し、保存して使い回す（opus / medium）
 
 環境変数:

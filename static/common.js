@@ -5,7 +5,7 @@
    applyLanguage() が今の言語の URL に書き換える。 */
 "use strict";
 
-const REQUIRED_API_VERSION = 2;
+const REQUIRED_API_VERSION = 3;
 
 const LANGUAGE = document.body.dataset.scope === "language" ? decodeURIComponent(location.pathname.split("/")[1] || "") : null;
 
@@ -37,6 +37,15 @@ const api = {
       throw new ApiError(message, res.status, data);
     }
     return data;
+  },
+  /** ジョブ（AI の採点など）が終わるまで待って結果を返す。失敗したら ApiError を投げる */
+  async waitJob(job, intervalMs = 500) {
+    while (job.status === "running") {
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      job = await api.get(`/api/jobs/${encodeURIComponent(job.id)}`);
+    }
+    if (job.status === "error") throw new ApiError(job.error || "失敗しました", 500, job);
+    return job.result;
   },
 };
 

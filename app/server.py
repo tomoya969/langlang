@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 import random
+import re
 from pathlib import Path
 from typing import Any
 
@@ -28,15 +29,16 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app import content as content_mod
-from app import grader, langs, session, settings as settings_mod
+from app import claude_cli, grader, langs, session, settings as settings_mod
 from app.content import ContentError
-from app.jobs import JobStore
+from app.graded import GradedStore
+from app.jobs import JobBusy, JobStore
 from app.langs.base import LanguagePack, UnsupportedLanguage
 from app.prompts import ERROR_TAGS
 
 log = logging.getLogger("langlang.server")
 
-API_VERSION = 2
+API_VERSION = 3
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 LANGUAGE_PAGES = {"": "index.html", "learn": "learn.html", "words": "words.html"}
 
@@ -55,10 +57,12 @@ class AnswerRequest(BaseModel):
     sentence_id: str | None = None
 
 
-def create_app(root: Path, jobs: JobStore | None = None) -> FastAPI:
+def create_app(root: Path, jobs: JobStore | None = None, ask: grader.AskFn | None = None) -> FastAPI:
+    """ask は採点で AI を呼ぶ関数（テストで差し込む）。None なら claude_cli の採点用の設定で呼ぶ。"""
     app = FastAPI(title="langlang", docs_url=None, redoc_url=None)
     app.state.root = root
     app.state.jobs = jobs or JobStore()
+    app.state.graded = GradedStore(root)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
     def pack_of(language: str) -> LanguagePack:
@@ -138,29 +142,30 @@ def create_app(root: Path, jobs: JobStore | None = None) -> FastAPI:
 
     @app.post("/api/answer")
     def answer(req: AnswerRequest) -> dict[str, Any]:
-        """機械採点。翻訳・作文で機械採点が決まらないときは、AI 採点の代わりの仮の判定を返す（M5 で置き換える）。"""
+        """機械で決まれば判定を返す。決まらず、保存した判定もなければ AI の採点をジョブにして {"job": ...} を返す。"""
         content = load_content(req.language)
         pack = pack_of(req.language)
-        if req.type == "word_spell":
-            if not req.word_id:
-                raise HTTPException(400, "word_id が要ります")
-            word = _or_404(lambda: content.word(req.word_id))
-            return grader.judge_machine(pack, req.answer, word.lemma).to_dict()
-        if not req.sentence_id:
-            raise HTTPException(400, "sentence_id が要ります")
-        sentence = _or_404(lambda: content.sentence(req.sentence_id))
-        if req.type == "sentence_cloze":
-            if not sentence.cloze:
-                raise HTTPException(400, "この文には穴埋めがありません")
-            return grader.judge_machine(pack, req.answer, sentence.cloze[0]["answer"]).to_dict()
-        if req.type == "sentence_dictation":
-            return grader.judge_machine(pack, req.answer, sentence.ko, sentence.variants.get("ko")).to_dict()
-        if req.type in ("sentence_ja_to_ko", "sentence_compose"):
-            result = grader.judge_exact(pack, req.answer, sentence.ko, sentence.variants.get("ko"))
-            if result is None:
-                result = grader.judge_ai_placeholder(pack, req.answer, sentence.ko)
+        norm = pack.normalize(req.answer)
+        if not norm:
+            raise HTTPException(400, "答えが空です")
+        task = task_for(content, pack, req)
+        judged = grader.judge_machine(pack, req.answer, task.expected, task.variants)
+        if judged is None:
+            judged = app.state.graded.get(req.language, task, norm)
+        if judged is not None:
+            return judged.to_dict()
+
+        def run(_job) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+            result = grader.judge_ai(pack, task, req.answer, ask or claude_cli.ask_for("grade"))
+            app.state.graded.put(req.language, task, norm, result)
+            log.info("AI の採点: %s %s「%s」→ %s", task.type, task.item_id, norm, result.verdict)
             return result.to_dict()
-        raise HTTPException(400, f"採点できない種類です: {req.type}")
+
+        try:
+            job = app.state.jobs.submit("grade", run)
+        except JobBusy as exc:
+            raise HTTPException(409, str(exc)) from exc
+        return {"job": job.to_dict()}
 
     @app.get("/api/units")
     def units(language: str) -> list[dict[str, Any]]:
@@ -251,6 +256,78 @@ def create_app(root: Path, jobs: JobStore | None = None) -> FastAPI:
         return FileResponse(STATIC_DIR / LANGUAGE_PAGES[page])
 
     return app
+
+
+def task_for(content: content_mod.Content, pack: LanguagePack, req: AnswerRequest) -> grader.Task:
+    """解答の要求から、採点する問題（模範解答・許容例と、AI に見せる問題の中身）を作る。"""
+    if req.type == "word_spell":
+        if not req.word_id:
+            raise HTTPException(400, "word_id が要ります")
+        word = _or_404(lambda: content.word(req.word_id))
+        problem = [("日本語の意味", word.meaning), ("品詞", word.pos), ("模範解答", word.lemma)]
+        return grader.Task(req.type, word.id, word.lemma, context={"problem": problem, "words": [_word_brief(word)]}, word_ids=(word.id,))
+    if req.type not in ("sentence_cloze", "sentence_dictation", "sentence_ja_to_ko", "sentence_compose"):
+        raise HTTPException(400, f"採点できない種類です: {req.type}")
+    if not req.sentence_id:
+        raise HTTPException(400, "sentence_id が要ります")
+    s = _or_404(lambda: content.sentence(req.sentence_id))
+    variants = tuple(s.variants.get("ko", []))
+    words = [content.word(w) for w in s.word_ids if w in content._word_by_id]
+    common = {"words": [_word_brief(w) for w in words]}
+    word_ids = tuple(w.id for w in words)
+    if req.type == "sentence_cloze":
+        if not s.cloze:
+            raise HTTPException(400, "この文には穴埋めがありません")
+        cloze = s.cloze[0]
+        cloze_variants = _cloze_variants(pack, s.ko, cloze["eojeol"], variants)
+        problem = [
+            ("文（＿＿＿ が空欄）", _blanked(s.ko, cloze["eojeol"])),
+            ("文の日本語訳", s.ja),
+            ("文の文体", s.register),
+            ("場面", s.scene),
+            ("空欄の意味の手がかり", cloze.get("hint_ja", "")),
+            ("模範解答（空欄の語節）", cloze["answer"]),
+            ("許容例（空欄の語節）", "、".join(cloze_variants)),
+        ]
+        return grader.Task(req.type, s.id, cloze["answer"], cloze_variants, {**common, "problem": problem}, word_ids)
+    if req.type == "sentence_dictation":
+        problem = [("読み上げた文（模範解答）", s.ko), ("許容例", "、".join(variants)), ("文の日本語訳", s.ja), ("文の文体", s.register)]
+    elif req.type == "sentence_ja_to_ko":
+        problem = [("日本語の文", s.ja), ("指定の文体", s.register), ("場面", s.scene), ("模範解答", s.ko), ("許容例", "、".join(variants))]
+    else:
+        required = s.grammar[0] if s.grammar else "（なし。自由に書いてよい）"
+        problem = [("指定の表現", required), ("例文", s.ko), ("例文の日本語訳", s.ja), ("例文の文体", s.register)]
+    return grader.Task(req.type, s.id, s.ko, variants, {**common, "problem": problem}, word_ids)
+
+
+def _word_brief(word: content_mod.Word) -> dict[str, str]:
+    return {"id": word.id, "lemma": word.lemma, "meaning": word.meaning}
+
+
+_TRAILING_PUNCT = re.compile(r"[.?!,。？！、]+$")
+
+
+def _blanked(ko: str, eojeol: int) -> str:
+    parts = ko.split(" ")
+    if 0 <= eojeol < len(parts):
+        punct = _TRAILING_PUNCT.search(parts[eojeol])
+        parts[eojeol] = "＿＿＿" + (punct.group() if punct else "")
+    return " ".join(parts)
+
+
+def _cloze_variants(pack: LanguagePack, ko: str, eojeol: int, variants: tuple[str, ...]) -> tuple[str, ...]:
+    """文の許容例のうち、空欄の語節だけが違うものから、空欄の許容例を取り出す。"""
+    base = [pack.normalize(p) for p in ko.split(" ")]
+    if not 0 <= eojeol < len(base):
+        return ()
+    found: list[str] = []
+    for v in variants:
+        parts = [pack.normalize(p) for p in v.split(" ")]
+        if len(parts) != len(base) or any(p != b for i, (p, b) in enumerate(zip(parts, base)) if i != eojeol):
+            continue
+        if parts[eojeol] != base[eojeol] and parts[eojeol] not in found:
+            found.append(parts[eojeol])
+    return tuple(found)
 
 
 def unit_summary(content: content_mod.Content, unit: content_mod.Unit) -> dict[str, Any]:

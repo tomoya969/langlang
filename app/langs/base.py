@@ -34,6 +34,9 @@ class LanguagePack:
     normalize: Callable[[str], str] = normalize_default
     # 空白の扱いだけが違う答えを「正解（注意つき）」にするとき、注意に付けるタグ
     spacing_tag: str | None = None
+    # 発音どおりの形に直す。綴りは違っても発音が同じ答えを「正解（注意つき）」にするのに使う。None なら比べない
+    pronounce: Callable[[str], str] | None = None
+    spelling_tag: str | None = None
     extra: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
