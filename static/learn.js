@@ -29,8 +29,9 @@ const state = {
   game: null, // 単語ラウンドの列（ArrowGame）
   scene: null,
   timers: new Set(),
-  // まとめに使う記録（記録の仕組みを入れるまでは画面の中だけ）
+  // まとめに使う、この回の結果（単語の解答はそのつどサーバーにも記録する）
   log: { words: [], sentences: [], traces: [] },
+  recordFailed: false,
   startedAt: 0,
 };
 
@@ -120,6 +121,10 @@ async function start() {
   Speak.setOnMissing(() => toast("この言語の読み上げの声が見つかりません。OS に韓国語の音声を追加してください", { type: "warn", sticky: true }));
   state.session = await api.post("/api/session/start", { language: LANGUAGE, unit: params.get("unit") || null });
   state.startedAt = Date.now();
+  if (state.session.items.length === 0) {
+    show(nothingTodayScene());
+    return;
+  }
   nextRound();
 }
 
@@ -162,6 +167,16 @@ function nextItem() {
   show(sceneFor(item));
 }
 
+/** 単語の面の解答を記録する。その日の最初の解答なら、サーバーが FSRS で次に出す日を決める。テンポを優先して、記録を待たずに進む */
+function recordWord(item, { rating, correct, elapsed = null, answer = null }) {
+  const body = { language: LANGUAGE, word_id: item.word.id, face: item.face, practice: item.type, rating, correct, elapsed_sec: elapsed, answer };
+  api.post("/api/review", body).catch((err) => {
+    if (state.recordFailed) return;
+    state.recordFailed = true;
+    toast(`解答を記録できませんでした: ${err.message}`, { type: "error", sticky: true });
+  });
+}
+
 function finishItem(correct, detail) {
   if (state.game) ArrowGame.answer(state.game, correct, detail);
   else state.index += 1;
@@ -185,6 +200,7 @@ function sceneFor(item) {
         expected: item.expected,
         body: { type: "word_spell", word_id: item.word.id },
         placeholder: "意味と音を手がかりに、韓国語で打つ",
+        onFirstJudgement: (j, value) => recordWord(item, { rating: j.rating, correct: j.verdict !== "incorrect", answer: value }),
       });
     case "sentence_intro":
       return sentenceIntroScene(item);
@@ -237,6 +253,29 @@ function sceneFor(item) {
         },
       };
   }
+}
+
+// ---- 場面: 今日の分がない ----
+
+function nothingTodayScene() {
+  return {
+    render(box) {
+      box.append(
+        frame(null, [
+          el(
+            "div",
+            { class: "round-intro" },
+            el("h2", { text: "今日の分は終わっています" }),
+            el("p", { text: "期限が来た復習も、今日の新出の枠も残っていません。ホームからユニットを選ぶと、そのユニットを練習できます" }),
+            el("a", { class: "btn primary big", href: languageUrl() }, "ホームへ", el("kbd", { text: "⏎" })),
+          ),
+        ]),
+      );
+    },
+    onKey(e) {
+      if (e.key === "Enter") location.href = languageUrl();
+    },
+  };
 }
 
 // ---- 場面: ラウンドの始まり ----
@@ -340,6 +379,7 @@ function arrowScene(item) {
     const correctEl = optionEls[correctDir];
     const rating = ArrowGame.rate(correct, elapsed, { fast: state.settings.fast_sec, slow: state.settings.slow_sec });
     state.log.words.push({ id: item.id, word: item.word, face: item.face, correct, elapsed, gaveUp, rating, picked: picked && picked.word_id, first: !state.game.first.has(item.id) });
+    recordWord(item, { rating, correct, elapsed, answer: picked ? picked.word_id : null });
     if (correct) {
       correctEl.classList.add("is-correct");
       later(() => finishItem(true, { elapsed, rating }), 420);
@@ -525,7 +565,7 @@ function clozeScene(item) {
 
 // ---- 場面: 入力して採点（綴り・穴埋め・書き取り・日→韓・応用作文） ----
 
-function typingScene(item, { title, prompt, expected, body, placeholder, aiHint = false, reveal = null, speakText = null }) {
+function typingScene(item, { title, prompt, expected, body, placeholder, aiHint = false, reveal = null, speakText = null, onFirstJudgement = null }) {
   let field;
   let resultBox;
   let hintEl;
@@ -559,7 +599,10 @@ function typingScene(item, { title, prompt, expected, body, placeholder, aiHint 
     waiting = false;
     // AI の採点を待つ間に中断や次の問題へ進んでいたら、結果は出さない
     if (state.scene !== scene) return;
-    if (attempts === 1) state.log.sentences.push({ id: item.id, type: item.type, correct: judgement.verdict !== "incorrect", verdict: judgement.verdict });
+    if (attempts === 1) {
+      state.log.sentences.push({ id: item.id, type: item.type, correct: judgement.verdict !== "incorrect", verdict: judgement.verdict });
+      if (onFirstJudgement) onFirstJudgement(judgement, value);
+    }
     renderResult(judgement);
   }
 
@@ -722,7 +765,7 @@ function summaryScene() {
         frame(
           null,
           [
-            el("div", { class: "round-intro" }, el("span", { class: "label", text: "今日の学習" }), el("h2", { text: "おつかれさまでした" }), el("p", { text: `${state.session.unit.title} ・ 約 ${minutes} 分` })),
+            el("div", { class: "round-intro" }, el("span", { class: "label", text: "今日の学習" }), el("h2", { text: "おつかれさまでした" }), el("p", { text: `${sessionTitle()} ・ 約 ${minutes} 分` })),
             el(
               "div",
               { class: "summary-grid" },
@@ -733,7 +776,7 @@ function summaryScene() {
             ),
             el("div", { class: "row" }, el("a", { class: "btn primary big", href: languageUrl() }, "ホームへ", el("kbd", { text: "⏎" })), el("a", { class: "btn big", href: location.href }, "もう一度")),
           ],
-          el("div", { class: "q-hint" }, el("span", { class: "note", text: "記録の仕組みを入れるまでは、この結果は保存されません" })),
+          el("div", { class: "q-hint" }, el("span", { class: "note", text: state.recordFailed ? "単語の解答の一部を記録できませんでした" : "単語の結果は記録しました。文の記録はまだ入れていません" })),
         ),
       );
     },
@@ -741,6 +784,12 @@ function summaryScene() {
       if (e.key === "Enter") location.href = languageUrl();
     },
   };
+}
+
+function sessionTitle() {
+  const s = state.session;
+  if (s.mode === "unit") return s.unit ? `${s.unit.title} の練習` : "ユニットの練習";
+  return `今日の学習 ・ 新出 ${s.new_word_count} 語 ・ 復習 ${s.review_count}`;
 }
 
 function tile(value, label) {

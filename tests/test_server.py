@@ -64,9 +64,35 @@ def test_meta(client):
 def test_today(client):
     data = client.get("/api/today?language=ko").json()
     assert data["unit"]["id"] == "T-U01"
-    assert data["new_word_count"] == 5
+    assert data["new_word_count"] == 10  # 新出は 1 日 15 語まで。テストの教材は 10 語
+    assert data["review_count"] == 0
     assert data["levels"][0]["total"] == 10
     assert [u["id"] for u in data["units"]] == ["T-U01", "T-U02"]
+    assert data["units"][0]["started_count"] == 0
+
+
+def test_review_is_recorded_and_changes_today(client):
+    body = {"language": "ko", "word_id": "t-w-0001", "face": "meaning", "practice": "word_meaning", "rating": "good", "correct": True, "elapsed_sec": 1.8, "answer": "t-w-0001"}
+    res = client.post("/api/review", json=body).json()
+    assert res["counted"] is True
+    assert res["card"]["stability"] > 0
+    assert client.post("/api/review", json=body).json()["counted"] is False  # 同じ日の 2 回目
+    today = client.get("/api/today?language=ko").json()
+    assert today["new_word_count"] == 9
+    assert today["levels"][0]["learning"] == 1
+    assert today["units"][0]["started_count"] == 1
+    words = {w["id"]: w for w in client.get("/api/words?language=ko").json()}
+    assert words["t-w-0001"]["state"] == "learning"
+    assert "meaning" in words["t-w-0001"]["faces"]
+    detail = client.get("/api/words/t-w-0001?language=ko").json()
+    assert [h["counted"] for h in detail["history"]] == [False, True]
+
+
+def test_review_rejects_bad_input(client):
+    body = {"language": "ko", "word_id": "t-w-0001", "face": "meaning", "practice": "word_meaning", "rating": "good", "correct": True}
+    assert client.post("/api/review", json={**body, "face": "nope"}).status_code == 400
+    assert client.post("/api/review", json={**body, "rating": "great"}).status_code == 400
+    assert client.post("/api/review", json={**body, "word_id": "nope"}).status_code == 404
 
 
 def test_today_unknown_language(client):

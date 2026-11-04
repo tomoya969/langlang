@@ -183,7 +183,7 @@
 
 .face-row {
   display: grid;
-  grid-template-columns: 4.5rem minmax(0, 1fr) 7.5rem;
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   font-size: var(--fs-sm);
@@ -191,6 +191,35 @@
 
 .face-row .note {
   text-align: right;
+}
+
+.history {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-sm);
+}
+
+.history li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.history-date {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.history li.ok .history-rating {
+  color: var(--ok);
+}
+
+.history li.ng .history-rating {
+  color: var(--ng);
 }
 
 .detail-sentence {

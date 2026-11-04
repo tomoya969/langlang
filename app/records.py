@@ -1,0 +1,231 @@
+"""学習の記録（docs/plan.md 7.5）。records/langlang.db（SQLite）に置くので、サーバーを止めても残る。
+
+- cards: 単語の 1 つの面ごとの FSRS の状態（安定度・難しさ・次に出す日）。まだ出していない面の行は作らない
+- reviews: 解答 1 回ごとの記録
+
+FSRS に渡すのは、その日のその面の最初の 1 回だけ（docs/plan.md 4.4）。間違えて最後尾に回ったあとの正解や、
+同じ日の 2 回目の学習は、reviews に残すが FSRS は動かさない（counted = 0）。
+1 日 1 回の学習なので、FSRS の「日の中の学習ステップ」（1 分後・10 分後にもう一度）は使わない。
+"""
+
+from __future__ import annotations
+
+import json
+import sqlite3
+import threading
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any
+
+from fsrs import Card, Rating, Scheduler, State
+
+FILENAME = "langlang.db"
+# 日の区切り。夜中の 0 時を過ぎてからの学習を、前の日の分として数えるため
+DAY_START_HOUR = 4
+RATINGS = {"again": Rating.Again, "hard": Rating.Hard, "good": Rating.Good, "easy": Rating.Easy}
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS cards (
+    language      TEXT NOT NULL,
+    kind          TEXT NOT NULL,   -- word / sentence
+    item_id       TEXT NOT NULL,
+    face          TEXT NOT NULL,   -- 単語の面（meaning / listen / reverse / spell）。文は ''
+    state         INTEGER NOT NULL,
+    step          INTEGER,
+    stability     REAL,
+    difficulty    REAL,
+    due           TEXT NOT NULL,
+    last_review   TEXT,
+    introduced_at TEXT NOT NULL,
+    PRIMARY KEY (language, kind, item_id, face)
+);
+CREATE TABLE IF NOT EXISTS reviews (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    language    TEXT NOT NULL,
+    kind        TEXT NOT NULL,
+    item_id     TEXT NOT NULL,
+    face        TEXT NOT NULL,
+    practice    TEXT NOT NULL,     -- 練習の種類（word_meaning など）
+    reviewed_at TEXT NOT NULL,
+    rating      TEXT NOT NULL,     -- again / hard / good / easy
+    counted     INTEGER NOT NULL,  -- FSRS を動かしたか（その日のその面の最初の 1 回だけ）
+    correct     INTEGER NOT NULL,
+    elapsed_sec REAL,
+    answer      TEXT,              -- 選んだ単語の id、打った答え
+    detail      TEXT               -- そのほか（JSON）
+);
+CREATE INDEX IF NOT EXISTS reviews_item ON reviews (language, kind, item_id, reviewed_at);
+"""
+
+
+def day_start(now: datetime) -> datetime:
+    """now が属する「学習の日」の始まり（その土地の時刻で朝 4 時）。"""
+    local = now.astimezone()
+    start = local.replace(hour=DAY_START_HOUR, minute=0, second=0, microsecond=0)
+    return start - timedelta(days=1) if local < start else start
+
+
+def next_day_start(now: datetime) -> datetime:
+    return day_start(now) + timedelta(days=1)
+
+
+@dataclass(frozen=True)
+class CardRow:
+    item_id: str
+    face: str
+    card: Card
+    introduced_at: datetime
+
+    @property
+    def stability(self) -> float:
+        return self.card.stability or 0.0
+
+    def is_due(self, now: datetime) -> bool:
+        """今日のうちに期限が来るか。間隔は日単位なので、時刻が過ぎていなくても今日の分に入れる。"""
+        return self.card.due < next_day_start(now)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "stability": round(self.stability, 1),
+            "difficulty": round(self.card.difficulty, 1) if self.card.difficulty is not None else None,
+            "due": self.card.due.astimezone().isoformat(timespec="minutes"),
+            "last_review": self.card.last_review.astimezone().isoformat(timespec="minutes") if self.card.last_review else None,
+            "introduced_at": self.introduced_at.astimezone().isoformat(timespec="minutes"),
+        }
+
+
+@dataclass(frozen=True)
+class ReviewResult:
+    counted: bool
+    card: CardRow
+
+
+def make_scheduler(desired_retention: float = 0.9, fuzz: bool = True) -> Scheduler:
+    return Scheduler(desired_retention=desired_retention, learning_steps=(), relearning_steps=(), enable_fuzzing=fuzz)
+
+
+class Records:
+    def __init__(self, root: Path, scheduler: Scheduler | None = None):
+        self.path = root / "records" / FILENAME
+        self.scheduler = scheduler or make_scheduler()
+        self._ready = False
+        self._lock = threading.Lock()
+
+    def _connect(self) -> sqlite3.Connection:
+        with self._lock:
+            if not self._ready:
+                self.path.parent.mkdir(parents=True, exist_ok=True)
+                with sqlite3.connect(self.path) as conn:
+                    conn.executescript(SCHEMA)
+                self._ready = True
+        conn = sqlite3.connect(self.path, timeout=10)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def cards(self, language: str, kind: str = "word") -> dict[tuple[str, str], CardRow]:
+        """(item_id, face) ごとのカード。"""
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM cards WHERE language = ? AND kind = ?", (language, kind)).fetchall()
+        return {(r["item_id"], r["face"]): _card_row(r) for r in rows}
+
+    def review(
+        self,
+        language: str,
+        kind: str,
+        item_id: str,
+        face: str,
+        *,
+        practice: str,
+        rating: str,
+        correct: bool,
+        now: datetime,
+        elapsed_sec: float | None = None,
+        answer: str | None = None,
+        detail: dict[str, Any] | None = None,
+    ) -> ReviewResult:
+        """解答を 1 つ記録する。その日のその面の最初の解答なら FSRS で次に出す日を決める。初めての面ならカードを作る。"""
+        if rating not in RATINGS:
+            raise ValueError(f"評価は {', '.join(RATINGS)} のいずれかです: {rating}")
+        now_utc = now.astimezone(timezone.utc)
+        key = (language, kind, item_id, face)
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM cards WHERE language = ? AND kind = ? AND item_id = ? AND face = ?", key
+            ).fetchone()
+            current = _card_row(row) if row else CardRow(item_id, face, Card(card_id=0, due=now_utc), now_utc)
+            last = current.card.last_review
+            counted = last is None or last < day_start(now)
+            if counted:
+                card, _ = self.scheduler.review_card(current.card, RATINGS[rating], now_utc)
+                current = CardRow(item_id, face, card, current.introduced_at)
+                conn.execute(
+                    """INSERT INTO cards (language, kind, item_id, face, state, step, stability, difficulty, due, last_review, introduced_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                       ON CONFLICT (language, kind, item_id, face) DO UPDATE SET
+                         state = excluded.state, step = excluded.step, stability = excluded.stability,
+                         difficulty = excluded.difficulty, due = excluded.due, last_review = excluded.last_review""",
+                    (
+                        *key,
+                        int(card.state),
+                        card.step,
+                        card.stability,
+                        card.difficulty,
+                        card.due.isoformat(),
+                        card.last_review.isoformat() if card.last_review else None,
+                        current.introduced_at.isoformat(),
+                    ),
+                )
+            conn.execute(
+                """INSERT INTO reviews (language, kind, item_id, face, practice, reviewed_at, rating, counted, correct, elapsed_sec, answer, detail)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    *key,
+                    practice,
+                    now_utc.isoformat(),
+                    rating,
+                    int(counted),
+                    int(correct),
+                    elapsed_sec,
+                    answer,
+                    json.dumps(detail, ensure_ascii=False) if detail else None,
+                ),
+            )
+        return ReviewResult(counted, current)
+
+    def history(self, language: str, kind: str, item_id: str, limit: int = 30) -> list[dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """SELECT face, practice, reviewed_at, rating, counted, correct, elapsed_sec FROM reviews
+                   WHERE language = ? AND kind = ? AND item_id = ? ORDER BY reviewed_at DESC, id DESC LIMIT ?""",
+                (language, kind, item_id, limit),
+            ).fetchall()
+        return [
+            {
+                "face": r["face"],
+                "practice": r["practice"],
+                "reviewed_at": datetime.fromisoformat(r["reviewed_at"]).astimezone().isoformat(timespec="minutes"),
+                "rating": r["rating"],
+                "counted": bool(r["counted"]),
+                "correct": bool(r["correct"]),
+                "elapsed_sec": r["elapsed_sec"],
+            }
+            for r in rows
+        ]
+
+    def retrievability(self, card: CardRow, now: datetime) -> float:
+        return self.scheduler.get_card_retrievability(card.card, now.astimezone(timezone.utc))
+
+
+def _card_row(row: sqlite3.Row) -> CardRow:
+    # card_id を渡さないと、Card は id を作るために 1 ミリ秒待つ（カードが多いと読み込みが遅くなる）
+    card = Card(
+        card_id=0,
+        state=State(row["state"]),
+        step=row["step"],
+        stability=row["stability"],
+        difficulty=row["difficulty"],
+        due=datetime.fromisoformat(row["due"]),
+        last_review=datetime.fromisoformat(row["last_review"]) if row["last_review"] else None,
+    )
+    return CardRow(row["item_id"], row["face"], card, datetime.fromisoformat(row["introduced_at"]))

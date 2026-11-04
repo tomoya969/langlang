@@ -12,6 +12,8 @@ const FACES = [
 let allWords = [];
 let units = [];
 let selected = null;
+// 面の安定度の線を、定着とみなす安定度で満たす
+let masteredDays = 21;
 
 function filters() {
   return {
@@ -96,7 +98,7 @@ async function select(id) {
         `出てくる文（${w.sentences.length}）`,
         w.sentences.length ? el("div", {}, ...w.sentences.map((s) => el("div", { class: "detail-sentence" }, el("span", { class: "ko", lang: "ko", text: s.ko }), el("span", { class: "ja", text: s.ja })))) : el("p", { class: "note", text: "まだありません" }),
       ),
-      section("履歴", w.history.length ? null : el("p", { class: "note", text: "記録の仕組みを入れるまでは、ここは空です" })),
+      section("履歴", w.history.length ? el("ol", { class: "history" }, ...w.history.map(historyRow)) : el("p", { class: "note", text: "まだ出していません" })),
     ].filter(Boolean),
   );
 }
@@ -107,11 +109,32 @@ function section(title, ...children) {
 
 function faceRow(label, face) {
   if (!face) return el("div", { class: "face-row" }, el("span", { text: label }), el("div", { class: "meter" }, el("span", { style: "width:0%" })), el("span", { class: "note", text: "まだ出していません" }));
-  const pct = Math.min(100, Math.round((face.stability / 21) * 100));
-  return el("div", { class: "face-row" }, el("span", { text: label }), el("div", { class: "meter" }, el("span", { style: `width:${pct}%` })), el("span", { class: "note", text: `安定度 ${face.stability} 日` }));
+  const pct = Math.min(100, Math.round((face.stability / masteredDays) * 100));
+  return el("div", { class: "face-row" }, el("span", { text: label }), el("div", { class: "meter" }, el("span", { style: `width:${pct}%` })), el("span", { class: "note", text: `安定度 ${face.stability} 日 ・ 次は ${shortDate(face.due)}` }));
+}
+
+const RATING_LABELS = { again: "もう一度", hard: "難しい", good: "ふつう", easy: "簡単" };
+
+function historyRow(h) {
+  const face = (FACES.find(([key]) => key === h.face) || [h.face, h.face])[1];
+  return el(
+    "li",
+    { class: h.correct ? "ok" : "ng" },
+    el("span", { class: "history-date", text: shortDate(h.reviewed_at, true) }),
+    el("span", { text: face }),
+    el("span", { class: "history-rating", text: RATING_LABELS[h.rating] || h.rating }),
+    h.counted ? null : el("span", { class: "note", text: "評価に使わない（同じ日の 2 回目以降）" }),
+  );
+}
+
+function shortDate(iso, withTime = false) {
+  const d = new Date(iso);
+  const date = `${d.getMonth() + 1}/${d.getDate()}`;
+  return withTime ? `${date} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}` : date;
 }
 
 async function load() {
+  masteredDays = (await api.get(`/api/settings/${encodeURIComponent(LANGUAGE)}`)).mastered_days || masteredDays;
   units = await api.get(`/api/units?language=${encodeURIComponent(LANGUAGE)}`);
   allWords = await api.get(`/api/words?language=${encodeURIComponent(LANGUAGE)}`);
   const levelSel = document.getElementById("f-level");

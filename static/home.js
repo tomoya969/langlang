@@ -26,11 +26,11 @@ async function loadHome() {
     }),
   );
 
-  // 記録がまだないので、状態は「今日」と「未着手」だけ
   const units = document.getElementById("units");
   units.replaceChildren(
     ...today.units.map((u) => {
       const isToday = today.unit && today.unit.id === u.id;
+      const progress = u.started_count === 0 ? "未着手" : u.started_count >= u.word_count ? "出し終えた" : `${u.started_count} / ${u.word_count} 語`;
       return el(
         "li",
         {},
@@ -40,7 +40,7 @@ async function loadHome() {
           el("span", { class: "unit-id", text: u.id }),
           el("span", { class: "unit-title" }, u.title, el("span", { class: "unit-scene", text: u.scene })),
           el("span", { class: "unit-meta", text: `${u.word_count} 語 ・ ${u.sentence_count} 文` }),
-          el("span", { class: isToday ? "chip accent" : "chip", text: isToday ? "今日" : "未着手" }),
+          el("span", { class: isToday ? "chip accent" : "chip", text: isToday ? `今日 ・ ${progress}` : progress }),
           icon("chevron"),
         ),
       );

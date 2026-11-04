@@ -1,4 +1,4 @@
-"""ブラウザ画面用の API サーバー（FastAPI）。ロジックは既存モジュール（content / session / grader / settings）を呼ぶだけ。
+"""ブラウザ画面用の API サーバー（FastAPI）。ロジックは既存モジュール（content / session / grader / records / settings）を呼ぶだけ。
 
 画面の URL:
 
@@ -19,8 +19,9 @@ from __future__ import annotations
 
 import logging
 import random
+from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
@@ -34,10 +35,11 @@ from app.graded import GradedStore
 from app.jobs import JobBusy, JobStore
 from app.langs.base import LanguagePack, UnsupportedLanguage
 from app.prompts import ERROR_TAGS
+from app.records import RATINGS, Records
 
 log = logging.getLogger("langlang.server")
 
-API_VERSION = 3
+API_VERSION = 4
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 LANGUAGE_PAGES = {"": "index.html", "learn": "learn.html", "words": "words.html"}
 
@@ -48,6 +50,17 @@ class SessionRequest(BaseModel):
     seed: int | None = None
 
 
+class ReviewRequest(BaseModel):
+    language: str
+    word_id: str
+    face: str
+    practice: str
+    rating: str
+    correct: bool
+    elapsed_sec: float | None = None
+    answer: str | None = None
+
+
 class AnswerRequest(BaseModel):
     language: str
     type: str
@@ -56,12 +69,21 @@ class AnswerRequest(BaseModel):
     sentence_id: str | None = None
 
 
-def create_app(root: Path, jobs: JobStore | None = None, ask: grader.AskFn | None = None) -> FastAPI:
-    """ask は採点で AI を呼ぶ関数（テストで差し込む）。None なら claude_cli の採点用の設定で呼ぶ。"""
+def create_app(
+    root: Path,
+    jobs: JobStore | None = None,
+    ask: grader.AskFn | None = None,
+    records: Records | None = None,
+    clock: Callable[[], datetime] | None = None,
+) -> FastAPI:
+    """ask は採点で AI を呼ぶ関数、clock は今の時刻（どちらもテストで差し込む）。
+    ask が None なら claude_cli の採点用の設定で呼ぶ。"""
     app = FastAPI(title="langlang", docs_url=None, redoc_url=None)
     app.state.root = root
     app.state.jobs = jobs or JobStore()
     app.state.graded = GradedStore(root)
+    app.state.records = records or Records(root)
+    now = clock or (lambda: datetime.now().astimezone())
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
     def pack_of(language: str) -> LanguagePack:
@@ -77,31 +99,43 @@ def create_app(root: Path, jobs: JobStore | None = None, ask: grader.AskFn | Non
         except ContentError as exc:
             raise HTTPException(500, str(exc)) from exc
 
+    def cards_of(language: str) -> session.Cards:
+        return app.state.records.cards(language)
+
+    def priority(at: datetime) -> session.Priority:
+        return lambda card: app.state.records.retrievability(card, at)
+
     def summary(language: str) -> dict[str, Any]:
-        """言語ごとの今日の見通し。学習の記録はまだ持たないので、最初のユニットを今日の分として返す。"""
+        """言語ごとの今日の見通し（復習・新出の数、目安の時間、レベルとユニットの進み）。"""
         pack = pack_of(language)
         if not content_mod.content_dir(root, language).is_dir():
             return {"language": pack.to_dict(), "available": False}
         content = load_content(language)
         cfg = settings_mod.load(root, language)
-        unit = content.units[0] if content.units else None
-        new_words = content.words_in(unit.id)[: cfg["new_words_per_day"]] if unit else []
-        new_sentences = content.sentences_in(unit.id)[: cfg["new_sentences_per_day"]] if unit else []
+        cards = cards_of(language)
+        at = now()
+        plan = session.build(content, pack, cfg, cards, at, priority=priority(at), rng=random.Random(0))
+        states = {w.id: session.word_state(w.id, cards, cfg["mastered_days"]) for w in content.words}
         levels = []
         for level in sorted({u.level for u in content.units}):
-            total = sum(1 for w in content.words if w.level == level)
-            levels.append({"level": level, "total": total, "learning": 0, "mastered": 0})
+            in_level = [states[w.id] for w in content.words if w.level == level]
+            levels.append({
+                "level": level,
+                "total": len(in_level),
+                "learning": in_level.count("learning"),
+                "mastered": in_level.count("mastered"),
+            })
         return {
             "language": pack.to_dict(),
             "available": True,
-            "unit": unit.to_dict() if unit else None,
-            "review_count": 0,
-            "new_word_count": len(new_words),
-            "new_sentence_count": len(new_sentences),
+            "unit": plan["unit"],
+            "review_count": plan["review_count"],
+            "new_word_count": plan["new_word_count"],
+            "new_sentence_count": plan["sentence_count"],
             "weak_count": 0,
-            "estimate_min": max(1, round((len(new_words) * 2 * 3 + len(new_sentences) * 30 + 5 * 30) / 60)),
+            "estimate_min": plan["estimate_min"],
             "levels": levels,
-            "units": [unit_summary(content, u) for u in content.units],
+            "units": [unit_summary(content, u, states) for u in content.units],
         }
 
     # ---- API ----
@@ -128,16 +162,45 @@ def create_app(root: Path, jobs: JobStore | None = None, ask: grader.AskFn | Non
 
     @app.post("/api/session/start")
     def session_start(req: SessionRequest) -> dict[str, Any]:
+        """今日の学習の問題の列。unit を指定したときは、そのユニットの練習。"""
         content = load_content(req.language)
         pack = pack_of(req.language)
-        unit_id = req.unit or (content.units[0].id if content.units else None)
-        if unit_id is None:
+        if not content.units:
             raise HTTPException(400, "教材にユニットがありません")
-        _or_404(lambda: content.unit(unit_id))
+        if req.unit:
+            _or_404(lambda: content.unit(req.unit))
         rng = random.Random(req.seed) if req.seed is not None else None
-        plan = session.build(content, pack, unit_id, settings_mod.load(root, req.language), rng)
-        log.info("学習を開始: %s %s（%d 問、目安 %d 分）", req.language, unit_id, len(plan["items"]), plan["estimate_min"])
+        at = now()
+        cfg = settings_mod.load(root, req.language)
+        plan = session.build(content, pack, cfg, cards_of(req.language), at, req.unit, priority(at), rng)
+        log.info(
+            "学習を開始: %s %s（新出 %d 語、復習 %d、%d 問、目安 %d 分）",
+            req.language, req.unit or "今日の学習", plan["new_word_count"], plan["review_count"], len(plan["items"]), plan["estimate_min"],
+        )
         return plan
+
+    @app.post("/api/review")
+    def review(req: ReviewRequest) -> dict[str, Any]:
+        """単語の面の解答を記録する。その日のその面の最初の解答なら、FSRS で次に出す日を決める。"""
+        content = load_content(req.language)
+        _or_404(lambda: content.word(req.word_id))
+        if req.face not in session.WORD_FACES:
+            raise HTTPException(400, f"面は {', '.join(session.WORD_FACES)} のいずれかです: {req.face}")
+        if req.rating not in RATINGS:
+            raise HTTPException(400, f"評価は {', '.join(RATINGS)} のいずれかです: {req.rating}")
+        result = app.state.records.review(
+            req.language,
+            "word",
+            req.word_id,
+            req.face,
+            practice=req.practice,
+            rating=req.rating,
+            correct=req.correct,
+            now=now(),
+            elapsed_sec=req.elapsed_sec,
+            answer=req.answer,
+        )
+        return {"counted": result.counted, "card": result.card.to_dict()}
 
     @app.post("/api/answer")
     def answer(req: AnswerRequest) -> dict[str, Any]:
@@ -187,21 +250,26 @@ def create_app(root: Path, jobs: JobStore | None = None, ask: grader.AskFn | Non
         if q:
             needle = q.strip().lower()
             result = [w for w in result if needle in w.lemma.lower() or needle in w.meaning.lower()]
-        # 学習の記録はまだないので、状態は「未学習」固定
-        return [{**w.to_dict(), "state": "new", "faces": {}} for w in sorted(result, key=lambda w: (w.level, w.order))]
+        cards = cards_of(language)
+        mastered = settings_mod.load(root, language)["mastered_days"]
+        return [
+            {**w.to_dict(), "state": session.word_state(w.id, cards, mastered), "faces": _faces(w.id, cards)}
+            for w in sorted(result, key=lambda w: (w.level, w.order))
+        ]
 
     @app.get("/api/words/{word_id}")
     def word_detail(word_id: str, language: str) -> dict[str, Any]:
         content = load_content(language)
         word = _or_404(lambda: content.word(word_id))
+        cards = cards_of(language)
         return {
             **word.to_dict(),
-            "state": "new",
-            "faces": {},
+            "state": session.word_state(word.id, cards, settings_mod.load(root, language)["mastered_days"]),
+            "faces": _faces(word.id, cards),
             "sentences": [s.to_dict() for s in content.sentences if word.id in s.word_ids],
             "confusable_words": [content.word(c).to_dict() for c in word.confusables if c in content._word_by_id],
             "homograph_words": [content.word(c).to_dict() for c in word.homographs if c in content._word_by_id],
-            "history": [],
+            "history": app.state.records.history(language, "word", word.id),
         }
 
     @app.get("/api/settings/{language}")
@@ -320,8 +388,17 @@ def _cloze_variants(pack: LanguagePack, ko: str, eojeol: int, variants: tuple[st
     return tuple(found)
 
 
-def unit_summary(content: content_mod.Content, unit: content_mod.Unit) -> dict[str, Any]:
-    return {**unit.to_dict(), "word_count": len(content.words_in(unit.id)), "sentence_count": len(content.sentences_in(unit.id))}
+def unit_summary(content: content_mod.Content, unit: content_mod.Unit, states: dict[str, str] | None = None) -> dict[str, Any]:
+    """ユニットの単語と文の数。states（単語ごとの状態）を渡すと、出し始めた単語の数も入れる。"""
+    words = content.words_in(unit.id)
+    result = {**unit.to_dict(), "word_count": len(words), "sentence_count": len(content.sentences_in(unit.id))}
+    if states is not None:
+        result["started_count"] = sum(1 for w in words if states.get(w.id, "new") != "new")
+    return result
+
+
+def _faces(word_id: str, cards: session.Cards) -> dict[str, Any]:
+    return {face: cards[(word_id, face)].to_dict() for face in session.WORD_FACES if (word_id, face) in cards}
 
 
 def _redirect(target: str):  # type: ignore[no-untyped-def]

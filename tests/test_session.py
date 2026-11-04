@@ -1,15 +1,22 @@
 from __future__ import annotations
 
 import random
+from datetime import datetime, timedelta
 
 from app import content, langs, session, settings
+from app.records import Records, make_scheduler
 
 pack = langs.get("ko")
+NOW = datetime(2026, 11, 4, 9, 0).astimezone()
 
 
-def build(root, unit="T-U02", **overrides):
+def build(root, unit="T-U02", cards=None, now=NOW, **overrides):
     cfg = {**settings.DEFAULTS, **overrides}
-    return session.build(content.load(root, "ko"), pack, unit, cfg, random.Random(1))
+    return session.build(content.load(root, "ko"), pack, cfg, cards or {}, now, unit, rng=random.Random(1))
+
+
+def answer(records, word_id, rating="good", face="meaning", at=NOW):
+    records.review("ko", "word", word_id, face, practice=f"word_{face}", rating=rating, correct=rating != "again", now=at)
 
 
 def test_rounds_and_ids(root):
@@ -72,3 +79,83 @@ def test_cloze_falls_back_to_dictation_without_cloze(root):
     plan = build(root, new_sentences_per_day=3)
     kinds = [i["type"] for i in plan["items"] if i["round"] == "sentences"]
     assert kinds == ["sentence_intro", "sentence_listen_choose", "sentence_dictation"]
+
+
+# ---- 記録から組む今日の学習 ----
+
+
+def test_first_day_is_new_words_in_order(root):
+    plan = build(root, unit=None, new_words_per_day=3)
+    assert plan["mode"] == "today"
+    intros = [i["word"]["lemma"] for i in plan["items"] if i["type"] == "word_intro"]
+    assert intros == ["물", "빵", "커피"]
+    assert plan["review_count"] == 0
+    assert plan["unit"]["id"] == "T-U01"
+
+
+def test_new_word_quota_counts_words_started_today(root):
+    records = Records(root, make_scheduler(fuzz=False))
+    answer(records, "t-w-0001")
+    answer(records, "t-w-0002")
+    plan = build(root, unit=None, cards=records.cards("ko"), new_words_per_day=3)
+    assert [i["word"]["lemma"] for i in plan["items"] if i["type"] == "word_intro"] == ["커피"]
+    # 次の日は枠が戻る
+    tomorrow = build(root, unit=None, cards=records.cards("ko"), now=NOW + timedelta(days=1), new_words_per_day=3)
+    assert len([i for i in tomorrow["items"] if i["type"] == "word_intro"]) == 3
+
+
+def test_due_cards_become_reviews(root):
+    records = Records(root, make_scheduler(fuzz=False))
+    answer(records, "t-w-0001", "again")  # 翌日に出る
+    answer(records, "t-w-0002", "easy")  # しばらく出ない
+    cards = records.cards("ko")
+    assert build(root, unit=None, cards=cards)["review_count"] == 0  # 今日はもう済んでいる
+    plan = build(root, unit=None, cards=cards, now=NOW + timedelta(days=1))
+    reviews = [i for i in plan["items"] if i["type"] == "word_meaning" and i["word"]["id"] in ("t-w-0001", "t-w-0002")]
+    assert [i["word"]["id"] for i in reviews] == ["t-w-0001"]
+
+
+def test_review_limit(root):
+    records = Records(root, make_scheduler(fuzz=False))
+    for wid in ("t-w-0001", "t-w-0002", "t-w-0003"):
+        answer(records, wid, "again")
+    plan = build(root, unit=None, cards=records.cards("ko"), now=NOW + timedelta(days=1), review_limit=2, new_words_per_day=0)
+    assert plan["review_count"] == 2
+
+
+def test_faces_unlock_as_meaning_settles(root):
+    records = Records(root, make_scheduler(fuzz=False))
+    answer(records, "t-w-0003", "easy")  # 安定度 8 日ほど
+    cards = records.cards("ko")
+    assert session.unlocked_faces("t-w-0003", cards, settings.DEFAULTS) == ["listen", "reverse"]
+    answer(records, "t-w-0003", "easy", face="reverse")
+    assert "spell" in session.unlocked_faces("t-w-0003", records.cards("ko"), settings.DEFAULTS)
+    plan = build(root, unit=None, cards=records.cards("ko"), now=NOW + timedelta(days=1))
+    faces = {i["face"] for i in plan["items"] if i.get("word", {}).get("id") == "t-w-0003" and i["type"] != "word_intro"}
+    assert {"listen", "spell"} <= faces
+
+
+def test_word_state(root):
+    records = Records(root, make_scheduler(fuzz=False))
+    assert session.word_state("t-w-0001", {}, 21) == "new"
+    answer(records, "t-w-0001")
+    assert session.word_state("t-w-0001", records.cards("ko"), 21) == "learning"
+    assert session.word_state("t-w-0001", records.cards("ko"), 1) == "mastered"
+
+
+def test_unit_practice_reviews_started_words_of_the_unit(root):
+    records = Records(root, make_scheduler(fuzz=False))
+    answer(records, "t-w-0007")
+    plan = build(root, unit="T-U02", cards=records.cards("ko"))
+    assert plan["mode"] == "unit"
+    assert "t-w-0007" not in {i["word"]["id"] for i in plan["items"] if i["type"] == "word_intro"}
+    assert "t-w-0007" in {i["word"]["id"] for i in plan["items"] if i["type"] == "word_meaning"}
+
+
+def test_sentences_prefer_new_words_and_skip_unseen(root):
+    plan = build(root, unit=None, new_words_per_day=1)  # 新出は 물 だけ
+    sentence_ids = {i["sentence"]["id"] for i in plan["items"] if i["round"] == "sentences"}
+    # 물 주세요（まだ見ていない語なし）と 커피가 있어요（1 語）は出せる。빵을 먹어요（2 語）は出せない
+    assert "t-s-U02-001" not in sentence_ids
+    first = next(i for i in plan["items"] if i["round"] == "sentences")
+    assert first["sentence"]["id"] == "t-s-U01-001"
