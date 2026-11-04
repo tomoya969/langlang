@@ -743,3 +743,143 @@ sentences のキーは、下の「## 」の後ろのキーをそのまま使う�
 
 {chr(10).join(blocks)}
 """
+
+
+# 許容例（docs/plan.md 5.4・6.3「許容例」）
+#
+# 採点は、答えが模範解答か許容例に一致すれば AI を呼ばずに正解にする。誤った許容例は誤りを正解として覚えさせるので、
+# 作る呼び出しと検算する呼び出しを分ける
+
+VARIANTS_STYLE = 1
+VERIFY_VARIANTS_STYLE = 1
+
+
+def variants_schema(keys: list[str]) -> dict:
+    return _keyed_schema("sentences", keys, _obj({"ko": _strings(), "ja": _strings(), "cloze": _strings()}))
+
+
+def _variant_block(item: dict) -> str:
+    cloze = item.get("cloze")
+    lines = [
+        f"## {item['key']}",
+        "",
+        f"- ko（模範解答）: {item['ko']}",
+        f"- ja: {item['ja']}",
+        f"- 文体: {item['register']}",
+        f"- 場面: {item['scene']}",
+    ]
+    if cloze:
+        lines += [
+            f"- 穴埋め: 空欄つきの文「{cloze['blanked']}」、空欄の意味の手がかり「{cloze['hint_ja']}」、答え「{cloze['answer']}」",
+        ]
+    else:
+        lines.append("- 穴埋め: なし")
+    return "\n".join(lines)
+
+
+def build_variants_prompt(unit: dict, items: list[dict]) -> str:
+    """items: key, ko, ja, register, scene, cloze（blanked, hint_ja, answer。なければ None）, variants（今ある ko・ja・cloze）。"""
+    blocks = []
+    for item in items:
+        have = item["variants"]
+        blocks.append(
+            _variant_block(item)
+            + f"\n- 今ある ko の許容例: {' / '.join(have['ko']) or '（なし）'}"
+            + f"\n- 今ある ja の許容例: {' / '.join(have['ja']) or '（なし）'}"
+            + (f"\n- 今ある穴埋めの許容例: {' / '.join(have['cloze']) or '（なし）'}" if item.get("cloze") else "")
+        )
+    return f"""# 依頼
+
+日本語話者向けの韓国語の教材で、例文の「許容例」を作っています。{_LEARNER}
+学習者の答えが模範解答か許容例と一致すると、その場で正解になります。一致しない答えは、別に AI が採点します。
+学習者が書きそうな、正しい別の言い方を集めてください。ユニット {unit['id']}「{unit['title']}」（場面: {unit['scene']}）の例文です。
+「今ある許容例」は残るので、挙げなくてかまいません（挙げても重複は除きます）。
+
+# 作るもの
+
+## ko: 日本語から韓国語への作文の許容例
+
+学習者は ja と文体と場面を見て、韓国語で書きます。模範解答（ko）と違っても正解にしてよい韓国語の文を挙げてください。
+
+- ja と意味が同じで、文体が同じで、韓国語として正しく自然なもの
+- 学習者が書きそうなものから、次のような違いを挙げる
+  - 助詞の省略・付け足し（話し言葉で自然な範囲。커피 있어요 と 커피가 있어요）
+  - 主語の省略・付け足し（저는 を言う・言わない）
+  - 縮約した形と縮約しない形（저는 と 전、이것은 と 이건、무엇 と 뭐）
+  - 語順の入れ替え
+  - 同じ意味の別の語・別の語尾
+  - あいさつ・お礼・おわびなどの決まった表現の、합니다 形と 해요 形（미안합니다 と 미안해요、감사합니다 と 고마워요）。
+    文の文体が 해요체 でも、決まった表現はどちらの形でもよい
+  - 2 文の例文では、それぞれの文の言い方の組み合わせ
+- 0〜8 個。ほかに正しい言い方がなければ空にする
+- 入れないもの
+  - 意味が変わるもの、文体が違うもの（決まった表現を除く）、不自然なもの
+  - 分かち書きだけが違うもの
+  - 綴りだけが違うもの（뭐예요 に対する 뭐에요 は綴りの誤り）
+  - 数字・ローマ字を使うもの
+- 文末は「.」か「?」。分かち書きは標準どおり
+
+## ja: 韓国語から日本語への訳の許容例
+
+ko の訳として正解にしてよい日本語を 0〜5 個（ja と違うもの）。言い回し・語順・「です・ます」の有無の違いなど。
+
+## cloze: 穴埋めの空欄の許容例
+
+学習者は空欄つきの文と ja と空欄の意味の手がかりを見て、空欄の語節を書きます。答えのほかに、空欄に入れて正解にしてよい語節を挙げてください。
+
+- 空欄に入れた文が ja と手がかりの意味に合い、文法的に正しく自然で、文体に合うもの（決まった表現は 합니다 形と 해요 形のどちらでもよい）
+- 空白を含まない 1 つの語節。0〜4 個。穴埋めがない例文は空にする
+- 綴りだけが違うもの、分かち書きが違うものは入れない
+
+sentences のキーは、下の「## 」の後ろのキーをそのまま使う。
+
+# 例文
+
+{chr(10).join(blocks)}
+"""
+
+
+def verify_variants_schema(keys: list[str]) -> dict:
+    bad = _obj({"kind": {"type": "string", "enum": ["ko", "ja", "cloze"]}, "text": {"type": "string"}, "reason": {"type": "string"}})
+    return _keyed_schema("sentences", keys, _obj({"bad": {"type": "array", "items": bad}}))
+
+
+def build_verify_variants_prompt(unit: dict, items: list[dict]) -> str:
+    """items: key, ko, ja, register, scene, cloze（blanked, hint_ja, answer。なければ None）, candidates（ko・ja・cloze の候補）。"""
+    blocks = []
+    for item in items:
+        c = item["candidates"]
+        parts = [_variant_block(item), _listed("ko の許容例", c["ko"]), _listed("ja の許容例", c["ja"])]
+        if item.get("cloze"):
+            parts.append(_listed("穴埋めの許容例", c["cloze"]))
+        blocks.append("\n".join(parts))
+    return f"""# 依頼
+
+日本語話者向けの韓国語の教材の「許容例」を検算してください。別の担当が作ったものです。
+学習者の答えが許容例と一致すると、AI の採点を通さずにそのまま正解になります。
+誤りが紛れていると、学習者は誤りを正解だと覚えてしまうので、少しでも疑わしいものは受け入れないでください。
+ユニット {unit['id']}「{unit['title']}」（場面: {unit['scene']}）の例文です。
+
+# 受け入れる条件
+
+- ko の許容例: ja を、指定の文体で韓国語にした文として正しく自然か
+  - 意味が ja と同じか（足りない意味・足した意味がないか）
+  - 文体が同じか（あいさつ・お礼・おわびなどの決まった表現の、합니다 形と 해요 形の違いはよい）
+  - 文法・語の選び方・綴り・分かち書き・句読点が正しいか
+- ja の許容例: ko の訳として、意味が過不足ないか
+- 穴埋めの許容例: 空欄に入れた文が正しく自然で、ja と空欄の意味の手がかりに合い、文体に合うか（決まった表現の 합니다 形と 해요 形の違いはよい）
+
+# 書き方
+
+bad に、受け入れないものを 1 つずつ挙げる。text はそのままの文字列、kind は種類（ko / ja / cloze）、reason は理由（日本語で短く）。
+すべて受け入れるなら空にする。sentences のキーは、下の「## 」の後ろのキーをそのまま使う。
+
+# 例文
+
+{chr(10).join(blocks)}
+"""
+
+
+def _listed(label: str, values: list[str]) -> str:
+    return f"- {label}:" + "".join(f"\n  - {v}" for v in values) if values else f"- {label}: （なし）"
+

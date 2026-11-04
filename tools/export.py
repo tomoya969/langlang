@@ -4,6 +4,7 @@
   詳しい付与がまだの語は書き出さない（意味がないと画面に出せないため）
 - 取り違えやすい語・同義語は、書き出す単語の中から辞書形で探して id にする。見つからない語は落とす
 - 文は needs_review も書き出す（学習に出すのは approved だけ。content.load が除く）
+- 文の許容例は、許容例の段階（gen_variants）が今の文の中身で作ったものがあれば、それに置き換える
 - 書き出したら content.validate で整合を確かめ、work/report.md に結果をまとめる
 """
 
@@ -13,7 +14,7 @@ from collections import Counter
 from typing import Any
 
 from app import content as content_mod
-from tools import candidates, gen_grammar
+from tools import candidates, gen_grammar, gen_variants
 from tools.assign_levels import IDS, LEVEL_REST, RANKING, layout
 from tools.enrich_words import ENRICH
 from tools.gen_sentences import APPROVED, NEEDS_REVIEW, STATE_DONE, unit_path
@@ -154,7 +155,10 @@ def build_sentences(ws: Workspace, unit: dict[str, Any]) -> list[dict[str, Any]]
     for s in sorted(state["sentences"], key=lambda s: s["slot"]):
         if s["status"] not in (APPROVED, NEEDS_REVIEW):
             continue
-        cloze = s["cloze"]
+        cloze = dict(s["cloze"])
+        variants = gen_variants.lookup(ws, unit["id"], s)
+        if variants is not None:
+            cloze["variants"] = variants["cloze"]
         item: dict[str, Any] = {
             "id": f"{ws.language}-s-{unit['id']}-{s['slot']:03d}",
             "unit": unit["id"],
@@ -165,7 +169,7 @@ def build_sentences(ws: Workspace, unit: dict[str, Any]) -> list[dict[str, Any]]
             "tokens": [{"surface": t["surface"], "word_ids": t["word_ids"], "eojeol": i} for i, t in enumerate(s["tokens"])],
             "grammar": s["grammar"],
             "cloze": [cloze] if 0 <= cloze["eojeol"] < len(s["tokens"]) else [],
-            "variants": s["variants"],
+            "variants": {"ko": variants["ko"], "ja": variants["ja"]} if variants is not None else s["variants"],
             "status": s["status"],
         }
         if s["status"] == NEEDS_REVIEW:

@@ -118,10 +118,30 @@ def test_answer_machine(ai_client, ai):
         return ai_client.post("/api/answer", json={"language": "ko", **body}).json()
 
     assert post(type="sentence_cloze", sentence_id="t-s-U01-001", answer="물")["verdict"] == "correct"
-    assert post(type="sentence_dictation", sentence_id="t-s-U01-001", answer="물 좀 주세요")["verdict"] == "correct"
+    assert post(type="sentence_ja_to_ko", sentence_id="t-s-U01-001", answer="물 좀 주세요")["verdict"] == "correct"
     assert post(type="sentence_dictation", sentence_id="t-s-U01-002", answer="커피가 이써요")["source"] == "pronunciation"
     assert post(type="word_spell", word_id="t-w-0003", answer="커피")["verdict"] == "correct"
     assert not ai.calls
+
+
+def test_dictation_ignores_variants(ai_client, ai):
+    # 許容例は言い方の違いなので、読み上げと違う言い方は書き取りでは正解にしない
+    res = ai_client.post("/api/answer", json={"language": "ko", "type": "sentence_dictation", "sentence_id": "t-s-U01-001", "answer": "물 좀 주세요"}).json()
+    assert "job" in res
+    assert "- 許容例" not in ai.calls[0]
+
+
+def test_cloze_uses_its_own_variants(root, ai):
+    import json
+
+    path = root / "content" / "ko" / "sentences" / "T-U01.json"
+    items = json.loads(path.read_text(encoding="utf-8"))
+    items[1]["cloze"][0]["variants"] = ["커피는"]
+    path.write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
+    app = create_app(root, jobs=JobStore(inline=True), ask=ai)
+    with TestClient(app) as c:
+        res = c.post("/api/answer", json={"language": "ko", "type": "sentence_cloze", "sentence_id": "t-s-U01-002", "answer": "커피는"}).json()
+    assert res["source"] == "variant"
 
 
 def test_cloze_variants_come_from_sentence_variants():

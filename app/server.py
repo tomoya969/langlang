@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import logging
 import random
-import re
 from pathlib import Path
 from typing import Any
 
@@ -279,9 +278,9 @@ def task_for(content: content_mod.Content, pack: LanguagePack, req: AnswerReques
         if not s.cloze:
             raise HTTPException(400, "この文には穴埋めがありません")
         cloze = s.cloze[0]
-        cloze_variants = _cloze_variants(pack, s.ko, cloze["eojeol"], variants)
+        cloze_variants = tuple(dict.fromkeys([*cloze.get("variants", []), *_cloze_variants(pack, s.ko, cloze["eojeol"], variants)]))
         problem = [
-            ("文（＿＿＿ が空欄）", _blanked(s.ko, cloze["eojeol"])),
+            ("文（＿＿＿ が空欄）", content_mod.blank_eojeol(s.ko, cloze["eojeol"])),
             ("文の日本語訳", s.ja),
             ("文の文体", s.register),
             ("場面", s.scene),
@@ -291,8 +290,10 @@ def task_for(content: content_mod.Content, pack: LanguagePack, req: AnswerReques
         ]
         return grader.Task(req.type, s.id, cloze["answer"], cloze_variants, {**common, "problem": problem}, word_ids)
     if req.type == "sentence_dictation":
-        problem = [("読み上げた文（模範解答）", s.ko), ("許容例", "、".join(variants)), ("文の日本語訳", s.ja), ("文の文体", s.register)]
-    elif req.type == "sentence_ja_to_ko":
+        # 許容例は言い方の違いなので、書き取りでは読み上げた文とだけ比べる
+        problem = [("読み上げた文（模範解答）", s.ko), ("文の日本語訳", s.ja), ("文の文体", s.register)]
+        return grader.Task(req.type, s.id, s.ko, (), {**common, "problem": problem}, word_ids)
+    if req.type == "sentence_ja_to_ko":
         problem = [("日本語の文", s.ja), ("指定の文体", s.register), ("場面", s.scene), ("模範解答", s.ko), ("許容例", "、".join(variants))]
     else:
         required = s.grammar[0] if s.grammar else "（なし。自由に書いてよい）"
@@ -302,17 +303,6 @@ def task_for(content: content_mod.Content, pack: LanguagePack, req: AnswerReques
 
 def _word_brief(word: content_mod.Word) -> dict[str, str]:
     return {"id": word.id, "lemma": word.lemma, "meaning": word.meaning}
-
-
-_TRAILING_PUNCT = re.compile(r"[.?!,。？！、]+$")
-
-
-def _blanked(ko: str, eojeol: int) -> str:
-    parts = ko.split(" ")
-    if 0 <= eojeol < len(parts):
-        punct = _TRAILING_PUNCT.search(parts[eojeol])
-        parts[eojeol] = "＿＿＿" + (punct.group() if punct else "")
-    return " ".join(parts)
 
 
 def _cloze_variants(pack: LanguagePack, ko: str, eojeol: int, variants: tuple[str, ...]) -> tuple[str, ...]:

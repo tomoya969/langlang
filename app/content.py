@@ -7,6 +7,7 @@ id は一度付けたら変えない（学習の記録が参照するため）�
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,18 @@ STATUS_APPROVED = "approved"
 
 class ContentError(Exception):
     """教材のファイルが読めない、または整合していない。"""
+
+
+_TRAILING_PUNCT = re.compile(r"[.?!,。？！、]+$")
+
+
+def blank_eojeol(ko: str, eojeol: int) -> str:
+    """文の eojeol 番目の語節を空欄（＿＿＿）にする。語節の後ろの句読点は残す。"""
+    parts = ko.split(" ")
+    if 0 <= eojeol < len(parts):
+        punct = _TRAILING_PUNCT.search(parts[eojeol])
+        parts[eojeol] = "＿＿＿" + (punct.group() if punct else "")
+    return " ".join(parts)
 
 
 @dataclass(frozen=True)

@@ -28,8 +28,10 @@ uv run langlang-build status    # どこまで済んだか
 uv run langlang validate        # 教材の整合を確かめる
 ```
 
-段階ごとにも実行できる（`import` → `supplement` → `tag` → `levels` → `units` → `grammar` → `enrich` → `verify-words` → `sentences` → `export`）。
+段階ごとにも実行できる（`import` → `supplement` → `tag` → `levels` → `units` → `grammar` → `enrich` → `verify-words` → `sentences` → `variants` → `export`）。
 AI を使う段階は `claude -p` を呼ぶので、Claude の利用枠を使う。上限に当たったら止まり、時間をおいて同じコマンドを実行すると続きから進む。
 文は `--units L1-U01,L1-U02` で一部のユニットだけ作れる。機械の検算（`tools/ko/morph.py`）を直したら、
 `--recheck` で機械の検算で要確認になった文だけを確かめ直せる。
 今の L1 の文は `LANGLANG_ENRICH_EFFORT=medium uv run langlang-build sentences` で作った（既定の effort だと 1 回に 4〜17 分かかるため。`docs/design.md`）。
+許容例（採点で AI を呼ばずに正解にする別の言い方）は、文ができたあとに `variants` で作って検算する。文の中身かプロンプトの版
+（`VARIANTS_STYLE`・`VERIFY_VARIANTS_STYLE`）が変わった文だけを作り直す。今の L1 は `LANGLANG_ENRICH_EFFORT=medium uv run langlang-build variants` で作った。

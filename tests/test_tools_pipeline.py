@@ -13,6 +13,7 @@ from tools import (
     export,
     gen_grammar,
     gen_sentences,
+    gen_variants,
     import_nikl,
     supplement,
     tag_candidates,
@@ -80,8 +81,29 @@ class FakeAI:
         if field == "sentences" and props["type"] == "array":
             self.calls.append("sentences")
             return {"sentences": self._sentences(prompt)}
+        item = props["properties"][props["required"][0]]["properties"]
+        if "cloze" in item:
+            self.calls.append("variants")
+            return {"sentences": {key: self._variants(key, prompt) for key in props["required"]}}
+        if "bad" in item:
+            self.calls.append("verify-variants")
+            return {"sentences": {key: self._verify_variants(key, prompt) for key in props["required"]}}
         self.calls.append("verify-sentences")
         return {"sentences": {key: self._verify_sentence(key, prompt) for key in props["required"]}}
+
+    @staticmethod
+    def _variants(key, prompt):
+        ko = re.search(r"- ko（模範解答）: (.+)", prompt.split(f"## {key}\n", 1)[1]).group(1)
+        if ko == "물 주세요.":
+            # 発音が同じだけのもの・空白だけ違うもの・数字は機械で除く。「물 좀 주세요.」は検算で除く
+            return {"ko": ["물 좀 주세요.", "물주세요.", "물 주새요.", "물 2잔 주세요.", "물 주세요!"], "ja": ["水を下さい。"], "cloze": ["물을", "물 좀"]}
+        return {"ko": [], "ja": [], "cloze": []}
+
+    @staticmethod
+    def _verify_variants(key, prompt):
+        block = prompt.split(f"## {key}\n", 1)[1]
+        bad = [{"kind": "ko", "text": "물 좀 주세요.", "reason": "テストの除外"}] if "물 좀 주세요." in block else []
+        return {"bad": bad}
 
     @staticmethod
     def _tag(key):
@@ -178,6 +200,7 @@ def test_pipeline_from_list_to_content(tmp_path):
     enrich_words.run(ws, ai, 1)
     verify_words.run(ws, ai, 1)
     gen_sentences.run(ws, ai, ai, 1)
+    gen_variants.run(ws, ai, ai, 1)
     message = export.run(ws, 1)
     assert "ユニット 2" in message
 
@@ -195,7 +218,8 @@ def test_pipeline_from_list_to_content(tmp_path):
     by_ko = {s.ko: s for s in loaded.sentences}
     assert "우유 마셔요." not in by_ko and by_ko["물 마셔요."].status == "approved"
     assert by_ko["학교에 가요."].status == "approved"  # 1 回目は不合格、作り直して合格
-    assert by_ko["물 주세요."].variants["ja"] == []  # 検算で取り除いた許容例
+    assert by_ko["물 주세요."].variants == {"ko": [], "ja": ["水を下さい。"]}  # 文の検算と許容例の検算で取り除いた許容例
+    assert by_ko["물 주세요."].cloze[0]["variants"] == ["물을"]  # 1 つの語節だけ
     assert by_ko["물 주세요."].grammar == ("-(으)세요",)  # 検算が直した文法の表示
     assert by_ko["물 주세요."].word_ids == [words["물"].id, words["주다"].id]
     approved = content.load(tmp_path, "ko")
@@ -210,6 +234,7 @@ def test_pipeline_from_list_to_content(tmp_path):
     enrich_words.run(ws, ai, 1)
     verify_words.run(ws, ai, 1)
     gen_sentences.run(ws, ai, ai, 1)
+    gen_variants.run(ws, ai, ai, 1)
     assert len(ai.calls) == before
     assert (ws.dir / "report.md").read_text(encoding="utf-8").startswith("# 教材づくりの報告（L1）")
 

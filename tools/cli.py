@@ -10,6 +10,7 @@
     langlang-build enrich [--level 1]         詳しい付与（AI）
     langlang-build verify-words [--level 1]   単語の検算（AI）
     langlang-build sentences [--level 1] [--units L1-U01,L1-U02] [--recheck]   文の生成と検算（AI）
+    langlang-build variants [--level 1] [--units L1-U01,L1-U02]   許容例の生成と検算（AI）
     langlang-build export [--level 1]         content/ko/ に書き出す
     langlang-build all [--level 1]            上を順に全部
 
@@ -36,6 +37,7 @@ from tools import (
     export,
     gen_grammar,
     gen_sentences,
+    gen_variants,
     import_nikl,
     supplement,
     tag_candidates,
@@ -97,7 +99,7 @@ def build_parser() -> argparse.ArgumentParser:
         p = sub.add_parser(name, help=text)
         p.add_argument("--level", type=int, default=1)
         p.add_argument("--parallel", type=int, default=3)
-    for name, text in (("sentences", "文の生成と検算（AI）"), ("all", "すべての段階を順に")):
+    for name, text in (("sentences", "文の生成と検算（AI）"), ("variants", "許容例の生成と検算（AI）"), ("all", "すべての段階を順に")):
         p = sub.add_parser(name, help=text)
         p.add_argument("--level", type=int, default=1)
         p.add_argument("--parallel", type=int, default=3)
@@ -126,6 +128,7 @@ def steps_for(args: argparse.Namespace) -> list[tuple[str, Step]]:
         "enrich": lambda ws: enrich_words.run(ws, asker("enrich"), level, parallel),
         "verify-words": lambda ws: verify_words.run(ws, asker("verify"), level, parallel),
         "sentences": lambda ws: gen_sentences.run(ws, asker("enrich"), asker("verify"), level, unit_ids, parallel),
+        "variants": lambda ws: gen_variants.run(ws, asker("enrich"), asker("verify"), level, unit_ids, parallel),
         "export": lambda ws: export.run(ws, level),
     }
     if args.command == "sentences" and args.recheck:
@@ -134,7 +137,7 @@ def steps_for(args: argparse.Namespace) -> list[tuple[str, Step]]:
         # 取り込み済みなら元のリストがなくても続けられるように、取り込みは候補がないときだけ
         steps["import"] = lambda ws: "済み" if ws.exists(import_nikl.CANDIDATES) else import_nikl.run(ws)
         steps["tag"] = lambda ws: tag_candidates.run(ws, asker("tag"), parallel=max(parallel, 4))
-        order = ["import", "supplement", "tag", "levels", "units", "grammar", "enrich", "verify-words", "sentences", "export"]
+        order = ["import", "supplement", "tag", "levels", "units", "grammar", "enrich", "verify-words", "sentences", "variants", "export"]
         return [(name, steps[name]) for name in order]
     return [(args.command, steps[args.command])]
 
@@ -164,6 +167,7 @@ def status(ws: Workspace) -> str:
         verified = ws.read(verify_words.VERIFY_WORDS, {})
         grammar = ws.read(gen_grammar.GRAMMAR, {}).get(f"L{level}")
         done_units = [u for u in layout if (ws.read(gen_sentences.unit_path(u["id"])) or {}).get("status") == gen_sentences.STATE_DONE]
+        variants_left = sum(len(gen_variants.pending_sentences(ws, u)) for u in layout)
         lines += [
             f"L{level} units: {len(layout)} ユニット",
             f"L{level} grammar: {str(len(grammar['items'])) + ' 個' if grammar else 'まだ'}",
@@ -171,5 +175,6 @@ def status(ws: Workspace) -> str:
             f"L{level} verify-words: {sum(1 for k in keys if k in verified)}/{len(keys)} 語"
             f"（要確認 {sum(1 for k in keys if k in verified and verify_words.problems(verified[k]))}）",
             f"L{level} sentences: {len(done_units)}/{len(layout)} ユニット",
+            f"L{level} variants: 残り {variants_left} 文",
         ]
     return "\n".join(lines)
