@@ -8,8 +8,8 @@
     "scene": "試験の後でクラスメートに",
     "tokens": [{"surface": "시험", "word_ids": ["ko-w-0125"], "eojeol": 0}, {"surface": "문제가", "word_ids": ["ko-w-0120"], "eojeol": 1}, {"surface": "어려웠어요", "word_ids": ["ko-w-0142"], "eojeol": 2}],
     "grammar": ["-았/었어요", "이/가"],
-    "cloze": [{"eojeol": 2, "answer": "어려웠어요", "hint_ja": "難しかったです"}],
-    "variants": {"ko": ["시험 문제 어려웠어요."], "ja": ["試験問題が難しかったです。", "テストの問題が難しかったです。"]},
+    "cloze": [{"eojeol": 2, "answer": "어려웠어요", "hint_ja": "難しかったです", "variants": []}],
+    "variants": {"ko": ["시험 문제 어려웠어요.", "시험 문제는 어려웠어요."], "ja": ["試験問題が難しかったです。", "テストの問題が難しかったです。", "試験の問題は難しかったです。", "試験問題は難しかったです。"]},
     "status": "approved"
   },
   {
@@ -21,8 +21,8 @@
     "scene": "教室で隣の学生に",
     "tokens": [{"surface": "그", "word_ids": ["ko-w-0072"], "eojeol": 0}, {"surface": "말을", "word_ids": ["ko-w-0126"], "eojeol": 1}, {"surface": "못", "word_ids": ["ko-w-0139"], "eojeol": 2}, {"surface": "들었어요", "word_ids": ["ko-w-0129"], "eojeol": 3}],
     "grammar": ["못 -", "-았/었어요", "을/를"],
-    "cloze": [{"eojeol": 3, "answer": "들었어요", "hint_ja": "聞きました"}],
-    "variants": {"ko": ["그 말 못 들었어요."], "ja": ["その言葉が聞き取れませんでした。", "その話が聞こえませんでした。"]},
+    "cloze": [{"eojeol": 3, "answer": "들었어요", "hint_ja": "聞きました", "variants": []}],
+    "variants": {"ko": ["그 말 못 들었어요.", "그 말은 못 들었어요.", "그 말을 듣지 못했어요.", "그 말은 듣지 못했어요."], "ja": ["その言葉が聞き取れませんでした。", "その話が聞こえませんでした。", "その言葉は聞けませんでした。", "その言葉が聞こえませんでした。"]},
     "status": "approved"
   },
   {
@@ -34,8 +34,8 @@
     "scene": "教室でクラスメートに",
     "tokens": [{"surface": "이", "word_ids": ["ko-w-0075"], "eojeol": 0}, {"surface": "책을", "word_ids": ["ko-w-0122"], "eojeol": 1}, {"surface": "다시", "word_ids": ["ko-w-0128"], "eojeol": 2}, {"surface": "읽고", "word_ids": ["ko-w-0140"], "eojeol": 3}, {"surface": "싶어요", "word_ids": [], "eojeol": 4}],
     "grammar": ["-고 싶다", "을/를"],
-    "cloze": [{"eojeol": 2, "answer": "다시", "hint_ja": "もう一度"}],
-    "variants": {"ko": ["이 책 다시 읽고 싶어요."], "ja": ["この本をまた読みたいです。"]},
+    "cloze": [{"eojeol": 2, "answer": "다시", "hint_ja": "もう一度", "variants": ["또"]}],
+    "variants": {"ko": ["이 책 다시 읽고 싶어요.", "이 책을 또 읽고 싶어요.", "다시 이 책을 읽고 싶어요.", "저는 이 책을 다시 읽고 싶어요.", "이 책 또 읽고 싶어요.", "전 이 책을 다시 읽고 싶어요."], "ja": ["この本をまた読みたいです。", "この本をもう一回読みたいです。", "この本、もう一度読みたいです。"]},
     "status": "approved"
   },
   {
@@ -47,8 +47,8 @@
     "scene": "教室で先生に",
     "tokens": [{"surface": "선생님", "word_ids": ["ko-w-0138"], "eojeol": 0}, {"surface": "여기", "word_ids": ["ko-w-0030"], "eojeol": 1}, {"surface": "앉으세요", "word_ids": ["ko-w-0135"], "eojeol": 2}],
     "grammar": ["-(으)세요"],
-    "cloze": [{"eojeol": 2, "answer": "앉으세요", "hint_ja": "お座りください"}],
-    "variants": {"ko": ["선생님, 여기에 앉으세요."], "ja": ["先生、ここに座ってください。", "先生、こちらにお掛けください。"]},
+    "cloze": [{"eojeol": 2, "answer": "앉으세요", "hint_ja": "お座りください", "variants": []}],
+    "variants": {"ko": ["선생님, 여기에 앉으세요.", "선생님, 이쪽에 앉으세요.", "선생님, 이쪽으로 앉으세요."], "ja": ["先生、ここに座ってください。", "先生、こちらにお掛けください。", "先生、こちらにお座りください。"]},
     "status": "approved"
   },
   {
@@ -60,8 +60,8 @@
     "scene": "教室でクラスメートに",
     "tokens": [{"surface": "저는", "word_ids": ["ko-w-0007"], "eojeol": 0}, {"surface": "영어를", "word_ids": ["ko-w-0130"], "eojeol": 1}, {"surface": "못해요", "word_ids": ["ko-w-0127"], "eojeol": 2}],
     "grammar": ["-아/어요", "은/는", "을/를"],
-    "cloze": [{"eojeol": 2, "answer": "못해요", "hint_ja": "できません"}],
-    "variants": {"ko": ["저는 영어 못해요.", "영어를 못해요."], "ja": ["私は英語が苦手です。", "英語はできません。"]},
+    "cloze": [{"eojeol": 2, "answer": "못해요", "hint_ja": "できません", "variants": []}],
+    "variants": {"ko": ["저는 영어 못해요.", "영어를 못해요.", "전 영어를 못해요.", "전 영어 못해요.", "영어 못해요.", "저는 영어를 할 줄 몰라요.", "저는 영어를 하지 못해요."], "ja": ["英語はできません。", "私は英語ができないです。", "英語ができません。"]},
     "status": "approved"
   },
   {
@@ -73,8 +73,8 @@
     "scene": "授業前にクラスメートに",
     "tokens": [{"surface": "숙제를", "word_ids": ["ko-w-0144"], "eojeol": 0}, {"surface": "아직", "word_ids": ["ko-w-0137"], "eojeol": 1}, {"surface": "안", "word_ids": ["ko-w-0005"], "eojeol": 2}, {"surface": "했어요", "word_ids": ["ko-w-0002"], "eojeol": 3}],
     "grammar": ["안 -", "-았/었어요", "을/를"],
-    "cloze": [{"eojeol": 1, "answer": "아직", "hint_ja": "まだ"}],
-    "variants": {"ko": ["아직 숙제를 안 했어요.", "숙제 아직 안 했어요."], "ja": ["まだ宿題をしていません。"]},
+    "cloze": [{"eojeol": 1, "answer": "아직", "hint_ja": "まだ", "variants": []}],
+    "variants": {"ko": ["아직 숙제를 안 했어요.", "숙제 아직 안 했어요.", "아직 숙제 안 했어요.", "숙제는 아직 안 했어요.", "숙제를 아직 하지 않았어요.", "아직 숙제를 하지 않았어요."], "ja": ["まだ宿題をしていません。", "宿題はまだしていません。", "宿題をまだやっていません。", "まだ宿題をやっていません。"]},
     "status": "approved"
   },
   {
@@ -86,8 +86,8 @@
     "scene": "教室でクラスメートに",
     "tokens": [{"surface": "시험은", "word_ids": ["ko-w-0125"], "eojeol": 0}, {"surface": "칠월에", "word_ids": ["ko-w-0141"], "eojeol": 1}, {"surface": "있어요", "word_ids": ["ko-w-0001"], "eojeol": 2}],
     "grammar": ["은/는", "에", "-아/어요"],
-    "cloze": [{"eojeol": 1, "answer": "칠월에", "hint_ja": "7月に"}],
-    "variants": {"ko": ["칠월에 시험이 있어요."], "ja": ["7月に試験があります。", "テストは7月です。"]},
+    "cloze": [{"eojeol": 1, "answer": "칠월에", "hint_ja": "7月に", "variants": []}],
+    "variants": {"ko": ["칠월에 시험이 있어요.", "시험이 칠월에 있어요.", "칠월에 시험 있어요."], "ja": ["7月に試験があります。", "テストは7月です。", "試験は7月です。", "テストは7月にあります。"]},
     "status": "approved"
   },
   {
@@ -99,8 +99,8 @@
     "scene": "教室で留学生に",
     "tokens": [{"surface": "대학은", "word_ids": ["ko-w-0124"], "eojeol": 0}, {"surface": "삼월에", "word_ids": ["ko-w-0131"], "eojeol": 1}, {"surface": "시작해요", "word_ids": ["ko-w-0132"], "eojeol": 2}],
     "grammar": ["은/는", "에", "-아/어요"],
-    "cloze": [{"eojeol": 2, "answer": "시작해요", "hint_ja": "始まります"}],
-    "variants": {"ko": ["삼월에 대학이 시작해요."], "ja": ["3月に大学が始まります。"]},
+    "cloze": [{"eojeol": 2, "answer": "시작해요", "hint_ja": "始まります", "variants": ["시작돼요"]}],
+    "variants": {"ko": ["삼월에 대학이 시작해요.", "대학은 삼월에 시작돼요.", "대학교는 삼월에 시작해요.", "대학이 삼월에 시작해요.", "삼월에 대학교가 시작해요."], "ja": ["3月に大学が始まります。", "大学は3月から始まります。"]},
     "status": "approved"
   },
   {
@@ -112,8 +112,8 @@
     "scene": "教室でクラスメートに",
     "tokens": [{"surface": "오전에", "word_ids": ["ko-w-0133"], "eojeol": 0}, {"surface": "도서관에서", "word_ids": ["ko-w-0145"], "eojeol": 1}, {"surface": "숙제를", "word_ids": ["ko-w-0144"], "eojeol": 2}, {"surface": "했어요", "word_ids": ["ko-w-0002"], "eojeol": 3}],
     "grammar": ["에서", "-았/었어요", "에"],
-    "cloze": [{"eojeol": 1, "answer": "도서관에서", "hint_ja": "図書館で"}],
-    "variants": {"ko": ["도서관에서 오전에 숙제를 했어요."], "ja": ["午前に図書館で宿題をしました。"]},
+    "cloze": [{"eojeol": 1, "answer": "도서관에서", "hint_ja": "図書館で", "variants": []}],
+    "variants": {"ko": ["도서관에서 오전에 숙제를 했어요.", "오전에 도서관에서 숙제했어요.", "도서관에서 오전에 숙제했어요.", "저는 오전에 도서관에서 숙제를 했어요."], "ja": ["午前に図書館で宿題をしました。", "午前中、図書館で宿題をしました。", "午前は図書館で宿題をしました。"]},
     "status": "approved"
   },
   {
@@ -125,8 +125,8 @@
     "scene": "授業中に隣の学生に",
     "tokens": [{"surface": "이", "word_ids": ["ko-w-0075"], "eojeol": 0}, {"surface": "문제가", "word_ids": ["ko-w-0120"], "eojeol": 1}, {"surface": "끝이에요", "word_ids": ["ko-w-0146"], "eojeol": 2}],
     "grammar": ["-예요/이에요", "이/가"],
-    "cloze": [{"eojeol": 2, "answer": "끝이에요", "hint_ja": "終わりですか"}],
-    "variants": {"ko": [], "ja": ["この問題が最後ですか？", "この問題で最後ですか？"]},
+    "cloze": [{"eojeol": 2, "answer": "끝이에요", "hint_ja": "終わりですか", "variants": []}],
+    "variants": {"ko": ["이 문제가 마지막이에요?", "이 문제로 끝이에요?", "이 문제까지예요?"], "ja": ["この問題が最後ですか？", "この問題で最後ですか？", "この問題が終わりですか？"]},
     "status": "approved"
   },
   {
@@ -138,8 +138,8 @@
     "scene": "教室でクラスメートに",
     "tokens": [{"surface": "시험", "word_ids": ["ko-w-0125"], "eojeol": 0}, {"surface": "전에", "word_ids": ["ko-w-0143"], "eojeol": 1}, {"surface": "시간이", "word_ids": ["ko-w-0121"], "eojeol": 2}, {"surface": "있어요", "word_ids": ["ko-w-0001"], "eojeol": 3}],
     "grammar": ["에", "이/가", "-아/어요"],
-    "cloze": [{"eojeol": 1, "answer": "전에", "hint_ja": "前に"}],
-    "variants": {"ko": ["시험 전에 시간 있어요?"], "ja": ["試験前に時間はありますか？", "テストの前に時間ありますか？"]},
+    "cloze": [{"eojeol": 1, "answer": "전에", "hint_ja": "前に", "variants": []}],
+    "variants": {"ko": ["시험 전에 시간 있어요?", "시험 전에 시간은 있어요?"], "ja": ["試験前に時間はありますか？", "テストの前に時間ありますか？", "試験の前に時間はありますか？", "試験前に時間がありますか？"]},
     "status": "approved"
   },
   {
@@ -151,8 +151,8 @@
     "scene": "教室で初対面の学生に",
     "tokens": [{"surface": "저도", "word_ids": ["ko-w-0007"], "eojeol": 0}, {"surface": "이", "word_ids": ["ko-w-0075"], "eojeol": 1}, {"surface": "대학", "word_ids": ["ko-w-0124"], "eojeol": 2}, {"surface": "학생이에요", "word_ids": ["ko-w-0123"], "eojeol": 3}],
     "grammar": ["도", "-예요/이에요"],
-    "cloze": [{"eojeol": 3, "answer": "학생이에요", "hint_ja": "学生です"}],
-    "variants": {"ko": [], "ja": []},
+    "cloze": [{"eojeol": 3, "answer": "학생이에요", "hint_ja": "学生です", "variants": []}],
+    "variants": {"ko": ["저도 이 대학교 학생이에요.", "저도 이 대학의 학생이에요."], "ja": ["私もこの大学の学生なんです。"]},
     "status": "approved"
   },
   {
@@ -164,8 +164,8 @@
     "scene": "廊下でクラスメートに",
     "tokens": [{"surface": "교실에", "word_ids": ["ko-w-0136"], "eojeol": 0}, {"surface": "아직", "word_ids": ["ko-w-0137"], "eojeol": 1}, {"surface": "학생이", "word_ids": ["ko-w-0123"], "eojeol": 2}, {"surface": "있어요", "word_ids": ["ko-w-0001"], "eojeol": 3}],
     "grammar": ["에", "이/가", "-아/어요"],
-    "cloze": [{"eojeol": 0, "answer": "교실에", "hint_ja": "教室に"}],
-    "variants": {"ko": ["아직 교실에 학생이 있어요?"], "ja": ["まだ教室に学生がいますか？"]},
+    "cloze": [{"eojeol": 0, "answer": "교실에", "hint_ja": "教室に", "variants": []}],
+    "variants": {"ko": ["아직 교실에 학생이 있어요?", "교실에 학생이 아직 있어요?", "교실에 아직 학생 있어요?", "아직 교실에 학생 있어요?", "교실에 아직 학생들이 있어요?"], "ja": ["まだ教室に学生がいますか？", "教室にまだ学生はいますか？", "まだ教室に学生いますか？"]},
     "status": "approved"
   },
   {
@@ -177,8 +177,8 @@
     "scene": "授業中に隣の学生に",
     "tokens": [{"surface": "여기에", "word_ids": ["ko-w-0030"], "eojeol": 0}, {"surface": "뭐", "word_ids": ["ko-w-0008"], "eojeol": 1}, {"surface": "써요", "word_ids": ["ko-w-0134"], "eojeol": 2}],
     "grammar": ["-아/어요", "에"],
-    "cloze": [{"eojeol": 2, "answer": "써요", "hint_ja": "書きますか"}],
-    "variants": {"ko": ["여기 뭐 써요?", "여기에 뭘 써요?"], "ja": ["ここには何を書きますか？"]},
+    "cloze": [{"eojeol": 2, "answer": "써요", "hint_ja": "書きますか", "variants": ["적어요"]}],
+    "variants": {"ko": ["여기 뭐 써요?", "여기에 뭘 써요?", "여기 뭘 써요?", "여기에 무엇을 써요?", "여기에 뭐를 써요?", "여기에 뭐 적어요?", "여기 뭐 적어요?"], "ja": ["ここには何を書きますか？", "ここに何を書くんですか？", "ここ、何を書きますか？"]},
     "status": "approved"
   }
 ]

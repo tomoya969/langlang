@@ -8,8 +8,8 @@
     "scene": "食堂で店員を呼んで",
     "tokens": [{"surface": "저기요", "word_ids": ["ko-w-0035"], "eojeol": 0}, {"surface": "이거", "word_ids": ["ko-w-0033"], "eojeol": 1}, {"surface": "주세요", "word_ids": ["ko-w-0025"], "eojeol": 2}],
     "grammar": ["-(으)세요"],
-    "cloze": [{"eojeol": 2, "answer": "주세요", "hint_ja": "ください"}],
-    "variants": {"ko": [], "ja": ["すみません。これください。", "すみません、これをお願いします。"]},
+    "cloze": [{"eojeol": 2, "answer": "주세요", "hint_ja": "ください", "variants": []}],
+    "variants": {"ko": ["저기요. 이걸 주세요.", "저기요. 이것 주세요.", "저기요. 이것을 주세요.", "여기요. 이거 주세요.", "여기요. 이걸 주세요."], "ja": ["すみません。これください。", "すみません、これをお願いします。", "すみません、これをください。", "すみません。これをお願いします。", "すみません、これください。"]},
     "status": "approved"
   },
   {
@@ -21,8 +21,8 @@
     "scene": "店員が入口で客に",
     "tokens": [{"surface": "몇", "word_ids": ["ko-w-0031"], "eojeol": 0}, {"surface": "명이세요", "word_ids": ["ko-w-0023"], "eojeol": 1}],
     "grammar": ["-(으)세요"],
-    "cloze": [{"eojeol": 0, "answer": "몇", "hint_ja": "何（数を問う）"}],
-    "variants": {"ko": [], "ja": ["何名ですか。", "何人ですか。"]},
+    "cloze": [{"eojeol": 0, "answer": "몇", "hint_ja": "何（数を問う）", "variants": []}],
+    "variants": {"ko": ["몇 분이세요?"], "ja": ["何名ですか。", "何人ですか。", "何名様でしょうか。", "何人様ですか。"]},
     "status": "approved"
   },
   {
@@ -34,8 +34,8 @@
     "scene": "客が人数を訂正して",
     "tokens": [{"surface": "네", "word_ids": ["ko-w-0046"], "eojeol": 0}, {"surface": "명이", "word_ids": ["ko-w-0023"], "eojeol": 1}, {"surface": "아니에요", "word_ids": ["ko-w-0004"], "eojeol": 2}, {"surface": "다섯", "word_ids": ["ko-w-0044"], "eojeol": 3}, {"surface": "명이에요", "word_ids": ["ko-w-0023"], "eojeol": 4}],
     "grammar": ["-이/가 아니에요", "-예요/이에요"],
-    "cloze": [{"eojeol": 3, "answer": "다섯", "hint_ja": "五"}],
-    "variants": {"ko": [], "ja": ["四名ではありません。五名です。", "四人じゃありません。五人です。"]},
+    "cloze": [{"eojeol": 3, "answer": "다섯", "hint_ja": "五", "variants": []}],
+    "variants": {"ko": ["네 명 아니에요. 다섯 명이에요.", "넷이 아니에요. 다섯이에요.", "넷이 아니에요. 다섯 명이에요.", "네 명이 아니에요. 다섯이에요."], "ja": ["四名ではありません。五名です。", "四人じゃありません。五人です。", "四人ではないです。五人です。", "四名じゃありません。五名です。"]},
     "status": "approved"
   },
   {
@@ -47,8 +47,8 @@
     "scene": "客が店員に注文して",
     "tokens": [{"surface": "저거", "word_ids": ["ko-w-0042"], "eojeol": 0}, {"surface": "하나", "word_ids": ["ko-w-0028"], "eojeol": 1}, {"surface": "주세요", "word_ids": ["ko-w-0025"], "eojeol": 2}],
     "grammar": ["-(으)세요"],
-    "cloze": [{"eojeol": 0, "answer": "저거", "hint_ja": "あれ"}],
-    "variants": {"ko": [], "ja": ["あれ、一つください。", "あれを一つお願いします。"]},
+    "cloze": [{"eojeol": 0, "answer": "저거", "hint_ja": "あれ", "variants": ["저것", "저걸"]}],
+    "variants": {"ko": ["저것 하나 주세요.", "저걸 하나 주세요.", "저거 한 개 주세요.", "저것 한 개 주세요."], "ja": ["あれ、一つください。", "あれを一つお願いします。", "あれ一つください。", "あれを一個ください。"]},
     "status": "approved"
   },
   {
@@ -60,8 +60,8 @@
     "scene": "客が入口で店員に",
     "tokens": [{"surface": "여기", "word_ids": ["ko-w-0030"], "eojeol": 0}, {"surface": "넷이에요", "word_ids": ["ko-w-0043"], "eojeol": 1}],
     "grammar": ["-예요/이에요"],
-    "cloze": [{"eojeol": 1, "answer": "넷이에요", "hint_ja": "四人です"}],
-    "variants": {"ko": ["여기는 넷이에요."], "ja": ["ここは四人です。", "こっちは四人です。"]},
+    "cloze": [{"eojeol": 1, "answer": "넷이에요", "hint_ja": "四人です", "variants": []}],
+    "variants": {"ko": ["여기는 넷이에요.", "여기 네 명이에요.", "여기는 네 명이에요."], "ja": ["ここは四人です。", "こっちは四人です。", "こちら四人です。", "こちらは四名です。"]},
     "status": "approved"
   },
   {
@@ -73,8 +73,8 @@
     "scene": "客が料理の数を店員に",
     "tokens": [{"surface": "이거", "word_ids": ["ko-w-0033"], "eojeol": 0}, {"surface": "세", "word_ids": ["ko-w-0034"], "eojeol": 1}, {"surface": "개예요", "word_ids": ["ko-w-0024"], "eojeol": 2}],
     "grammar": ["-예요/이에요"],
-    "cloze": [{"eojeol": 2, "answer": "개예요", "hint_ja": "〜個ですか"}],
-    "variants": {"ko": ["이거는 세 개예요?"], "ja": ["これ、三個ですか。", "これは三つですか。"]},
+    "cloze": [{"eojeol": 2, "answer": "개예요", "hint_ja": "〜個ですか", "variants": []}],
+    "variants": {"ko": ["이거는 세 개예요?", "이건 세 개예요?", "이것은 세 개예요?", "이게 세 개예요?"], "ja": ["これ、三個ですか。", "これは三つですか。", "これは三個ですか？", "これ、三つですか。"]},
     "status": "approved"
   },
   {
@@ -86,8 +86,8 @@
     "scene": "客が注文を訂正して",
     "tokens": [{"surface": "한", "word_ids": ["ko-w-0026"], "eojeol": 0}, {"surface": "병이", "word_ids": ["ko-w-0041"], "eojeol": 1}, {"surface": "아니에요", "word_ids": ["ko-w-0004"], "eojeol": 2}, {"surface": "두", "word_ids": ["ko-w-0027"], "eojeol": 3}, {"surface": "병이에요", "word_ids": ["ko-w-0041"], "eojeol": 4}],
     "grammar": ["-이/가 아니에요", "-예요/이에요"],
-    "cloze": [{"eojeol": 3, "answer": "두", "hint_ja": "二（つの）"}],
-    "variants": {"ko": [], "ja": ["一瓶ではありません。二瓶です。", "一本じゃありません。二本です。"]},
+    "cloze": [{"eojeol": 3, "answer": "두", "hint_ja": "二（つの）", "variants": []}],
+    "variants": {"ko": ["한 병 아니에요. 두 병이에요."], "ja": ["一瓶ではありません。二瓶です。", "一本じゃありません。二本です。", "一本ではないです。二本です。", "一本じゃないです。二本です。"]},
     "status": "approved"
   },
   {
@@ -99,8 +99,8 @@
     "scene": "食堂で店員に",
     "tokens": [{"surface": "무슨", "word_ids": ["ko-w-0032"], "eojeol": 0}, {"surface": "병이에요", "word_ids": ["ko-w-0041"], "eojeol": 1}, {"surface": "한", "word_ids": ["ko-w-0026"], "eojeol": 2}, {"surface": "잔", "word_ids": ["ko-w-0045"], "eojeol": 3}, {"surface": "주세요", "word_ids": ["ko-w-0025"], "eojeol": 4}],
     "grammar": ["-(으)세요", "-예요/이에요"],
-    "cloze": [{"eojeol": 3, "answer": "잔", "hint_ja": "〜杯"}],
-    "variants": {"ko": ["이거 무슨 병이에요? 한 잔 주세요."], "ja": ["それは何の瓶ですか？一杯ください。", "何の瓶ですか？一杯お願いします。"]},
+    "cloze": [{"eojeol": 3, "answer": "잔", "hint_ja": "〜杯", "variants": []}],
+    "variants": {"ko": [], "ja": ["何の瓶ですか？一杯お願いします。", "何の瓶ですか。一杯ください。"]},
     "status": "needs_review",
     "review": {"problems": ["このユニットの単語が 5 語入っている（1 文に 1〜3 語）"]}
   },
@@ -113,8 +113,8 @@
     "scene": "店員が客に",
     "tokens": [{"surface": "죄송합니다", "word_ids": ["ko-w-0036"], "eojeol": 0}, {"surface": "그거", "word_ids": ["ko-w-0029"], "eojeol": 1}, {"surface": "없어요", "word_ids": ["ko-w-0003"], "eojeol": 2}],
     "grammar": ["-아/어요"],
-    "cloze": [{"eojeol": 1, "answer": "그거", "hint_ja": "それ"}],
-    "variants": {"ko": ["죄송합니다. 그거는 없어요."], "ja": ["申し訳ありません。それはないです。", "申し訳ございません。それはありません。"]},
+    "cloze": [{"eojeol": 1, "answer": "그거", "hint_ja": "それ", "variants": ["그건", "그거는", "그것은"]}],
+    "variants": {"ko": ["죄송합니다. 그거는 없어요.", "죄송해요. 그거 없어요.", "죄송합니다. 그건 없어요.", "죄송해요. 그건 없어요.", "죄송해요. 그거는 없어요.", "죄송합니다. 그것은 없어요."], "ja": ["申し訳ありません。それはないです。", "申し訳ございません。それはありません。", "申し訳ございません。それはございません。", "すみません。それはありません。"]},
     "status": "approved"
   },
   {
@@ -126,8 +126,8 @@
     "scene": "客が個数を訂正して",
     "tokens": [{"surface": "둘이", "word_ids": ["ko-w-0039"], "eojeol": 0}, {"surface": "아니에요", "word_ids": ["ko-w-0004"], "eojeol": 1}, {"surface": "셋이에요", "word_ids": ["ko-w-0040"], "eojeol": 2}],
     "grammar": ["-이/가 아니에요", "-예요/이에요"],
-    "cloze": [{"eojeol": 2, "answer": "셋이에요", "hint_ja": "三つです"}],
-    "variants": {"ko": [], "ja": ["二つじゃありません。三つです。", "二個ではありません。三個です。"]},
+    "cloze": [{"eojeol": 2, "answer": "셋이에요", "hint_ja": "三つです", "variants": []}],
+    "variants": {"ko": ["두 개가 아니에요. 세 개예요.", "두 개 아니에요. 세 개예요.", "둘 아니에요. 셋이에요."], "ja": ["二つじゃありません。三つです。", "二個ではありません。三個です。", "二つではないです。三つです。", "二つじゃないです。三つです。"]},
     "status": "approved"
   },
   {
@@ -139,8 +139,8 @@
     "scene": "客が料理を前にして",
     "tokens": [{"surface": "잘", "word_ids": ["ko-w-0037"], "eojeol": 0}, {"surface": "먹겠습니다", "word_ids": ["ko-w-0037"], "eojeol": 1}, {"surface": "이거", "word_ids": ["ko-w-0033"], "eojeol": 2}, {"surface": "뭐예요", "word_ids": ["ko-w-0008"], "eojeol": 3}],
     "grammar": ["-예요/이에요"],
-    "cloze": [{"eojeol": 1, "answer": "먹겠습니다", "hint_ja": "（いただき）ます"}],
-    "variants": {"ko": ["잘 먹겠습니다. 이거는 뭐예요?"], "ja": ["いただきます。これ、何ですか。"]},
+    "cloze": [{"eojeol": 1, "answer": "먹겠습니다", "hint_ja": "（いただき）ます", "variants": []}],
+    "variants": {"ko": ["잘 먹겠습니다. 이거는 뭐예요?", "잘 먹겠습니다. 이건 뭐예요?", "잘 먹겠습니다. 이게 뭐예요?", "잘 먹겠습니다. 이것은 뭐예요?", "잘 먹겠습니다. 이것은 무엇이에요?", "잘 먹겠습니다. 이건 무엇이에요?"], "ja": ["いただきます。これ、何ですか。", "いただきます。これは何でしょうか。", "いただきます。これ何ですか。"]},
     "status": "approved"
   },
   {
@@ -152,8 +152,8 @@
     "scene": "客が帰り際に店員に",
     "tokens": [{"surface": "잘", "word_ids": ["ko-w-0038"], "eojeol": 0}, {"surface": "먹었습니다", "word_ids": ["ko-w-0038"], "eojeol": 1}, {"surface": "여기", "word_ids": ["ko-w-0030"], "eojeol": 2}, {"surface": "좋아요", "word_ids": ["ko-w-0006"], "eojeol": 3}],
     "grammar": ["-아/어요"],
-    "cloze": [{"eojeol": 1, "answer": "먹었습니다", "hint_ja": "（ごちそうさま）でした"}],
-    "variants": {"ko": [], "ja": ["ごちそうさまでした。ここはいいですね。", "ごちそうさまでした。いいお店ですね。"]},
+    "cloze": [{"eojeol": 1, "answer": "먹었습니다", "hint_ja": "（ごちそうさま）でした", "variants": ["먹었어요"]}],
+    "variants": {"ko": ["잘 먹었어요. 여기 좋아요.", "잘 먹었습니다. 여기 좋네요.", "잘 먹었어요. 여기 좋네요."], "ja": ["ごちそうさまでした。ここはいいですね。", "ごちそうさまでした。いいお店ですね。", "ごちそうさまでした。ここ、いいです。", "ごちそうさまでした。このお店、いいですね。"]},
     "status": "approved"
   },
   {
@@ -165,8 +165,8 @@
     "scene": "食堂で店員が客に",
     "tokens": [{"surface": "무슨", "word_ids": ["ko-w-0032"], "eojeol": 0}, {"surface": "잔이", "word_ids": ["ko-w-0045"], "eojeol": 1}, {"surface": "좋으세요", "word_ids": ["ko-w-0006"], "eojeol": 2}],
     "grammar": ["이/가", "-(으)세요"],
-    "cloze": [{"eojeol": 1, "answer": "잔이", "hint_ja": "グラスが"}],
-    "variants": {"ko": ["무슨 잔이 좋아요?"], "ja": ["どんなグラスがいいですか？", "何のグラスがよろしいですか？", "どのグラスがいいですか？"]},
+    "cloze": [{"eojeol": 1, "answer": "잔이", "hint_ja": "グラスが", "variants": []}],
+    "variants": {"ko": ["어떤 잔이 좋으세요?", "어느 잔이 좋으세요?"], "ja": ["何のグラスがよろしいですか？", "どんなグラスがよろしいですか？", "どのグラスがよろしいでしょうか？"]},
     "status": "needs_review",
     "review": {"problems": ["ja の「どのグラス」は ko の「무슨 잔」と合っていない。「どの」は目の前のものから選ぶ言い方で、韓国語では 어느 잔 になる。무슨 は「どんな・何の」なので、ja は「どんなグラスがよろしいですか？」などにする", "単語の「잔＝〜杯」は数を数えるときの使い方を指している。この文の 잔 は器（グラス・杯）そのものという意味の名詞なので、「잔（名詞）＝杯・グラス」のように直す", "場面として少し不自然。韓国の食堂で店員が客にグラスの種類を聞くことはあまりない。店員の言葉にするなら「어떤 잔으로 드릴까요?」の方が自然だが、使える文法の範囲外になる"]}
   }

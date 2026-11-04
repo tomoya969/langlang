@@ -8,8 +8,8 @@
     "scene": "駅で通行人に声をかけて",
     "tokens": [{"surface": "저기요", "word_ids": ["ko-w-0035"], "eojeol": 0}, {"surface": "은행을", "word_ids": ["ko-w-0225"], "eojeol": 1}, {"surface": "찾고", "word_ids": ["ko-w-0238"], "eojeol": 2}, {"surface": "있어요", "word_ids": [], "eojeol": 3}],
     "grammar": ["-고 있다", "을/를", "-아/어요"],
-    "cloze": [{"eojeol": 1, "answer": "은행을", "hint_ja": "銀行を"}],
-    "variants": {"ko": ["저기요. 은행 찾고 있어요."], "ja": ["すみません、銀行を探しています。", "すみません。銀行を探しているんですが。"]},
+    "cloze": [{"eojeol": 1, "answer": "은행을", "hint_ja": "銀行を", "variants": ["은행"]}],
+    "variants": {"ko": ["저기요. 은행 찾고 있어요.", "저기요. 은행을 찾고 있는데요.", "저기요. 은행 찾고 있는데요.", "실례합니다. 은행을 찾고 있어요.", "실례합니다. 은행 찾고 있어요."], "ja": ["すみません、銀行を探しています。", "すみません。銀行を探しているんですが。", "すみません、銀行を探しているんですが。", "すみません。銀行を探しているんです。"]},
     "status": "approved"
   },
   {
@@ -21,8 +21,8 @@
     "scene": "駅で通行人が旅行者に",
     "tokens": [{"surface": "지하철로", "word_ids": ["ko-w-0248"], "eojeol": 0}, {"surface": "가면", "word_ids": ["ko-w-0076"], "eojeol": 1}, {"surface": "어때요", "word_ids": ["ko-w-0232"], "eojeol": 2}],
     "grammar": ["(으)로", "-(으)면", "-아/어요"],
-    "cloze": [{"eojeol": 2, "answer": "어때요", "hint_ja": "どうですか"}],
-    "variants": {"ko": [], "ja": ["地下鉄で行くのはどうですか。", "地下鉄で行けばどうですか。"]},
+    "cloze": [{"eojeol": 2, "answer": "어때요", "hint_ja": "どうですか", "variants": ["어떨까요"]}],
+    "variants": {"ko": ["지하철로 가는 게 어때요?", "지하철로 가는 건 어때요?", "지하철 타고 가면 어때요?", "지하철로 가면 어떨까요?"], "ja": ["地下鉄で行くのはどうですか。", "地下鉄で行けばどうですか。", "地下鉄で行ったらどうですか？", "地下鉄で行ったらどうでしょう。"]},
     "status": "approved"
   },
   {
@@ -34,8 +34,8 @@
     "scene": "地下鉄の駅で通行人が",
     "tokens": [{"surface": "여기에서", "word_ids": ["ko-w-0030"], "eojeol": 0}, {"surface": "내리면", "word_ids": ["ko-w-0241"], "eojeol": 1}, {"surface": "은행이", "word_ids": ["ko-w-0225"], "eojeol": 2}, {"surface": "또", "word_ids": ["ko-w-0227"], "eojeol": 3}, {"surface": "있어요", "word_ids": ["ko-w-0001"], "eojeol": 4}],
     "grammar": ["-(으)면", "에서", "이/가"],
-    "cloze": [{"eojeol": 1, "answer": "내리면", "hint_ja": "降りれば"}],
-    "variants": {"ko": ["여기에서 내리면 또 은행이 있어요.", "여기서 내리면 은행이 또 있어요."], "ja": ["ここで降りると、また銀行があります。", "ここで降りたら、銀行がもう一つあります。", "ここで降りれば、別の銀行もあります。"]},
+    "cloze": [{"eojeol": 1, "answer": "내리면", "hint_ja": "降りれば", "variants": ["내리시면"]}],
+    "variants": {"ko": ["여기에서 내리면 또 은행이 있어요.", "여기서 내리면 은행이 또 있어요.", "여기서 내리면 또 은행이 있어요.", "여기에서 내리면 은행이 하나 더 있어요.", "여기서 내리면 은행이 하나 더 있어요."], "ja": ["ここで降りると、また銀行があります。", "ここで降りたら、銀行がもう一つあります。", "ここで降りれば、別の銀行もあります。", "ここで降りれば、もう一つ銀行があります。", "ここで降りると、銀行がもう一つあります。"]},
     "status": "approved"
   },
   {
@@ -47,8 +47,8 @@
     "scene": "駅で通行人が道案内して",
     "tokens": [{"surface": "밖으로", "word_ids": ["ko-w-0243"], "eojeol": 0}, {"surface": "나오면", "word_ids": ["ko-w-0230"], "eojeol": 1}, {"surface": "은행이", "word_ids": ["ko-w-0225"], "eojeol": 2}, {"surface": "있어요", "word_ids": ["ko-w-0001"], "eojeol": 3}],
     "grammar": ["-(으)면", "(으)로", "이/가"],
-    "cloze": [{"eojeol": 1, "answer": "나오면", "hint_ja": "出ると"}],
-    "variants": {"ko": ["밖에 나오면 은행이 있어요."], "ja": ["外に出たら銀行があります。", "外へ出ると銀行があります。"]},
+    "cloze": [{"eojeol": 1, "answer": "나오면", "hint_ja": "出ると", "variants": ["나가면", "나오시면", "나가시면"]}],
+    "variants": {"ko": ["밖에 나오면 은행이 있어요.", "밖으로 나가면 은행이 있어요.", "밖에 나가면 은행이 있어요.", "밖으로 나오면 은행 있어요."], "ja": ["外に出たら銀行があります。", "外へ出ると銀行があります。", "外に出れば銀行があります。", "外に出ると、銀行があります。"]},
     "status": "approved"
   },
   {
@@ -60,8 +60,8 @@
     "scene": "駅で通行人が指さして",
     "tokens": [{"surface": "은행은", "word_ids": ["ko-w-0225"], "eojeol": 0}, {"surface": "저", "word_ids": ["ko-w-0081"], "eojeol": 1}, {"surface": "시계", "word_ids": ["ko-w-0246"], "eojeol": 2}, {"surface": "앞에", "word_ids": ["ko-w-0231"], "eojeol": 3}, {"surface": "있어요", "word_ids": ["ko-w-0001"], "eojeol": 4}],
     "grammar": ["은/는", "에", "-아/어요"],
-    "cloze": [{"eojeol": 3, "answer": "앞에", "hint_ja": "前に"}],
-    "variants": {"ko": ["저 시계 앞에 은행이 있어요."], "ja": ["あの時計の前に銀行があります。"]},
+    "cloze": [{"eojeol": 3, "answer": "앞에", "hint_ja": "前に", "variants": []}],
+    "variants": {"ko": ["저 시계 앞에 은행이 있어요.", "저 시계 앞에 은행 있어요."], "ja": ["あの時計の前に銀行があります。", "銀行はあの時計の前です。"]},
     "status": "approved"
   },
   {
@@ -73,8 +73,8 @@
     "scene": "駅で通行人が目印を説明",
     "tokens": [{"surface": "시계가", "word_ids": ["ko-w-0246"], "eojeol": 0}, {"surface": "아주", "word_ids": ["ko-w-0245"], "eojeol": 1}, {"surface": "커요", "word_ids": ["ko-w-0226"], "eojeol": 2}],
     "grammar": ["이/가", "-아/어요"],
-    "cloze": [{"eojeol": 2, "answer": "커요", "hint_ja": "大きいです"}],
-    "variants": {"ko": [], "ja": ["時計がすごく大きいです。"]},
+    "cloze": [{"eojeol": 2, "answer": "커요", "hint_ja": "大きいです", "variants": []}],
+    "variants": {"ko": ["시계 아주 커요.", "시계가 매우 커요."], "ja": ["時計がすごく大きいです。", "時計はとても大きいです。"]},
     "status": "approved"
   },
   {
@@ -86,8 +86,8 @@
     "scene": "駅で通行人が旅行者に",
     "tokens": [{"surface": "이", "word_ids": ["ko-w-0075"], "eojeol": 0}, {"surface": "길은", "word_ids": ["ko-w-0237"], "eojeol": 1}, {"surface": "정말", "word_ids": ["ko-w-0223"], "eojeol": 2}, {"surface": "쉬워요", "word_ids": ["ko-w-0242"], "eojeol": 3}],
     "grammar": ["은/는", "-아/어요"],
-    "cloze": [{"eojeol": 1, "answer": "길은", "hint_ja": "道は"}],
-    "variants": {"ko": ["이 길 정말 쉬워요."], "ja": ["この道は本当にわかりやすいです。", "この道は本当にやさしいです。"]},
+    "cloze": [{"eojeol": 1, "answer": "길은", "hint_ja": "道は", "variants": ["길이"]}],
+    "variants": {"ko": ["이 길 정말 쉬워요.", "이 길이 정말 쉬워요.", "이 길은 진짜 쉬워요.", "이 길 진짜 쉬워요."], "ja": ["この道は本当にわかりやすいです。", "この道は本当にやさしいです。", "この道は本当に簡単ですよ。"]},
     "status": "approved"
   },
   {
@@ -99,8 +99,8 @@
     "scene": "駅で通行人と話して",
     "tokens": [{"surface": "그런데", "word_ids": ["ko-w-0236"], "eojeol": 0}, {"surface": "오늘은", "word_ids": ["ko-w-0195"], "eojeol": 1}, {"surface": "사람이", "word_ids": ["ko-w-0200"], "eojeol": 2}, {"surface": "더", "word_ids": ["ko-w-0229"], "eojeol": 3}, {"surface": "많아요", "word_ids": ["ko-w-0228"], "eojeol": 4}],
     "grammar": ["은/는", "이/가", "-아/어요"],
-    "cloze": [{"eojeol": 4, "answer": "많아요", "hint_ja": "多いです"}],
-    "variants": {"ko": [], "ja": ["ところで、今日は人がいつもより多いです。", "ところで、今日は人がもっと多いですね。"]},
+    "cloze": [{"eojeol": 4, "answer": "많아요", "hint_ja": "多いです", "variants": []}],
+    "variants": {"ko": ["근데 오늘은 사람이 더 많아요.", "그런데 오늘 사람이 더 많아요.", "근데 오늘 사람이 더 많아요."], "ja": ["ところで、今日は人がもっと多いですね。", "ところで今日は人がもっと多いです。", "でも、今日は人がもっと多いです。"]},
     "status": "approved"
   },
   {
@@ -112,8 +112,8 @@
     "scene": "駅のホームで通行人が",
     "tokens": [{"surface": "여기에", "word_ids": ["ko-w-0030"], "eojeol": 0}, {"surface": "서서", "word_ids": ["ko-w-0239"], "eojeol": 1}, {"surface": "기다려", "word_ids": ["ko-w-0247"], "eojeol": 2}, {"surface": "주세요", "word_ids": [], "eojeol": 3}],
     "grammar": ["-아/어서", "-아/어 주세요", "에"],
-    "cloze": [{"eojeol": 1, "answer": "서서", "hint_ja": "立って"}],
-    "variants": {"ko": ["여기 서서 기다려 주세요.", "여기에 서서 기다리세요."], "ja": ["ここに立って待っていてください。", "ここで立って待ってください。"]},
+    "cloze": [{"eojeol": 1, "answer": "서서", "hint_ja": "立って", "variants": []}],
+    "variants": {"ko": ["여기 서서 기다려 주세요.", "여기에 서서 기다리세요.", "여기 서서 기다리세요."], "ja": ["ここに立って待っていてください。", "ここで立って待ってください。", "ここに立って、待ってください。", "ここに立ってお待ちください。"]},
     "status": "approved"
   },
   {
@@ -125,8 +125,8 @@
     "scene": "駅で旅行者が通行人に",
     "tokens": [{"surface": "이런", "word_ids": ["ko-w-0233"], "eojeol": 0}, {"surface": "곳은", "word_ids": ["ko-w-0235"], "eojeol": 1}, {"surface": "처음이에요", "word_ids": ["ko-w-0215"], "eojeol": 2}],
     "grammar": ["-예요/이에요", "은/는"],
-    "cloze": [{"eojeol": 1, "answer": "곳은", "hint_ja": "所は"}],
-    "variants": {"ko": ["이런 곳 처음이에요."], "ja": ["こういう所は初めてです。", "こんな場所は初めてです。"]},
+    "cloze": [{"eojeol": 1, "answer": "곳은", "hint_ja": "所は", "variants": ["데는", "곳", "장소는"]}],
+    "variants": {"ko": ["이런 곳 처음이에요.", "이런 데는 처음이에요.", "이런 데 처음이에요.", "이런 장소는 처음이에요."], "ja": ["こういう所は初めてです。", "こんな場所は初めてです。", "こんなところは初めてです。", "こういう場所は初めてです。"]},
     "status": "approved"
   },
   {
@@ -138,8 +138,8 @@
     "scene": "混んだホームで通行人が",
     "tokens": [{"surface": "다음", "word_ids": ["ko-w-0234"], "eojeol": 0}, {"surface": "지하철을", "word_ids": ["ko-w-0248"], "eojeol": 1}, {"surface": "타세요", "word_ids": ["ko-w-0244"], "eojeol": 2}],
     "grammar": ["-(으)세요", "을/를"],
-    "cloze": [{"eojeol": 0, "answer": "다음", "hint_ja": "次の"}],
-    "variants": {"ko": ["다음 지하철 타세요."], "ja": ["次の電車に乗ってください。"]},
+    "cloze": [{"eojeol": 0, "answer": "다음", "hint_ja": "次の", "variants": []}],
+    "variants": {"ko": ["다음 지하철 타세요.", "다음 지하철을 타 주세요.", "다음 지하철 타 주세요."], "ja": ["次の電車に乗ってください。", "次の地下鉄にお乗りください。"]},
     "status": "approved"
   },
   {
@@ -151,8 +151,8 @@
     "scene": "駅で通行人と話して",
     "tokens": [{"surface": "차가", "word_ids": ["ko-w-0224"], "eojeol": 0}, {"surface": "많아서", "word_ids": ["ko-w-0228"], "eojeol": 1}, {"surface": "지하철로", "word_ids": ["ko-w-0248"], "eojeol": 2}, {"surface": "가요", "word_ids": ["ko-w-0076"], "eojeol": 3}],
     "grammar": ["-아/어서", "(으)로", "이/가"],
-    "cloze": [{"eojeol": 0, "answer": "차가", "hint_ja": "車が"}],
-    "variants": {"ko": ["차가 많아서 지하철로 갈 거예요."], "ja": ["車が多いから地下鉄で行きます。"]},
+    "cloze": [{"eojeol": 0, "answer": "차가", "hint_ja": "車が", "variants": ["차"]}],
+    "variants": {"ko": ["차가 많아서 지하철로 갈 거예요.", "차가 많아서 지하철 타고 가요.", "차가 많으니까 지하철로 가요.", "차 많아서 지하철로 가요."], "ja": ["車が多いから地下鉄で行きます。", "車が多いので、地下鉄で行きます。"]},
     "status": "approved"
   },
   {
@@ -164,8 +164,8 @@
     "scene": "駅で通行人が旅行者に",
     "tokens": [{"surface": "십이월에는", "word_ids": ["ko-w-0240"], "eojeol": 0}, {"surface": "일요일에도", "word_ids": ["ko-w-0249"], "eojeol": 1}, {"surface": "사람이", "word_ids": ["ko-w-0200"], "eojeol": 2}, {"surface": "많아요", "word_ids": ["ko-w-0228"], "eojeol": 3}],
     "grammar": ["에", "도", "은/는"],
-    "cloze": [{"eojeol": 1, "answer": "일요일에도", "hint_ja": "日曜日にも"}],
-    "variants": {"ko": ["십이월에는 일요일도 사람이 많아요."], "ja": ["12月には日曜日にも人が多いです。", "12月は日曜日でも人が多いです。"]},
+    "cloze": [{"eojeol": 1, "answer": "일요일에도", "hint_ja": "日曜日にも", "variants": ["일요일도"]}],
+    "variants": {"ko": ["십이월에는 일요일도 사람이 많아요.", "십이월은 일요일에도 사람이 많아요.", "십이월엔 일요일에도 사람이 많아요.", "십이월에는 일요일에도 사람들이 많아요."], "ja": ["12月には日曜日にも人が多いです。", "12月は日曜日でも人が多いです。", "十二月は日曜日も人が多いです。", "12月は日曜日にも人が多いです。"]},
     "status": "approved"
   }
 ]

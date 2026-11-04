@@ -8,8 +8,8 @@
     "scene": "オフィスで同僚に",
     "tokens": [{"surface": "우리", "word_ids": ["ko-w-0074"], "eojeol": 0}, {"surface": "아버지는", "word_ids": ["ko-w-0188"], "eojeol": 1}, {"surface": "회사", "word_ids": ["ko-w-0173"], "eojeol": 2}, {"surface": "사장이에요", "word_ids": ["ko-w-0185"], "eojeol": 3}],
     "grammar": ["-예요/이에요", "은/는"],
-    "cloze": [{"eojeol": 3, "answer": "사장이에요", "hint_ja": "社長です"}],
-    "variants": {"ko": ["저희 아버지는 회사 사장이에요."], "ja": ["私の父は会社の社長です。"]},
+    "cloze": [{"eojeol": 3, "answer": "사장이에요", "hint_ja": "社長です", "variants": []}],
+    "variants": {"ko": ["저희 아버지는 회사 사장이에요.", "제 아버지는 회사 사장이에요."], "ja": ["私の父は会社の社長です。", "父は会社の社長です。", "うちの父は会社の社長をしています。"]},
     "status": "approved"
   },
   {
@@ -21,8 +21,8 @@
     "scene": "オフィスで同僚に",
     "tokens": [{"surface": "전화를", "word_ids": ["ko-w-0172"], "eojeol": 0}, {"surface": "받아", "word_ids": ["ko-w-0178"], "eojeol": 1}, {"surface": "주세요", "word_ids": ["ko-w-0025"], "eojeol": 2}],
     "grammar": ["-아/어 주세요", "을/를"],
-    "cloze": [{"eojeol": 0, "answer": "전화를", "hint_ja": "電話を"}],
-    "variants": {"ko": ["전화 받아 주세요."], "ja": ["電話を取ってください。"]},
+    "cloze": [{"eojeol": 0, "answer": "전화를", "hint_ja": "電話を", "variants": ["전화"]}],
+    "variants": {"ko": ["전화 받아 주세요.", "전화 좀 받아 주세요.", "전화를 좀 받아 주세요.", "전화 받으세요.", "전화를 받으세요."], "ja": ["電話を取ってください。", "電話、出てください。", "電話を受けてください。"]},
     "status": "approved"
   },
   {
@@ -34,8 +34,8 @@
     "scene": "オフィスで同僚に",
     "tokens": [{"surface": "오늘", "word_ids": ["ko-w-0195"], "eojeol": 0}, {"surface": "일은", "word_ids": ["ko-w-0177"], "eojeol": 1}, {"surface": "몇", "word_ids": ["ko-w-0031"], "eojeol": 2}, {"surface": "시에", "word_ids": ["ko-w-0070"], "eojeol": 3}, {"surface": "끝나요", "word_ids": ["ko-w-0196"], "eojeol": 4}],
     "grammar": ["-아/어요", "에", "은/는"],
-    "cloze": [{"eojeol": 4, "answer": "끝나요", "hint_ja": "終わりますか"}],
-    "variants": {"ko": ["오늘은 일이 몇 시에 끝나요?"], "ja": ["今日は仕事が何時に終わりますか。"]},
+    "cloze": [{"eojeol": 4, "answer": "끝나요", "hint_ja": "終わりますか", "variants": []}],
+    "variants": {"ko": ["오늘은 일이 몇 시에 끝나요?", "오늘 일 몇 시에 끝나요?", "오늘 일이 몇 시에 끝나요?", "오늘 몇 시에 일이 끝나요?", "오늘은 몇 시에 일이 끝나요?"], "ja": ["今日は仕事が何時に終わりますか。", "今日、仕事は何時に終わりますか。", "今日の仕事は何時に終わるんですか。", "今日の仕事は何時に終わりますか？"]},
     "status": "approved"
   },
   {
@@ -47,8 +47,8 @@
     "scene": "昼にオフィスで同僚に",
     "tokens": [{"surface": "우리", "word_ids": ["ko-w-0074"], "eojeol": 0}, {"surface": "모두", "word_ids": ["ko-w-0187"], "eojeol": 1}, {"surface": "식사하러", "word_ids": ["ko-w-0179", "ko-w-0002"], "eojeol": 2}, {"surface": "가요", "word_ids": ["ko-w-0076"], "eojeol": 3}],
     "grammar": ["-(으)러 가다", "-아/어요"],
-    "cloze": [{"eojeol": 2, "answer": "식사하러", "hint_ja": "食事しに"}],
-    "variants": {"ko": ["모두 식사하러 가요."], "ja": ["みんなで食事に行きましょう。", "私たちみんなで食事しに行きます。"]},
+    "cloze": [{"eojeol": 2, "answer": "식사하러", "hint_ja": "食事しに", "variants": []}],
+    "variants": {"ko": ["모두 식사하러 가요.", "우리 다 같이 식사하러 가요.", "모두 같이 식사하러 가요.", "우리 모두 같이 식사하러 가요.", "우리 모두 밥 먹으러 가요.", "다 같이 밥 먹으러 가요.", "우리 다 식사하러 가요."], "ja": ["みんなで食事に行きましょう。", "皆で食事しに行きましょう。", "みんなでご飯を食べに行きましょう。"]},
     "status": "approved"
   },
   {
@@ -60,8 +60,8 @@
     "scene": "会議の後で同僚に",
     "tokens": [{"surface": "이번", "word_ids": ["ko-w-0189"], "eojeol": 0}, {"surface": "문제는", "word_ids": ["ko-w-0120"], "eojeol": 1}, {"surface": "다시", "word_ids": ["ko-w-0128"], "eojeol": 2}, {"surface": "생각해", "word_ids": ["ko-w-0180"], "eojeol": 3}, {"surface": "주세요", "word_ids": ["ko-w-0025"], "eojeol": 4}],
     "grammar": ["-아/어 주세요", "은/는"],
-    "cloze": [{"eojeol": 3, "answer": "생각해", "hint_ja": "考えて"}],
-    "variants": {"ko": ["이번 문제를 다시 생각해 주세요."], "ja": ["今回の問題をもう一度考えてください。"]},
+    "cloze": [{"eojeol": 3, "answer": "생각해", "hint_ja": "考えて", "variants": []}],
+    "variants": {"ko": ["이번 문제를 다시 생각해 주세요.", "이번 문제는 다시 한번 생각해 주세요.", "이번 문제는 한 번 더 생각해 주세요.", "이번 문제를 다시 한번 생각해 주세요."], "ja": ["今回の問題をもう一度考えてください。", "今度の問題はもう一度考えてください。", "今回の問題は改めて考えてください。", "今回の問題は再度考えてください。"]},
     "status": "approved"
   },
   {
@@ -73,8 +73,8 @@
     "scene": "オフィスで同僚に",
     "tokens": [{"surface": "컴퓨터에", "word_ids": ["ko-w-0194"], "eojeol": 0}, {"surface": "이", "word_ids": ["ko-w-0075"], "eojeol": 1}, {"surface": "사진을", "word_ids": ["ko-w-0102"], "eojeol": 2}, {"surface": "넣어", "word_ids": ["ko-w-0191"], "eojeol": 3}, {"surface": "주세요", "word_ids": ["ko-w-0025"], "eojeol": 4}],
     "grammar": ["-아/어 주세요", "에", "을/를"],
-    "cloze": [{"eojeol": 3, "answer": "넣어", "hint_ja": "入れて"}],
-    "variants": {"ko": ["이 사진을 컴퓨터에 넣어 주세요."], "ja": ["この写真をコンピューターに入れてください。"]},
+    "cloze": [{"eojeol": 3, "answer": "넣어", "hint_ja": "入れて", "variants": []}],
+    "variants": {"ko": ["이 사진을 컴퓨터에 넣어 주세요.", "컴퓨터에 이 사진 넣어 주세요.", "이 사진 컴퓨터에 넣어 주세요.", "컴퓨터에 이 사진 좀 넣어 주세요.", "이 사진을 컴퓨터에 좀 넣어 주세요."], "ja": ["この写真をコンピューターに入れてください。", "パソコンにこの写真を入れてください。", "この写真をパソコンに入れてください。"]},
     "status": "approved"
   },
   {
@@ -86,8 +86,8 @@
     "scene": "席で同僚に",
     "tokens": [{"surface": "무슨", "word_ids": ["ko-w-0032"], "eojeol": 0}, {"surface": "생각을", "word_ids": ["ko-w-0182"], "eojeol": 1}, {"surface": "해요", "word_ids": ["ko-w-0002"], "eojeol": 2}],
     "grammar": ["을/를", "-아/어요"],
-    "cloze": [{"eojeol": 1, "answer": "생각을", "hint_ja": "考えを"}],
-    "variants": {"ko": ["무슨 생각 해요?"], "ja": ["何を考えていますか。"]},
+    "cloze": [{"eojeol": 1, "answer": "생각을", "hint_ja": "考えを", "variants": ["생각"]}],
+    "variants": {"ko": ["무슨 생각 해요?", "무슨 생각을 하고 있어요?", "무슨 생각 하고 있어요?", "뭘 생각해요?", "무엇을 생각해요?", "뭐 생각해요?", "뭘 생각하고 있어요?"], "ja": ["何を考えていますか。", "何を考えてるんですか。", "何考えてるんですか。", "何を考えているのですか。"]},
     "status": "approved"
   },
   {
@@ -99,8 +99,8 @@
     "scene": "オフィスで同僚に",
     "tokens": [{"surface": "유나", "word_ids": [], "eojeol": 0}, {"surface": "자리에", "word_ids": ["ko-w-0192"], "eojeol": 1}, {"surface": "신문이", "word_ids": ["ko-w-0174"], "eojeol": 2}, {"surface": "있어요", "word_ids": ["ko-w-0001"], "eojeol": 3}],
     "grammar": ["에", "이/가", "-아/어요"],
-    "cloze": [{"eojeol": 1, "answer": "자리에", "hint_ja": "席に"}],
-    "variants": {"ko": ["신문이 유나 자리에 있어요."], "ja": ["新聞はユナさんの席にあります。"]},
+    "cloze": [{"eojeol": 1, "answer": "자리에", "hint_ja": "席に", "variants": []}],
+    "variants": {"ko": ["신문이 유나 자리에 있어요.", "유나 씨 자리에 신문이 있어요.", "유나 씨 자리에 신문 있어요.", "신문이 유나 씨 자리에 있어요.", "유나 자리에 신문 있어요."], "ja": ["新聞はユナさんの席にあります。", "ユナの席に新聞があります。"]},
     "status": "approved"
   },
   {
@@ -112,8 +112,8 @@
     "scene": "オフィスで電話の相手に",
     "tokens": [{"surface": "구월에", "word_ids": ["ko-w-0183"], "eojeol": 0}, {"surface": "다시", "word_ids": ["ko-w-0128"], "eojeol": 1}, {"surface": "전화해", "word_ids": ["ko-w-0172", "ko-w-0002"], "eojeol": 2}, {"surface": "주세요", "word_ids": [], "eojeol": 3}],
     "grammar": ["-아/어 주세요", "에"],
-    "cloze": [{"eojeol": 0, "answer": "구월에", "hint_ja": "9月に"}],
-    "variants": {"ko": ["다시 구월에 전화해 주세요."], "ja": ["9月にもう一度電話してください。", "九月にまた電話してください。", "9月にまたお電話ください。"]},
+    "cloze": [{"eojeol": 0, "answer": "구월에", "hint_ja": "9月に", "variants": []}],
+    "variants": {"ko": ["다시 구월에 전화해 주세요.", "구월에 또 전화해 주세요.", "구월에 다시 전화 주세요.", "구월에 전화 다시 해 주세요."], "ja": ["9月にもう一度電話してください。", "九月にまた電話してください。", "9月にまたお電話ください。", "9月に再度お電話ください。", "九月にもう一度電話してください。", "9月にまたかけてください。"]},
     "status": "approved"
   },
   {
@@ -125,8 +125,8 @@
     "scene": "翌朝オフィスで同僚に",
     "tokens": [{"surface": "밤", "word_ids": ["ko-w-0193"], "eojeol": 0}, {"surface": "열", "word_ids": ["ko-w-0090"], "eojeol": 1}, {"surface": "시에", "word_ids": ["ko-w-0070"], "eojeol": 2}, {"surface": "회사에서", "word_ids": ["ko-w-0173"], "eojeol": 3}, {"surface": "나갔어요", "word_ids": ["ko-w-0190"], "eojeol": 4}],
     "grammar": ["-았/었어요", "에서", "에"],
-    "cloze": [{"eojeol": 4, "answer": "나갔어요", "hint_ja": "出ました"}],
-    "variants": {"ko": ["밤 열 시에 회사를 나갔어요."], "ja": ["夜の10時に会社を出ました。"]},
+    "cloze": [{"eojeol": 4, "answer": "나갔어요", "hint_ja": "出ました", "variants": ["나왔어요"]}],
+    "variants": {"ko": ["밤 열 시에 회사를 나갔어요.", "밤 열 시에 회사에서 나왔어요.", "밤 열 시에 회사를 나왔어요.", "회사에서 밤 열 시에 나왔어요.", "회사에서 밤 열 시에 나갔어요."], "ja": ["夜の10時に会社を出ました。", "夜十時に会社を出ました。", "夜10時に会社から出ました。", "夜10時に退社しました。"]},
     "status": "approved"
   },
   {
@@ -138,8 +138,8 @@
     "scene": "オフィスで同僚に",
     "tokens": [{"surface": "이", "word_ids": ["ko-w-0075"], "eojeol": 0}, {"surface": "책은", "word_ids": ["ko-w-0122"], "eojeol": 1}, {"surface": "우리", "word_ids": ["ko-w-0074"], "eojeol": 2}, {"surface": "회사에서", "word_ids": ["ko-w-0173"], "eojeol": 3}, {"surface": "만들었어요", "word_ids": ["ko-w-0181"], "eojeol": 4}],
     "grammar": ["-았/었어요", "에서", "은/는"],
-    "cloze": [{"eojeol": 4, "answer": "만들었어요", "hint_ja": "作りました"}],
-    "variants": {"ko": ["이 책은 저희 회사에서 만들었어요."], "ja": ["この本は私たちの会社で作りました。"]},
+    "cloze": [{"eojeol": 4, "answer": "만들었어요", "hint_ja": "作りました", "variants": []}],
+    "variants": {"ko": ["이 책은 저희 회사에서 만들었어요.", "이 책은 우리 회사가 만들었어요.", "이 책은 저희 회사가 만들었어요.", "우리 회사에서 이 책을 만들었어요.", "저희 회사에서 이 책을 만들었어요.", "이 책 우리 회사에서 만들었어요."], "ja": ["この本は私たちの会社で作りました。", "この本はうちの会社が作りました。", "この本は我が社で作りました。"]},
     "status": "approved"
   },
   {
@@ -151,8 +151,8 @@
     "scene": "夕方オフィスで同僚に",
     "tokens": [{"surface": "오후", "word_ids": ["ko-w-0175"], "eojeol": 0}, {"surface": "다섯", "word_ids": ["ko-w-0044"], "eojeol": 1}, {"surface": "시가", "word_ids": ["ko-w-0070"], "eojeol": 2}, {"surface": "됐어요", "word_ids": ["ko-w-0176"], "eojeol": 3}, {"surface": "집에", "word_ids": ["ko-w-0153"], "eojeol": 4}, {"surface": "가고", "word_ids": ["ko-w-0076"], "eojeol": 5}, {"surface": "싶어요", "word_ids": [], "eojeol": 6}],
     "grammar": ["-았/었어요", "-고 싶다", "이/가"],
-    "cloze": [{"eojeol": 3, "answer": "됐어요", "hint_ja": "なりました"}],
-    "variants": {"ko": ["오후 다섯 시가 되었어요. 집에 가고 싶어요."], "ja": []},
+    "cloze": [{"eojeol": 3, "answer": "됐어요", "hint_ja": "なりました", "variants": ["되었어요"]}],
+    "variants": {"ko": ["오후 다섯 시가 되었어요. 집에 가고 싶어요.", "오후 다섯 시가 됐어요. 집에 돌아가고 싶어요.", "오후 다섯 시가 되었어요. 집에 돌아가고 싶어요.", "오후 다섯 시 됐어요. 집에 가고 싶어요."], "ja": ["午後五時になりました。家に帰りたいです。", "午後5時になりました。うちに帰りたいです。"]},
     "status": "approved"
   },
   {
@@ -164,8 +164,8 @@
     "scene": "席で隣の同僚に",
     "tokens": [{"surface": "컴퓨터를", "word_ids": ["ko-w-0194"], "eojeol": 0}, {"surface": "열", "word_ids": ["ko-w-0090"], "eojeol": 1}, {"surface": "시간", "word_ids": ["ko-w-0121"], "eojeol": 2}, {"surface": "봤어요", "word_ids": ["ko-w-0047"], "eojeol": 3}, {"surface": "그래서", "word_ids": ["ko-w-0186"], "eojeol": 4}, {"surface": "눈이", "word_ids": ["ko-w-0184"], "eojeol": 5}, {"surface": "안", "word_ids": ["ko-w-0005"], "eojeol": 6}, {"surface": "좋아요", "word_ids": ["ko-w-0006"], "eojeol": 7}],
     "grammar": ["-았/었어요", "안 -", "이/가"],
-    "cloze": [{"eojeol": 5, "answer": "눈이", "hint_ja": "目が"}],
-    "variants": {"ko": ["컴퓨터를 열 시간 보았어요. 그래서 눈이 안 좋아요."], "ja": ["コンピューターを10時間見ました。それで目がよくないです。"]},
+    "cloze": [{"eojeol": 5, "answer": "눈이", "hint_ja": "目が", "variants": ["눈"]}],
+    "variants": {"ko": ["컴퓨터를 열 시간 보았어요. 그래서 눈이 안 좋아요.", "컴퓨터를 열 시간 봤어요. 그래서 눈이 좋지 않아요.", "컴퓨터를 열 시간 동안 봤어요. 그래서 눈이 안 좋아요.", "컴퓨터 열 시간 봤어요. 그래서 눈이 안 좋아요.", "열 시간 컴퓨터를 봤어요. 그래서 눈이 안 좋아요.", "컴퓨터를 열 시간 보았어요. 그래서 눈이 좋지 않아요."], "ja": ["コンピューターを10時間見ました。それで目がよくないです。", "コンピューターを10時間見ました。それで目の調子が悪いです。", "パソコンを10時間見ました。だから目の調子がよくありません。", "コンピューターを10時間見ました。なので目の調子がよくないです。"]},
     "status": "approved"
   },
   {
@@ -177,8 +177,8 @@
     "scene": "オフィスで同僚に",
     "tokens": [{"surface": "구월에", "word_ids": ["ko-w-0183"], "eojeol": 0}, {"surface": "가족하고", "word_ids": ["ko-w-0099"], "eojeol": 1}, {"surface": "여행을", "word_ids": ["ko-w-0104"], "eojeol": 2}, {"surface": "가고", "word_ids": ["ko-w-0076"], "eojeol": 3}, {"surface": "싶어요", "word_ids": [], "eojeol": 4}],
     "grammar": ["-고 싶다", "하고", "에"],
-    "cloze": [{"eojeol": 0, "answer": "구월에", "hint_ja": "9月に"}],
-    "variants": {"ko": ["가족하고 구월에 여행을 가고 싶어요.", "구월에 가족하고 여행 가고 싶어요."], "ja": ["9月に家族と旅行したいです。", "9月には家族と旅行に行きたいです。"]},
+    "cloze": [{"eojeol": 0, "answer": "구월에", "hint_ja": "9月に", "variants": []}],
+    "variants": {"ko": ["가족하고 구월에 여행을 가고 싶어요.", "구월에 가족하고 여행 가고 싶어요.", "구월에 가족이랑 여행을 가고 싶어요.", "구월에 가족과 여행을 가고 싶어요.", "구월에 가족이랑 여행 가고 싶어요.", "구월에 가족과 함께 여행을 가고 싶어요.", "구월에 가족하고 같이 여행을 가고 싶어요.", "가족이랑 구월에 여행을 가고 싶어요."], "ja": ["9月に家族と旅行したいです。", "九月に家族と旅行に行きたいです。", "9月に家族で旅行に行きたいです。"]},
     "status": "approved"
   }
 ]
