@@ -167,14 +167,26 @@ function nextItem() {
   show(sceneFor(item));
 }
 
-/** 単語の面の解答を記録する。その日の最初の解答なら、サーバーが FSRS で次に出す日を決める。テンポを優先して、記録を待たずに進む */
-function recordWord(item, { rating, correct, elapsed = null, answer = null }) {
-  const body = { language: LANGUAGE, word_id: item.word.id, face: item.face, practice: item.type, rating, correct, elapsed_sec: elapsed, answer };
-  api.post("/api/review", body).catch((err) => {
+/** 解答を記録する。その日の最初の解答なら、サーバーが FSRS で次に出す日を決める（文は段階も）。テンポを優先して、記録を待たずに進む */
+function record(body) {
+  api.post("/api/review", { language: LANGUAGE, ...body }).catch((err) => {
     if (state.recordFailed) return;
     state.recordFailed = true;
     toast(`解答を記録できませんでした: ${err.message}`, { type: "error", sticky: true });
   });
+}
+
+function recordWord(item, { rating, correct, elapsed = null, answer = null }) {
+  record({ kind: "word", item_id: item.word.id, face: item.face, practice: item.type, rating, correct, elapsed_sec: elapsed, answer });
+}
+
+function recordSentence(item, { rating, correct, elapsed = null, answer = null }) {
+  record({ kind: "sentence", item_id: item.sentence.id, practice: item.type, rating, correct, elapsed_sec: elapsed, answer });
+}
+
+/** 打つ練習の文は、1 回目の判定で記録する（自分で直したあとの正解は評価に使わない） */
+function recordSentenceJudgement(item) {
+  return (j, value) => recordSentence(item, { rating: j.rating, correct: j.verdict !== "incorrect", answer: value });
 }
 
 function finishItem(correct, detail) {
@@ -218,6 +230,7 @@ function sceneFor(item) {
         body: { type: "sentence_dictation", sentence_id: item.sentence.id },
         placeholder: "聞こえたとおりに打つ",
         reveal: (box) => box.append(el("div", { class: "muted", text: item.sentence.ja })),
+        onFirstJudgement: recordSentenceJudgement(item),
       });
     case "sentence_ja_to_ko":
       return typingScene(item, {
@@ -229,6 +242,7 @@ function sceneFor(item) {
         body: { type: "sentence_ja_to_ko", sentence_id: item.sentence.id },
         placeholder: `${item.sentence.register}で書く`,
         aiHint: true,
+        onFirstJudgement: recordSentenceJudgement(item),
       });
     case "sentence_compose":
       return typingScene(item, {
@@ -240,6 +254,7 @@ function sceneFor(item) {
         body: { type: "sentence_compose", sentence_id: item.sentence.id },
         placeholder: "自分のことを書く",
         aiHint: true,
+        onFirstJudgement: recordSentenceJudgement(item),
       });
     case "sentence_trace":
       return traceScene(item);
@@ -504,7 +519,9 @@ function listenChooseScene(item) {
     const picked = dir ? placed[dir] : null;
     const correct = Boolean(picked && picked.sentence_id === item.answer_id);
     const correctDir = Object.keys(placed).find((d) => placed[d] && placed[d].sentence_id === item.answer_id);
-    state.log.sentences.push({ id: item.id, type: item.type, correct, elapsed: (performance.now() - shownAt) / 1000 });
+    const elapsed = (performance.now() - shownAt) / 1000;
+    state.log.sentences.push({ id: item.id, type: item.type, correct, elapsed });
+    recordSentence(item, { rating: correct ? "good" : "again", correct, elapsed, answer: picked ? picked.sentence_id : null });
     if (correct) optionEls[correctDir].classList.add("is-correct");
     else {
       if (picked) optionEls[dir].classList.add("is-wrong");
@@ -554,6 +571,7 @@ function clozeScene(item) {
     body: { type: "sentence_cloze", sentence_id: s.id },
     placeholder: "空欄に入る語を打つ",
     speakText: s.ko,
+    onFirstJudgement: recordSentenceJudgement(item),
     reveal: () => {
       const blank = line.querySelector(".token.blank");
       blank.textContent = item.expected;
@@ -776,7 +794,7 @@ function summaryScene() {
             ),
             el("div", { class: "row" }, el("a", { class: "btn primary big", href: languageUrl() }, "ホームへ", el("kbd", { text: "⏎" })), el("a", { class: "btn big", href: location.href }, "もう一度")),
           ],
-          el("div", { class: "q-hint" }, el("span", { class: "note", text: state.recordFailed ? "単語の解答の一部を記録できませんでした" : "単語の結果は記録しました。文の記録はまだ入れていません" })),
+          el("div", { class: "q-hint" }, el("span", { class: "note", text: state.recordFailed ? "解答の一部を記録できませんでした" : "単語と文の結果は記録しました" })),
         ),
       );
     },
@@ -789,7 +807,7 @@ function summaryScene() {
 function sessionTitle() {
   const s = state.session;
   if (s.mode === "unit") return s.unit ? `${s.unit.title} の練習` : "ユニットの練習";
-  return `今日の学習 ・ 新出 ${s.new_word_count} 語 ・ 復習 ${s.review_count}`;
+  return `今日の学習 ・ 新出 ${s.new_word_count} 語・${s.new_sentence_count} 文 ・ 復習 ${s.review_count}`;
 }
 
 function tile(value, label) {

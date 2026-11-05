@@ -10,13 +10,24 @@ pack = langs.get("ko")
 NOW = datetime(2026, 11, 4, 9, 0).astimezone()
 
 
-def build(root, unit="T-U02", cards=None, now=NOW, **overrides):
+def build(root, unit="T-U02", cards=None, now=NOW, records=None, **overrides):
     cfg = {**settings.DEFAULTS, **overrides}
-    return session.build(content.load(root, "ko"), pack, cfg, cards or {}, now, unit, rng=random.Random(1))
+    if records is not None:
+        cards = records.cards("ko")
+        sentence_cards = {sid: c for (sid, _), c in records.cards("ko", "sentence").items()}
+    else:
+        sentence_cards = {}
+    return session.build(content.load(root, "ko"), pack, cfg, cards or {}, now, unit, rng=random.Random(1), sentence_cards=sentence_cards)
 
 
 def answer(records, word_id, rating="good", face="meaning", at=NOW):
     records.review("ko", "word", word_id, face, practice=f"word_{face}", rating=rating, correct=rating != "again", now=at)
+
+
+def answer_sentence(records, sentence_id, *ratings, start=NOW):
+    """1 日ずつ空けて答える（どれも、その日の最初の解答として段階を動かす）。"""
+    for days, rating in enumerate(ratings):
+        records.review("ko", "sentence", sentence_id, "", practice="sentence_listen_choose", rating=rating, correct=rating != "again", now=start + timedelta(days=days))
 
 
 def test_rounds_and_ids(root):
@@ -74,11 +85,72 @@ def test_sentence_items_have_expected(root):
             assert item["answer_id"] in {o["sentence_id"] for o in item["options"]}
 
 
-def test_cloze_falls_back_to_dictation_without_cloze(root):
-    # T-U02 の 3 つ目の文は穴埋めを持たない。導入→聞いて選ぶ→穴埋め の順なので 3 つ目は穴埋めの番だが、書き取りになる
-    plan = build(root, new_sentences_per_day=3)
-    kinds = [i["type"] for i in plan["items"] if i["round"] == "sentences"]
-    assert kinds == ["sentence_intro", "sentence_listen_choose", "sentence_dictation"]
+def test_new_sentence_is_introduced_then_asked_after_a_gap(root):
+    plan = build(root, unit=None)
+    items = [i for i in plan["items"] if i["round"] == "sentences"]
+    intros = [i["sentence"]["id"] for i in items if i["type"] == "sentence_intro"]
+    assert len(intros) == plan["new_sentence_count"] == 5
+    gaps = []
+    for sid in intros:
+        intro = next(k for k, i in enumerate(items) if i["type"] == "sentence_intro" and i["sentence"]["id"] == sid)
+        first = next(k for k, i in enumerate(items) if i["type"] != "sentence_intro" and i["sentence"]["id"] == sid)
+        assert items[first]["type"] == "sentence_listen_choose"  # 段階 1
+        gaps.append(first - intro - 1)
+    # 復習がなく、列の終わりで間を埋めるものが尽きても、導入を前に出してはさむ
+    assert all(g >= session.SENTENCE_GAP[0] for g in gaps)
+    # まだ段階 3 の文がないので、産出ラウンドはない
+    assert not [i for i in plan["items"] if i["round"] == "output"]
+
+
+def test_new_sentence_quota_counts_sentences_started_today(root):
+    records = Records(root, make_scheduler(fuzz=False))
+    answer_sentence(records, "t-s-U01-001", "good")
+    plan = build(root, unit=None, records=records, new_sentences_per_day=2)
+    assert plan["new_sentence_count"] == 1
+    # 今日答えた文は、今日はもう出ない
+    assert "t-s-U01-001" not in {i["sentence"]["id"] for i in plan["items"] if i["round"] in ("sentences", "output")}
+
+
+def test_due_sentences_get_the_practice_of_their_stage(root):
+    records = Records(root, make_scheduler(fuzz=False))
+    answer_sentence(records, "t-s-U01-001", "again")  # 段階 1 のまま。翌日に出る
+    answer_sentence(records, "t-s-U02-003", "good")  # 段階 2。穴埋めがない文
+    later = NOW + timedelta(days=30)
+    plan = build(root, unit=None, records=records, now=later, new_sentences_per_day=0)
+    kinds = {i["sentence"]["id"]: i["type"] for i in plan["items"] if i["round"] == "sentences"}
+    assert kinds == {"t-s-U01-001": "sentence_listen_choose", "t-s-U02-003": "sentence_dictation"}
+    assert plan["review_count"] == 2
+
+
+def test_output_round_takes_stage_three_and_up_within_the_limit(root):
+    records = Records(root, make_scheduler(fuzz=False))
+    answer_sentence(records, "t-s-U01-001", "good", "good", "good")  # 段階 4。文法あり → 応用作文
+    answer_sentence(records, "t-s-U02-003", "good", "good", "good")  # 段階 4。文法なし → 日→韓
+    answer_sentence(records, "t-s-U01-002", "good", "good")  # 段階 3
+    answer_sentence(records, "t-s-U02-001", "good", "good", "good", "good")  # 段階 5
+    answer_sentence(records, "t-s-U02-002", "good", "good")  # 段階 3
+    plan = build(root, unit=None, records=records, now=NOW + timedelta(days=365))
+    output = [i for i in plan["items"] if i["round"] == "output"]
+    assert len(output) == session.OUTPUT_ITEMS
+    by_id = {i["sentence"]["id"]: i for i in plan["items"] if i["round"] in ("sentences", "output")}
+    if "t-s-U01-001" in {i["sentence"]["id"] for i in output}:
+        assert by_id["t-s-U01-001"]["type"] == "sentence_compose"
+        assert by_id["t-s-U01-001"]["required"] == "-(으)세요"
+    assert by_id["t-s-U02-003"]["type"] in ("sentence_ja_to_ko", "sentence_dictation")
+    # 産出に回らなかった段階 3〜5 の文は書き取り
+    rest = [i for i in plan["items"] if i["round"] == "sentences"]
+    assert len(rest) == 2 and all(i["type"] == "sentence_dictation" for i in rest)
+    assert {i["stage"] for i in [*output, *rest]} <= {3, 4, 5}
+
+
+def test_unit_practice_includes_started_sentences_of_the_unit(root):
+    records = Records(root, make_scheduler(fuzz=False))
+    answer_sentence(records, "t-s-U02-001", "good")  # 段階 2。期限はまだ
+    plan = build(root, unit="T-U02", records=records)
+    items = [i for i in plan["items"] if i["round"] == "sentences"]
+    assert {i["sentence"]["unit"] for i in items} == {"T-U02"}
+    assert any(i["sentence"]["id"] == "t-s-U02-001" and i["type"] == "sentence_cloze" for i in items)
+    assert "t-s-U02-001" not in {i["sentence"]["id"] for i in items if i["type"] == "sentence_intro"}
 
 
 # ---- 記録から組む今日の学習 ----

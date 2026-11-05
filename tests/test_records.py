@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import sqlite3
 from datetime import datetime, timedelta
 
 import pytest
 
-from app.records import Records, day_start, make_scheduler
+from app.records import SCHEMA, Records, day_start, make_scheduler
 
 MORNING = datetime(2026, 11, 4, 9, 0).astimezone()
 
@@ -65,3 +66,34 @@ def test_cards_are_kept_per_language_and_face(records):
 def test_bad_rating(records):
     with pytest.raises(ValueError):
         review(records, "great")
+
+
+def review_sentence(records, rating, at):
+    return records.review("ko", "sentence", "s1", "", practice="sentence_cloze", rating=rating, correct=rating != "again", now=at)
+
+
+def test_sentence_stage_moves_with_first_answer_of_the_day(records):
+    assert review_sentence(records, "good", MORNING).card.stage == 2  # 導入のあとの最初の出題は段階 1
+    assert review_sentence(records, "again", MORNING + timedelta(hours=1)).card.stage == 2  # 同じ日の 2 回目は動かさない
+    day = lambda n: MORNING + timedelta(days=n)  # noqa: E731
+    assert review_sentence(records, "hard", day(1)).card.stage == 2
+    assert review_sentence(records, "again", day(2)).card.stage == 1
+    assert review_sentence(records, "again", day(3)).card.stage == 1  # 最低は 1
+    for n in range(4, 10):
+        review_sentence(records, "easy", day(n))
+    assert records.cards("ko", "sentence")[("s1", "")].stage == 5  # 最高は 5
+
+
+def test_words_have_no_stage(records):
+    assert review(records).card.stage is None
+    assert "stage" not in review(records).card.to_dict()
+
+
+def test_old_records_file_gets_stage_column(tmp_path):
+    path = tmp_path / "records" / "langlang.db"
+    path.parent.mkdir()
+    with sqlite3.connect(path) as conn:
+        conn.executescript(SCHEMA.replace("    stage         INTEGER,         -- 文の段階（1〜5）。単語は NULL\n", ""))
+        assert "stage" not in {r[1] for r in conn.execute("PRAGMA table_info(cards)")}
+    records = Records(tmp_path, make_scheduler(fuzz=False))
+    assert review_sentence(records, "good", MORNING).card.stage == 2

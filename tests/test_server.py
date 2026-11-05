@@ -72,7 +72,7 @@ def test_today(client):
 
 
 def test_review_is_recorded_and_changes_today(client):
-    body = {"language": "ko", "word_id": "t-w-0001", "face": "meaning", "practice": "word_meaning", "rating": "good", "correct": True, "elapsed_sec": 1.8, "answer": "t-w-0001"}
+    body = {"language": "ko", "kind": "word", "item_id": "t-w-0001", "face": "meaning", "practice": "word_meaning", "rating": "good", "correct": True, "elapsed_sec": 1.8, "answer": "t-w-0001"}
     res = client.post("/api/review", json=body).json()
     assert res["counted"] is True
     assert res["card"]["stability"] > 0
@@ -88,11 +88,24 @@ def test_review_is_recorded_and_changes_today(client):
     assert [h["counted"] for h in detail["history"]] == [False, True]
 
 
+def test_sentence_review_is_recorded_with_stage(client):
+    assert client.get("/api/today?language=ko").json()["new_sentence_count"] == 5
+    body = {"language": "ko", "kind": "sentence", "item_id": "t-s-U01-001", "practice": "sentence_listen_choose", "rating": "good", "correct": True}
+    res = client.post("/api/review", json=body).json()
+    assert res["counted"] is True
+    assert res["card"]["stage"] == 2
+    assert client.get("/api/today?language=ko").json()["new_sentence_count"] == 4
+
+
 def test_review_rejects_bad_input(client):
-    body = {"language": "ko", "word_id": "t-w-0001", "face": "meaning", "practice": "word_meaning", "rating": "good", "correct": True}
+    body = {"language": "ko", "kind": "word", "item_id": "t-w-0001", "face": "meaning", "practice": "word_meaning", "rating": "good", "correct": True}
     assert client.post("/api/review", json={**body, "face": "nope"}).status_code == 400
     assert client.post("/api/review", json={**body, "rating": "great"}).status_code == 400
-    assert client.post("/api/review", json={**body, "word_id": "nope"}).status_code == 404
+    assert client.post("/api/review", json={**body, "item_id": "nope"}).status_code == 404
+    assert client.post("/api/review", json={**body, "kind": "nope"}).status_code == 400
+    sentence = {**body, "kind": "sentence", "item_id": "t-s-U01-001"}
+    assert client.post("/api/review", json=sentence).status_code == 400  # 文に面はない
+    assert client.post("/api/review", json={**sentence, "face": "", "item_id": "nope"}).status_code == 404
 
 
 def test_today_unknown_language(client):

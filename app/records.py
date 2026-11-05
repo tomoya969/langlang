@@ -1,10 +1,11 @@
 """学習の記録（docs/plan.md 7.5）。records/langlang.db（SQLite）に置くので、サーバーを止めても残る。
 
-- cards: 単語の 1 つの面ごとの FSRS の状態（安定度・難しさ・次に出す日）。まだ出していない面の行は作らない
+- cards: 単語の 1 つの面、または文 1 つごとの FSRS の状態（安定度・難しさ・次に出す日）と、文の段階。
+  まだ出していない面と文の行は作らない
 - reviews: 解答 1 回ごとの記録
 
-FSRS に渡すのは、その日のその面の最初の 1 回だけ（docs/plan.md 4.4）。間違えて最後尾に回ったあとの正解や、
-同じ日の 2 回目の学習は、reviews に残すが FSRS は動かさない（counted = 0）。
+FSRS に渡すのは、その日のその面（文）の最初の 1 回だけ（docs/plan.md 4.4・4.7）。間違えて最後尾に回ったあとの正解や、
+同じ日の 2 回目の学習は、reviews に残すが FSRS も段階も動かさない（counted = 0）。
 1 日 1 回の学習なので、FSRS の「日の中の学習ステップ」（1 分後・10 分後にもう一度）は使わない。
 """
 
@@ -24,6 +25,9 @@ FILENAME = "langlang.db"
 # 日の区切り。夜中の 0 時を過ぎてからの学習を、前の日の分として数えるため
 DAY_START_HOUR = 4
 RATINGS = {"again": Rating.Again, "hard": Rating.Hard, "good": Rating.Good, "easy": Rating.Easy}
+# 文の段階（docs/plan.md 4.7）。0 は導入で、記録は導入のあとの最初の出題（段階 1）から作る
+FIRST_STAGE = 1
+LAST_STAGE = 5
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS cards (
@@ -38,6 +42,7 @@ CREATE TABLE IF NOT EXISTS cards (
     due           TEXT NOT NULL,
     last_review   TEXT,
     introduced_at TEXT NOT NULL,
+    stage         INTEGER,         -- 文の段階（1〜5）。単語は NULL
     PRIMARY KEY (language, kind, item_id, face)
 );
 CREATE TABLE IF NOT EXISTS reviews (
@@ -70,12 +75,22 @@ def next_day_start(now: datetime) -> datetime:
     return day_start(now) + timedelta(days=1)
 
 
+def next_stage(stage: int, rating: str) -> int:
+    """正解（Good・Easy）で 1 つ上へ、注意つき（Hard）ならそのまま、不正解（Again）なら 1 つ下へ（最低は 1）。"""
+    if rating in ("good", "easy"):
+        return min(LAST_STAGE, stage + 1)
+    if rating == "again":
+        return max(FIRST_STAGE, stage - 1)
+    return stage
+
+
 @dataclass(frozen=True)
 class CardRow:
     item_id: str
     face: str
     card: Card
     introduced_at: datetime
+    stage: int | None = None
 
     @property
     def stability(self) -> float:
@@ -86,13 +101,16 @@ class CardRow:
         return self.card.due < next_day_start(now)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "stability": round(self.stability, 1),
             "difficulty": round(self.card.difficulty, 1) if self.card.difficulty is not None else None,
             "due": self.card.due.astimezone().isoformat(timespec="minutes"),
             "last_review": self.card.last_review.astimezone().isoformat(timespec="minutes") if self.card.last_review else None,
             "introduced_at": self.introduced_at.astimezone().isoformat(timespec="minutes"),
         }
+        if self.stage is not None:
+            result["stage"] = self.stage
+        return result
 
 
 @dataclass(frozen=True)
@@ -118,6 +136,10 @@ class Records:
                 self.path.parent.mkdir(parents=True, exist_ok=True)
                 with sqlite3.connect(self.path) as conn:
                     conn.executescript(SCHEMA)
+                    # 文の記録より前に作った記録のファイルには、段階の列がない
+                    columns = {r[1] for r in conn.execute("PRAGMA table_info(cards)")}
+                    if "stage" not in columns:
+                        conn.execute("ALTER TABLE cards ADD COLUMN stage INTEGER")
                 self._ready = True
         conn = sqlite3.connect(self.path, timeout=10)
         conn.row_factory = sqlite3.Row
@@ -144,7 +166,8 @@ class Records:
         answer: str | None = None,
         detail: dict[str, Any] | None = None,
     ) -> ReviewResult:
-        """解答を 1 つ記録する。その日のその面の最初の解答なら FSRS で次に出す日を決める。初めての面ならカードを作る。"""
+        """解答を 1 つ記録する。その日のその面（文）の最初の解答なら FSRS で次に出す日を決め、文なら段階を上下させる。
+        初めての面（文）ならカードを作る。"""
         if rating not in RATINGS:
             raise ValueError(f"評価は {', '.join(RATINGS)} のいずれかです: {rating}")
         now_utc = now.astimezone(timezone.utc)
@@ -153,18 +176,21 @@ class Records:
             row = conn.execute(
                 "SELECT * FROM cards WHERE language = ? AND kind = ? AND item_id = ? AND face = ?", key
             ).fetchone()
-            current = _card_row(row) if row else CardRow(item_id, face, Card(card_id=0, due=now_utc), now_utc)
+            first_stage = FIRST_STAGE if kind == "sentence" else None
+            current = _card_row(row) if row else CardRow(item_id, face, Card(card_id=0, due=now_utc), now_utc, first_stage)
             last = current.card.last_review
             counted = last is None or last < day_start(now)
             if counted:
                 card, _ = self.scheduler.review_card(current.card, RATINGS[rating], now_utc)
-                current = CardRow(item_id, face, card, current.introduced_at)
+                stage = next_stage(current.stage, rating) if current.stage is not None else None
+                current = CardRow(item_id, face, card, current.introduced_at, stage)
                 conn.execute(
-                    """INSERT INTO cards (language, kind, item_id, face, state, step, stability, difficulty, due, last_review, introduced_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """INSERT INTO cards (language, kind, item_id, face, state, step, stability, difficulty, due, last_review, introduced_at, stage)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                        ON CONFLICT (language, kind, item_id, face) DO UPDATE SET
                          state = excluded.state, step = excluded.step, stability = excluded.stability,
-                         difficulty = excluded.difficulty, due = excluded.due, last_review = excluded.last_review""",
+                         difficulty = excluded.difficulty, due = excluded.due, last_review = excluded.last_review,
+                         stage = excluded.stage""",
                     (
                         *key,
                         int(card.state),
@@ -174,6 +200,7 @@ class Records:
                         card.due.isoformat(),
                         card.last_review.isoformat() if card.last_review else None,
                         current.introduced_at.isoformat(),
+                        stage,
                     ),
                 )
             conn.execute(
@@ -228,4 +255,4 @@ def _card_row(row: sqlite3.Row) -> CardRow:
         due=datetime.fromisoformat(row["due"]),
         last_review=datetime.fromisoformat(row["last_review"]) if row["last_review"] else None,
     )
-    return CardRow(row["item_id"], row["face"], card, datetime.fromisoformat(row["introduced_at"]))
+    return CardRow(row["item_id"], row["face"], card, datetime.fromisoformat(row["introduced_at"]), row["stage"])

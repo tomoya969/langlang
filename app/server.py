@@ -39,7 +39,7 @@ from app.records import RATINGS, Records
 
 log = logging.getLogger("langlang.server")
 
-API_VERSION = 4
+API_VERSION = 5
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 LANGUAGE_PAGES = {"": "index.html", "learn": "learn.html", "words": "words.html"}
 
@@ -52,8 +52,9 @@ class SessionRequest(BaseModel):
 
 class ReviewRequest(BaseModel):
     language: str
-    word_id: str
-    face: str
+    kind: str  # word / sentence
+    item_id: str
+    face: str = ""  # 単語の面。文は空
     practice: str
     rating: str
     correct: bool
@@ -102,6 +103,9 @@ def create_app(
     def cards_of(language: str) -> session.Cards:
         return app.state.records.cards(language)
 
+    def sentence_cards_of(language: str) -> session.SentenceCards:
+        return {sid: card for (sid, _), card in app.state.records.cards(language, "sentence").items()}
+
     def priority(at: datetime) -> session.Priority:
         return lambda card: app.state.records.retrievability(card, at)
 
@@ -114,7 +118,7 @@ def create_app(
         cfg = settings_mod.load(root, language)
         cards = cards_of(language)
         at = now()
-        plan = session.build(content, pack, cfg, cards, at, priority=priority(at), rng=random.Random(0))
+        plan = session.build(content, pack, cfg, cards, at, priority=priority(at), rng=random.Random(0), sentence_cards=sentence_cards_of(language))
         states = {w.id: session.word_state(w.id, cards, cfg["mastered_days"]) for w in content.words}
         levels = []
         for level in sorted({u.level for u in content.units}):
@@ -131,7 +135,7 @@ def create_app(
             "unit": plan["unit"],
             "review_count": plan["review_count"],
             "new_word_count": plan["new_word_count"],
-            "new_sentence_count": plan["sentence_count"],
+            "new_sentence_count": plan["new_sentence_count"],
             "weak_count": 0,
             "estimate_min": plan["estimate_min"],
             "levels": levels,
@@ -172,26 +176,34 @@ def create_app(
         rng = random.Random(req.seed) if req.seed is not None else None
         at = now()
         cfg = settings_mod.load(root, req.language)
-        plan = session.build(content, pack, cfg, cards_of(req.language), at, req.unit, priority(at), rng)
+        plan = session.build(content, pack, cfg, cards_of(req.language), at, req.unit, priority(at), rng, sentence_cards_of(req.language))
         log.info(
-            "学習を開始: %s %s（新出 %d 語、復習 %d、%d 問、目安 %d 分）",
-            req.language, req.unit or "今日の学習", plan["new_word_count"], plan["review_count"], len(plan["items"]), plan["estimate_min"],
+            "学習を開始: %s %s（新出 %d 語・%d 文、復習 %d、%d 問、目安 %d 分）",
+            req.language, req.unit or "今日の学習", plan["new_word_count"], plan["new_sentence_count"], plan["review_count"],
+            len(plan["items"]), plan["estimate_min"],
         )
         return plan
 
     @app.post("/api/review")
     def review(req: ReviewRequest) -> dict[str, Any]:
-        """単語の面の解答を記録する。その日のその面の最初の解答なら、FSRS で次に出す日を決める。"""
+        """単語の面か文の解答を記録する。その日の最初の解答なら、FSRS で次に出す日を決める（文は段階も上下させる）。"""
         content = load_content(req.language)
-        _or_404(lambda: content.word(req.word_id))
-        if req.face not in session.WORD_FACES:
-            raise HTTPException(400, f"面は {', '.join(session.WORD_FACES)} のいずれかです: {req.face}")
+        if req.kind == "word":
+            _or_404(lambda: content.word(req.item_id))
+            if req.face not in session.WORD_FACES:
+                raise HTTPException(400, f"面は {', '.join(session.WORD_FACES)} のいずれかです: {req.face}")
+        elif req.kind == "sentence":
+            _or_404(lambda: content.sentence(req.item_id))
+            if req.face:
+                raise HTTPException(400, "文には面がありません")
+        else:
+            raise HTTPException(400, f"記録できない種類です: {req.kind}")
         if req.rating not in RATINGS:
             raise HTTPException(400, f"評価は {', '.join(RATINGS)} のいずれかです: {req.rating}")
         result = app.state.records.review(
             req.language,
-            "word",
-            req.word_id,
+            req.kind,
+            req.item_id,
             req.face,
             practice=req.practice,
             rating=req.rating,
