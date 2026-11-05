@@ -896,7 +896,8 @@ function tile(value, label) {
 
 document.addEventListener("keydown", (e) => {
   const quitDialog = document.getElementById("quit-dialog");
-  if (quitDialog.open) return;
+  // 日本語入力（韓→日訳）の変換中のキーは IME のもの（Esc で変換を取り消しても中断にしない）
+  if (quitDialog.open || e.isComposing) return;
   if (e.key === "Escape") {
     e.preventDefault();
     askQuit();
