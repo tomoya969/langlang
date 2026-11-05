@@ -99,6 +99,11 @@ class Unit:
     order: int
     raw: dict[str, Any] = field(repr=False, compare=False)
 
+    @property
+    def position(self) -> tuple[int, int]:
+        """学ぶ順。order はレベルの中の順なので、レベルと組にする。"""
+        return (self.level, self.order)
+
     def to_dict(self) -> dict[str, Any]:
         return dict(self.raw)
 
@@ -141,9 +146,9 @@ class Content:
         return [s for s in self.sentences if s.unit == unit_id]
 
     def units_up_to(self, unit_id: str) -> list[Unit]:
-        """そのユニットまで（含む）のユニットを順に返す。文で使ってよい単語の範囲を決めるのに使う。"""
+        """そのユニットまで（含む）のユニットを順に返す。前のレベルのユニットも含む。文で使ってよい単語の範囲を決めるのに使う。"""
         target = self.unit(unit_id)
-        return [u for u in self.units if u.order <= target.order]
+        return [u for u in self.units if u.position <= target.position]
 
 
 def content_dir(root: Path, language: str) -> Path:
@@ -156,7 +161,7 @@ def load(root: Path, language: str, approved_only: bool = True) -> Content:
     if not base.is_dir():
         raise ContentError(f"教材のディレクトリがありません: {base}")
     units = [_unit(u) for u in _read_json(base / "units.json")]
-    units.sort(key=lambda u: u.order)
+    units.sort(key=lambda u: u.position)
     words = [_word(w) for w in _read_json(base / "words.json")]
     sentences: list[Sentence] = []
     sentences_dir = base / "sentences"

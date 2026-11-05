@@ -486,7 +486,8 @@ def explain_prompt(content: content_mod.Content, sentence: content_mod.Sentence)
     words = [content.word(w) for w in sentence.word_ids if w in content._word_by_id]
     by_form = {g["form"]: g for g in content.grammar}
     grammar = [by_form[g] for g in sentence.grammar if g in by_form]
-    return build_explain_prompt(sentence.to_dict(), [{"lemma": w.lemma, "pos": w.pos, "meaning": w.meaning} for w in words], grammar)
+    level = content.unit(sentence.unit).level
+    return build_explain_prompt(sentence.to_dict(), [{"lemma": w.lemma, "pos": w.pos, "meaning": w.meaning} for w in words], grammar, level)
 
 
 def clean_explanation(raw: dict[str, Any]) -> dict[str, Any]:

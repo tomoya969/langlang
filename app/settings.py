@@ -14,6 +14,8 @@ from typing import Any
 FILENAME = "settings.json"
 
 DEFAULTS: dict[str, Any] = {
+    # 新出を始めるレベル（docs/plan.md 4.3「途中のレベルから始める」）。前のレベルの単語は新出に出さない
+    "start_level": 1,
     "new_words_per_day": 15,
     "new_sentences_per_day": 7,
     "weak_slots": 5,

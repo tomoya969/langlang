@@ -2,7 +2,7 @@
 
 `content/<言語>/` に JSON で置く。形式は `docs/plan.md` の 6.2・6.3。
 
-`ko/` は本番の教材（今は L1）。`tools/` の教材づくりの CLI（`uv run langlang-build`）で作る。
+`ko/` は本番の教材（今は L1。L2・L3 は同じ手順で作る）。`tools/` の教材づくりの CLI（`uv run langlang-build`）で作る。
 `work/` 以外のファイルは書き出し（`langlang-build export`）のたびに作り直すので、直すときは `work/` を直してから書き出す。
 
 | ファイル | 内容 |
@@ -30,6 +30,8 @@ uv run langlang validate        # 教材の整合を確かめる
 ```
 
 段階ごとにも実行できる（`import` → `supplement` → `tag` → `levels` → `units` → `grammar` → `enrich` → `verify-words` → `sentences` → `variants` → `export`）。
+`units` から `variants` までは `--level 2` のようにレベルを指定する（既定は 1）。L2 の文は L1 の単語と文法も使うので、前のレベルを作り終えてから作る。
+`export` はユニット分けまで済んだすべてのレベルを書き出す。
 AI を使う段階は `claude -p` を呼ぶので、Claude の利用枠を使う。上限に当たったら止まり、時間をおいて同じコマンドを実行すると続きから進む。
 文は `--units L1-U01,L1-U02` で一部のユニットだけ作れる。機械の検算（`tools/ko/morph.py`）を直したら、
 `--recheck` で機械の検算で要確認になった文だけを確かめ直せる。

@@ -74,7 +74,7 @@ def plan_words(
     introduced = {wid for wid, face in cards if face == "meaning" and wid in words}
     weak = analysis.weak if analysis else {}
     if weak_only:
-        order = sorted((wid for wid in weak if wid in words), key=lambda i: words[i].order)
+        order = sorted((wid for wid in weak if wid in words), key=lambda i: (words[i].level, words[i].order))
         return WordPlan([], [(words[wid], face) for wid in order for face in ARROW_FACES if (wid, face) in cards], None)
     if unit_id:
         unit_words = content.words_in(unit_id)
@@ -87,19 +87,20 @@ def plan_words(
     started = day_start(now)
     new_today = sum(1 for (wid, face), c in cards.items() if face == "meaning" and c.introduced_at >= started)
     quota = max(0, settings["new_words_per_day"] - new_today)
-    new = [w for w in learning_order(content) if w.id not in introduced][:quota]
+    start_level = max(1, settings["start_level"])
+    new = [w for w in learning_order(content) if w.id not in introduced and w.level >= start_level][:quota]
 
     due = [((wid, face), c) for (wid, face), c in cards.items() if wid in words and c.is_due(now)]
     due.sort(key=lambda kv: _priority_key(kv[1], priority))
     reviews = [(words[wid], face) for (wid, face), _ in due]
-    for wid in sorted(introduced, key=lambda i: words[i].order):
+    for wid in sorted(introduced, key=lambda i: (words[i].level, words[i].order)):
         reviews += [(words[wid], face) for face in unlocked_faces(wid, cards, settings, started)]
     reviews = reviews[: settings["review_limit"]]
     unit = content.unit(new[0].unit) if new else _last_started_unit(content, introduced)
 
     scheduled = {w.id for w, _ in reviews}
     extra: list[tuple[Word, str]] = []
-    for wid in sorted((i for i in weak if i in words and i not in scheduled), key=lambda i: (-len(weak[i]), words[i].order)):
+    for wid in sorted((i for i in weak if i in words and i not in scheduled), key=lambda i: (-len(weak[i]), words[i].level, words[i].order)):
         if len(extra) >= settings["weak_slots"]:
             break
         face = _weakest_face(wid, cards, started)

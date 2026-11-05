@@ -40,6 +40,10 @@ MAX_FAILURES = 2
 MAX_UNIT_WORDS_PER_SENTENCE = 3
 REGISTER_RULES = {
     1: "해요체 を中心にする。あいさつなどの決まった表現をそのまま使う文だけは 합니다체 にしてよい（多くても 3 文）",
+    2: "해요체 を中心にし、改まった場面（発表・案内・面接・店の放送など）の文は 합니다체、友達・家族・年下との会話の文は 반말 にする"
+    "（합니다체 と 반말 はそれぞれ 2〜4 文ほど）。話し手と聞き手の関係に合う文体にし、scene に誰が誰に言うかを書く",
+    3: "해요체 を中心にし、합니다체 と 반말 も場面に合わせて使う。日記・説明文・記事・メモなどの書き言葉の文は 한다체 にする"
+    "（한다체 は 2〜4 文ほど）。scene に誰が誰に言うか、何に書くかを書く",
 }
 
 PENDING = "pending"
@@ -62,7 +66,8 @@ def unit_path(unit_id: str) -> str:
 
 @dataclass
 class Context:
-    """文を作るのに要る、レベルの単語（id ごとの見出し・品詞・意味・ユニット）と、どの語がどこで出るか。"""
+    """文を作るのに要る単語（id ごとの見出し・品詞・意味・ユニット）と、どの語がどこで出るか。
+    単語は、そのレベルと前のレベルのもの（L2 の文は L1 の単語も使う）。unit_order は（レベル, ユニットの順）。"""
 
     ws: Workspace
     level: int
@@ -73,6 +78,7 @@ class Context:
     @classmethod
     def load(cls, ws: Workspace, level: int) -> Context:
         units = layout(ws, level)
+        earlier_units = [u for lv in range(1, level) for u in layout(ws, lv)]
         ids: dict[str, str] = ws.read(IDS, {})
         enrich = ws.read(ENRICH, {})
         verified = ws.read(VERIFY_WORDS, {})
@@ -82,7 +88,7 @@ class Context:
         decided = decisions.words(ws, {wid: by_key[key]["lemma"] for key, wid in ids.items() if key in by_key})
         words: dict[str, dict[str, Any]] = {}
         known: dict[str, str] = {}
-        for unit in units:
+        for unit in [*earlier_units, *units]:
             for key in unit["keys"]:
                 known.setdefault(normalize(by_key[key]["lemma"]), f"{unit['id']}「{unit['title']}」で出る語")
                 if key not in enrich:
@@ -95,14 +101,14 @@ class Context:
                     "pos": decision.get("pos", pos[key]),
                     "meaning": decisions.primary_meaning(decision) or _meaning(enrich[key], verified.get(key)),
                     "unit": unit["id"],
-                    "unit_order": unit["order"],
+                    "unit_order": (unit["level"], unit["order"]),
                 }
         for entry in ranking:
             if entry.get("excluded"):
                 where = "教材から除いた語"
             elif entry["level"] == LEVEL_REST:
                 where = "L4 候補の語"
-            elif entry["level"] != level:
+            elif entry["level"] > level:
                 where = f"L{entry['level']} の語"
             else:
                 continue
@@ -113,10 +119,10 @@ class Context:
         return [w for w in self.words.values() if w["unit"] == unit["id"]]
 
     def earlier_words(self, unit: dict[str, Any]) -> list[dict[str, Any]]:
-        return [w for w in self.words.values() if w["unit_order"] < unit["order"]]
+        return [w for w in self.words.values() if w["unit_order"] < (unit["level"], unit["order"])]
 
     def lexicon(self, unit: dict[str, Any]) -> Lexicon:
-        allowed = {w["id"]: w for w in self.words.values() if w["unit_order"] <= unit["order"]}
+        allowed = {w["id"]: w for w in self.words.values() if w["unit_order"] <= (unit["level"], unit["order"])}
         return Lexicon(allowed=allowed, known=self.known)
 
     def missing_words(self, unit: dict[str, Any]) -> int:

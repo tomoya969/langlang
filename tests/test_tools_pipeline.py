@@ -202,7 +202,7 @@ def test_pipeline_from_list_to_content(tmp_path):
     verify_words.run(ws, ai, 1)
     gen_sentences.run(ws, ai, ai, 1)
     gen_variants.run(ws, ai, ai, 1)
-    message = export.run(ws, 1)
+    message = export.run(ws)
     assert "ユニット 2" in message
 
     loaded = content.load(tmp_path, "ko", approved_only=False)
@@ -237,7 +237,7 @@ def test_pipeline_from_list_to_content(tmp_path):
     gen_sentences.run(ws, ai, ai, 1)
     gen_variants.run(ws, ai, ai, 1)
     assert len(ai.calls) == before
-    assert (ws.dir / "report.md").read_text(encoding="utf-8").startswith("# 教材づくりの報告（L1）")
+    assert (ws.dir / "report.md").read_text(encoding="utf-8").startswith("# 教材づくりの報告")
 
     # 機械の検算で要確認になった文は、検算を直したあとに --recheck で AI の検算に回せる
     path = gen_sentences.unit_path("L1-U02")
@@ -254,12 +254,12 @@ def test_pipeline_from_list_to_content(tmp_path):
     # 人が決めた語（work/decisions.json）は、決めた意味で approved にする
     coffee = words["커피"].id
     ws.write(decisions.DECISIONS, {"words": {coffee: {"lemma": "커피", "meanings": [{"ja": "コーヒー", "primary": True}], "note": "テスト"}}})
-    export.run(ws, 1)
+    export.run(ws)
     decided = {w.lemma: w for w in content.load(tmp_path, "ko", approved_only=False).words}["커피"]
     assert decided.status == "approved" and decided.meaning == "コーヒー" and "review" not in decided.raw
     ws.write(decisions.DECISIONS, {"words": {coffee: {"lemma": "물"}}})
     with pytest.raises(BuildError, match="見出しが違います"):
-        export.run(ws, 1)
+        export.run(ws)
     ws.write(decisions.DECISIONS, {})
 
     # work/ で直した要確認の文は、reopen で機械の検算を通してから AI の検算に回す
@@ -278,3 +278,52 @@ def test_pipeline_from_list_to_content(tmp_path):
     assert "機械の検算で落ちました" in gen_sentences.reopen(ws, [sid], 1)
     with pytest.raises(BuildError, match="id の形"):
         gen_sentences.reopen(ws, ["L1-U02"], 1)
+
+
+def test_second_level_builds_on_the_first(tmp_path):
+    """L2 の文は L1 の単語と文法も使い、書き出しは L1 と L2 を 1 つの教材にする。"""
+    ws = Workspace(tmp_path, "ko")
+    ws.sources.mkdir(parents=True)
+    (ws.sources / "nikl.txt").write_text(NIKL_TEXT, encoding="utf-8")
+    prompts: list[str] = []
+    fake = FakeAI()
+
+    def ai(prompt, schema):
+        prompts.append(prompt)
+        return fake(prompt, schema)
+
+    import_nikl.run(ws)
+    supplement.run(ws, ai)
+    tag_candidates.run(ws, ai)
+    assign_levels.rank(ws, sizes={1: 6, 2: 5})
+    for level in (1, 2):
+        assign_levels.run_units(ws, ai, level)
+        gen_grammar.run(ws, ai, level)
+        enrich_words.run(ws, ai, level)
+        verify_words.run(ws, ai, level)
+    grammar_prompt = next(p for p in prompts if "L2（" in p and "文法リスト" in p)
+    assert "# 前のレベルの文法" in grammar_prompt and "-아/어요" in grammar_prompt.split("# 前のレベルの文法")[1]
+
+    ctx = gen_sentences.Context.load(ws, 2)
+    unit = ctx.units[0]
+    allowed = {w["lemma"] for w in ctx.lexicon(unit).allowed.values()}
+    assert {"주다", "가다", "물"} <= allowed  # L1 の単語も使える
+    assert {w["lemma"] for w in ctx.unit_words(unit)} == {"학교", "물", "커피", "마시다"}
+
+    for level in (1, 2):
+        gen_sentences.run(ws, ai, ai, level)
+        gen_variants.run(ws, ai, ai, level)
+    sentence_prompt = next(p for p in prompts if "ユニット L2-U01" in p and "例文を" in p and "作ってください" in p)
+    assert "L1 までの単語と文法は学び終え" in sentence_prompt
+    assert "주다" in sentence_prompt.split("# 前のユニットまでの単語")[1]
+
+    message = export.run(ws)
+    assert "ユニット 2" in message
+    loaded = content.load(tmp_path, "ko")
+    assert [u.id for u in loaded.units] == ["L1-U01", "L2-U01"]
+    words = {w.lemma: w for w in loaded.words}
+    assert words["물"].level == 2 and words["주다"].level == 1
+    by_ko = {s.ko: s for s in loaded.sentences}
+    assert by_ko["물 주세요."].unit == "L2-U01"
+    assert words["주다"].id in by_ko["물 주세요."].word_ids  # L1 の単語を使う L2 の文も、整合の確かめを通る
+    assert {g["level"] for g in loaded.grammar} == {1, 2}

@@ -35,8 +35,10 @@ def run(ws: Workspace, ask: AskFn, level: int = 1) -> str:
     unit_items = [{**u, "lemmas": [lemmas[k] for k in u["keys"]]} for u in units]
     unit_ids = [u["id"] for u in units]
 
+    earlier = [g["form"] for lv in range(1, level) for g in items(ws, lv)]
+
     def work(_: None) -> list[dict[str, Any]]:
-        result = ask(build_grammar_prompt(level, unit_items), grammar_schema(unit_ids))
+        result = ask(build_grammar_prompt(level, unit_items, earlier), grammar_schema(unit_ids))
         return settle_grammar(result["items"], unit_ids)
 
     results: list[list[dict[str, Any]]] = []
@@ -49,7 +51,8 @@ def run(ws: Workspace, ask: AskFn, level: int = 1) -> str:
 
 
 def settle_grammar(items: list[dict[str, Any]], unit_ids: list[str]) -> list[dict[str, Any]]:
-    """同じ形の重なりを除き、ユニットの順に並べる。最初のユニットで使える文法がなければやり直させる。"""
+    """同じ形の重なりを除き、ユニットの順に並べる。最初のユニットで使える文法がなければやり直させる。
+    L2 からも、最初のユニットに新しい文法を置かせる（前のレベルの文法だけで 1 ユニット分の文を作ると、そのユニットで学ぶことがないため）。"""
     seen: set[str] = set()
     settled = []
     for item in items:

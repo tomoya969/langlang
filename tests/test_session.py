@@ -302,3 +302,21 @@ def test_sentences_prefer_weak_words(root):
     plan = session.build(c, pack, cfg, records.cards("ko"), later, rng=random.Random(1), analysis=weak_of("t-w-0008"))
     first = next(i for i in plan["items"] if i["round"] == "sentences")
     assert first["sentence"]["id"] == "t-s-U02-002"  # 우유를 마셔요（마시다 が苦手）
+
+
+def test_start_level_skips_earlier_levels(root):
+    import json
+
+    path = root / "content" / "ko" / "units.json"
+    units = json.loads(path.read_text(encoding="utf-8"))
+    units[1]["level"] = 2
+    path.write_text(json.dumps(units, ensure_ascii=False), encoding="utf-8")
+    words_path = root / "content" / "ko" / "words.json"
+    words = json.loads(words_path.read_text(encoding="utf-8"))
+    for w in words:
+        if w["unit"] == "T-U02":
+            w["level"] = 2
+    words_path.write_text(json.dumps(words, ensure_ascii=False), encoding="utf-8")
+    plan = build(root, unit=None, start_level=2, new_words_per_day=2)
+    assert [i["word"]["unit"] for i in plan["items"] if i["type"] == "word_intro"] == ["T-U02", "T-U02"]
+    assert plan["unit"]["id"] == "T-U02"

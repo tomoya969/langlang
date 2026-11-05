@@ -12,7 +12,7 @@
     langlang-build sentences [--level 1] [--units L1-U01,L1-U02] [--recheck]   文の生成と検算（AI）
     langlang-build reopen ko-s-L1-U02-008 ...  work/ で直した文を機械で確かめ、AI の検算待ちに戻す
     langlang-build variants [--level 1] [--units L1-U01,L1-U02]   許容例の生成と検算（AI）
-    langlang-build export [--level 1]         content/ko/ に書き出す
+    langlang-build export                     content/ko/ に書き出す（ユニット分けまで済んだすべてのレベル）
     langlang-build all [--level 1]            上を順に全部
 
 どの段階も、途中で止まっても再実行すれば済んだところを飛ばして続きから進む。
@@ -93,9 +93,10 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("tag", help="すべての候補に粗い付与（AI）")
     p.add_argument("--parallel", type=int, default=4)
     sub.add_parser("levels", help="スコアを付けてレベルに分ける")
-    for name, text in (("units", "ユニットに分ける（AI）"), ("grammar", "文法リストを作る（AI）"), ("export", "content/ に書き出す")):
+    for name, text in (("units", "ユニットに分ける（AI）"), ("grammar", "文法リストを作る（AI）")):
         p = sub.add_parser(name, help=text)
         p.add_argument("--level", type=int, default=1)
+    sub.add_parser("export", help="content/ に書き出す（ユニット分けまで済んだすべてのレベル）")
     for name, text in (("enrich", "詳しい付与（AI）"), ("verify-words", "単語の検算（AI）")):
         p = sub.add_parser(name, help=text)
         p.add_argument("--level", type=int, default=1)
@@ -133,7 +134,7 @@ def steps_for(args: argparse.Namespace) -> list[tuple[str, Step]]:
         "verify-words": lambda ws: verify_words.run(ws, asker("verify"), level, parallel),
         "sentences": lambda ws: gen_sentences.run(ws, asker("enrich"), asker("verify"), level, unit_ids, parallel),
         "variants": lambda ws: gen_variants.run(ws, asker("enrich"), asker("verify"), level, unit_ids, parallel),
-        "export": lambda ws: export.run(ws, level),
+        "export": export.run,
         "reopen": lambda ws: gen_sentences.reopen(ws, getattr(args, "ids", []), level),
     }
     if args.command == "sentences" and args.recheck:

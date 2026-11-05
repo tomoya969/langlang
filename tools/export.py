@@ -16,7 +16,7 @@ from typing import Any
 
 from app import content as content_mod
 from tools import candidates, decisions, gen_grammar, gen_variants
-from tools.assign_levels import IDS, LEVEL_REST, RANKING, layout
+from tools.assign_levels import IDS, LEVEL_REST, RANKING, UNITS, layout
 from tools.enrich_words import ENRICH
 from tools.gen_sentences import APPROVED, NEEDS_REVIEW, STATE_DONE, unit_path
 from tools.ko.morph import normalize
@@ -29,13 +29,18 @@ REPORT = "report.md"
 HANJA_ORIGINS = ("漢字語",)
 
 
-def run(ws: Workspace, level: int = 1) -> str:
-    units = layout(ws, level)
-    words = build_words(ws, level, units)
-    grammar = build_grammar(ws, level)
+def run(ws: Workspace) -> str:
+    """ユニット分けまで済んだすべてのレベルを書き出す（content/ の教材は全部のレベルで 1 つ）。"""
+    levels = work_levels(ws)
+    units = [u for lv in levels for u in layout(ws, lv)]
+    words = build_words(ws, units)
+    grammar = [g for lv in levels for g in build_grammar(ws, lv)]
     sentences = {u["id"]: build_sentences(ws, u) for u in units}
+    # 詳しい付与がまだのレベルのユニットは、単語がないので書き出さない（画面に空のユニットを出さないため）
+    with_words = {w["unit"] for w in words}
+    exported = [u for u in units if u["id"] in with_words]
 
-    write_json(ws.content / "units.json", [{k: u[k] for k in ("id", "level", "order", "title", "scene")} for u in units])
+    write_json(ws.content / "units.json", [{k: u[k] for k in ("id", "level", "order", "title", "scene")} for u in exported])
     write_json(ws.content / "words.json", words)
     write_json(ws.content / "grammar.json", grammar)
     sentences_dir = ws.content / "sentences"
@@ -49,14 +54,20 @@ def run(ws: Workspace, level: int = 1) -> str:
 
     loaded = content_mod.load(ws.root, ws.language, approved_only=False)
     approved = content_mod.load(ws.root, ws.language)
-    write_report(ws, level, units, words, sentences)
+    write_report(ws, exported, words, sentences)
     return (
         f"ユニット {len(loaded.units)}、単語 {len(loaded.words)}（approved {len(approved.words)}）、"
         f"文 {len(loaded.sentences)}（approved {len(approved.sentences)}）を書き出しました。報告: {ws.path(REPORT)}"
     )
 
 
-def build_words(ws: Workspace, level: int, units: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def work_levels(ws: Workspace) -> list[int]:
+    """ユニット分けまで済んだレベル。"""
+    return sorted(int(key[1:]) for key in ws.read(UNITS, {}))
+
+
+def build_words(ws: Workspace, units: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """units はすべてのレベルのユニット（学ぶ順）。order はレベルの中の順。"""
     ids: dict[str, str] = ws.read(IDS, {})
     by_key = {c["key"]: c for c in candidates.load(ws)}
     ranking = {e["key"]: e for e in ws.require(RANKING, "levels")}
@@ -66,10 +77,11 @@ def build_words(ws: Workspace, level: int, units: list[dict[str, Any]]) -> list[
     decided = decisions.words(ws, {wid: by_key[key]["lemma"] for key, wid in ids.items() if key in by_key})
 
     words: list[dict[str, Any]] = []
-    order = 0
+    order: Counter[int] = Counter()
     for unit in units:
+        level = unit["level"]
         for key in unit["keys"]:
-            order += 1
+            order[level] += 1
             if key not in enrich:
                 continue
             c, e, tag = by_key[key], enrich[key], tags[key]
@@ -81,7 +93,7 @@ def build_words(ws: Workspace, level: int, units: list[dict[str, Any]]) -> list[
                 "pos": ranking[key]["pos"],
                 "level": level,
                 "unit": unit["id"],
-                "order": order,
+                "order": order[level],
                 "meanings": e["meanings"],
                 "origin": origin,
                 "hanja": e["hanja"],
@@ -148,8 +160,11 @@ def _to_ids(lemmas: list[str], by_lemma: dict[str, list[str]], own: str) -> list
 
 
 def build_grammar(ws: Workspace, level: int) -> list[dict[str, Any]]:
+    """そのレベルの文法リスト。まだ作っていなければ空。"""
+    if f"L{level}" not in ws.read(gen_grammar.GRAMMAR, {}):
+        return []
     return [
-        {"id": f"{ws.language}-g-{i:03d}", "level": level, "form": g["form"], "ja": g["ja"], "example": g["example"], "unit": g["unit"]}
+        {"id": f"{ws.language}-g-L{level}-{i:03d}", "level": level, "form": g["form"], "ja": g["ja"], "example": g["example"], "unit": g["unit"]}
         for i, g in enumerate(gen_grammar.items(ws, level), start=1)
     ]
 
@@ -185,18 +200,15 @@ def build_sentences(ws: Workspace, unit: dict[str, Any]) -> list[dict[str, Any]]
     return items
 
 
-def write_report(
-    ws: Workspace, level: int, units: list[dict[str, Any]], words: list[dict[str, Any]], sentences: dict[str, list[dict[str, Any]]]
-) -> None:
+def write_report(ws: Workspace, units: list[dict[str, Any]], words: list[dict[str, Any]], sentences: dict[str, list[dict[str, Any]]]) -> None:
     ranking = ws.require(RANKING, "levels")
     included = [e for e in ranking if not e.get("excluded")]
     excluded = [e for e in ranking if e.get("excluded")]
     levels = Counter(e["level"] for e in included)
-    status = Counter(w["status"] for w in words)
+    exported_levels = sorted({u["level"] for u in units})
     all_sentences = [s for items in sentences.values() for s in items]
-    sentence_status = Counter(s["status"] for s in all_sentences)
     lines = [
-        f"# 教材づくりの報告（L{level}）",
+        "# 教材づくりの報告",
         "",
         f"`langlang-build export` が {now_iso()} に書き出した結果。`content/{ws.language}/` の教材の中身と、確認が要るもの。",
         "",
@@ -204,9 +216,19 @@ def write_report(
         "",
         f"- 候補: {len(ranking)} 語（除外 {len(excluded)} 語）",
         "- レベル: " + "、".join(f"L{lv} {levels[lv]} 語" for lv in sorted(levels) if lv != LEVEL_REST) + f"、L4 候補 {levels[LEVEL_REST]} 語",
-        f"- L{level}: ユニット {len(units)}、書き出した単語 {len(words)} 語（approved {status['approved']}、要確認 {status['needs_review']}、検算待ち {status['draft']}）",
-        f"- 文: {len(all_sentences)} 文（approved {sentence_status[APPROVED]}、要確認 {sentence_status[NEEDS_REVIEW]}）、"
-        f"文があるユニット {sum(1 for v in sentences.values() if v)}/{len(units)}",
+    ]
+    for lv in exported_levels:
+        level_units = [u for u in units if u["level"] == lv]
+        status = Counter(w["status"] for w in words if w["level"] == lv)
+        level_sentences = [s for u in level_units for s in sentences[u["id"]]]
+        sentence_status = Counter(s["status"] for s in level_sentences)
+        lines += [
+            f"- L{lv}: ユニット {len(level_units)}、書き出した単語 {sum(status.values())} 語"
+            f"（approved {status['approved']}、要確認 {status['needs_review']}、検算待ち {status['draft']}）、"
+            f"文 {len(level_sentences)} 文（approved {sentence_status[APPROVED]}、要確認 {sentence_status[NEEDS_REVIEW]}）、"
+            f"文があるユニット {sum(1 for u in level_units if sentences[u['id']])}/{len(level_units)}",
+        ]
+    lines += [
         "",
         "## ユニット",
         "",

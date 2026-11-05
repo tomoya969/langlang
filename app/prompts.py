@@ -280,7 +280,7 @@ EXPLAIN_SCHEMA: dict = {
 }
 
 
-def build_explain_prompt(sentence: dict[str, Any], words: list[dict[str, Any]], grammar: list[dict[str, Any]]) -> str:
+def build_explain_prompt(sentence: dict[str, Any], words: list[dict[str, Any]], grammar: list[dict[str, Any]], level: int = 1) -> str:
     """文の解説のプロンプト。words は文の単語（lemma・pos・meaning）、grammar は文法の表示に当たる文法リストの項目。"""
     tokens = "\n".join(f"- {t['surface']}" for t in sentence["tokens"])
     word_lines = "\n".join(f"- {w['lemma']}（{w['pos']}）: {w['meaning']}" for w in words)
@@ -288,7 +288,7 @@ def build_explain_prompt(sentence: dict[str, Any], words: list[dict[str, Any]], 
     return f"""# 依頼
 
 韓国語の学習アプリで、学習者が「解説」を押した文の解説を書いてください。
-{_LEARNER}今は初級（ハン検 5〜4 級ほど）です。
+{_LEARNER + "今は" + LEVEL_STAGES[1] + "です。" if level <= 1 else _learner(level)}
 解説は保存して何度も見せるので、正確さを最優先にしてください。確かでないことは書かないでください。
 
 # 文
@@ -325,6 +325,15 @@ def build_explain_prompt(sentence: dict[str, Any], words: list[dict[str, Any]], 
 # ---- 教材づくり（韓国語） ----
 
 _LEARNER = "学習者は日本語話者です。ハングルは読めて発音もできますが、韓国語の単語はほとんど知りません。"
+# 学習者の今の段階（解説の書き方を合わせる）
+LEVEL_STAGES = {1: "初級（ハン検 5〜4 級ほど）", 2: "初中級（ハン検 3 級ほど）", 3: "中級（ハン検準 2 級ほど）"}
+
+
+def _learner(level: int) -> str:
+    """学習者の説明。L2 からは、前のレベルの単語と文法を学び終えている。"""
+    if level <= 1:
+        return _LEARNER
+    return f"学習者は日本語話者です。ハングルは読めて発音もできます。L{level - 1} までの単語と文法は学び終え、今は {LEVEL_STAGES[level]} です。"
 
 POS_LIST = ["名詞", "依存名詞", "代名詞", "数詞", "動詞", "形容詞", "副詞", "冠形詞", "感嘆詞", "固有名詞", "表現"]
 HANKEN_LEVELS = ["5級", "4級", "3級", "準2級", "2級以上"]
@@ -502,7 +511,7 @@ def build_units_prompt(level: int, words: list[dict], unit_count: int, earlier: 
     return f"""# 依頼
 
 日本語話者が韓国語の日常会話の語彙を覚えるための教材で、L{level} の単語をユニットに分けています。
-{_LEARNER}
+{_learner(level)}
 新しい単語はユニットの順に覚え、ユニットごとに、そのユニットまでの単語だけで例文を作って練習します。
 
 次の {len(words)} 語を、{unit_count} 個のユニットに分けてください（1 ユニット 20〜30 語）。
@@ -528,13 +537,26 @@ def build_units_prompt(level: int, words: list[dict], unit_count: int, earlier: 
 
 # 文法リスト（docs/plan.md 6.3「文法は、レベルごとの文法リストの範囲内」）
 
-# レベルごとの文法の範囲と文体（docs/plan.md 4.3）。L2・L3 は M7 で足す
+# レベルごとの文法の範囲と文体（docs/plan.md 4.3）
 GRAMMAR_SCOPES = {
     1: {
         "label": "ハン検 5〜4 級、TOPIK 1 級ほど",
         "range": "ハン検 5〜4 級で学ぶ文法（助詞、語尾、否定、過去、丁寧さ、よく使う文型）を 40〜60 個",
         "register": "文体は 해요체 が中心。あいさつなどの決まった表現に使う 합니다체（-ㅂ니다/습니다）も入れる。"
         "반말 と 한다체 は入れない（L2 以降で学ぶ）",
+    },
+    2: {
+        "label": "ハン検 3 級、TOPIK 2 級ほど",
+        "range": "ハン検 3 級で学ぶ文法（連体形の使い分け、理由・目的・条件・逆接・並列の接続、意図・推量・経験・変化、"
+        "伝え聞きの基本、よく使う補助用言など）を 40〜60 個",
+        "register": "합니다체（-ㅂ니까?、-(으)십시오 など、改まった場面の言い方）と 반말（-아/어、-자、-니?、-(이)야 など、"
+        "友達・家族・年下に使う言い方）を入れる。한다체 は入れない（L3 で学ぶ）",
+    },
+    3: {
+        "label": "ハン検準 2 級、TOPIK 3 級ほど",
+        "range": "ハン検準 2 級で学ぶ文法（-다가、-더라고요、-(으)ㄹ 텐데、-는 바람에、-도록、-(으)ㄴ/는 척하다、"
+        "引用の -다고/-냐고/-라고/-자고 하다 など）を 40〜60 個",
+        "register": "書き言葉の 한다체（-ㄴ다/는다、-았/었다、-(으)ㄹ 것이다、-는가 など。日記・説明文・記事の文体）を入れる",
     },
 }
 
@@ -551,10 +573,20 @@ def grammar_schema(unit_ids: list[str]) -> dict:
     return _obj({"items": {"type": "array", "items": item}})
 
 
-def build_grammar_prompt(level: int, units: list[dict]) -> str:
-    """units: id, title, scene, lemmas（そのユニットの単語）。"""
+def build_grammar_prompt(level: int, units: list[dict], earlier: list[str] | None = None) -> str:
+    """units: id, title, scene, lemmas（そのユニットの単語）。earlier: 前のレベルの文法の形（L2 から。どのユニットでも使える）。"""
     unit_lines = "\n".join(f"- {u['id']} {u['title']}（{u['scene']}）: {'、'.join(u['lemmas'])}" for u in units)
     scope = GRAMMAR_SCOPES[level]
+    if earlier:
+        basics = (
+            "- 前のレベルの文法（下の一覧）は、どのユニットでも使える。このリストには入れない（同じ文法の別の形・別の使い方も入れない）"
+        )
+        first_unit = "  - 最初のユニットから、そのユニットの場面で使う新しい文法を 1〜3 個使えるようにする"
+        earlier_text = "\n\n# 前のレベルの文法\n\n" + "、".join(earlier)
+    else:
+        basics = "- 이다（-예요/이에요）と 아니다（-이/가 아니에요）の形も文法として入れる"
+        first_unit = "  - 1 つ目のユニットから文を作れるように、最初のユニットに基本（-예요/이에요、은/는、-아/어요 など）を置く"
+        earlier_text = ""
     return f"""# 依頼
 
 日本語話者向けの韓国語の教材で、L{level}（{scope['label']}）の文法リストを作ってください。
@@ -565,7 +597,7 @@ def build_grammar_prompt(level: int, units: list[dict]) -> str:
 
 - {scope['range']}
 - {scope['register']}
-- 이다（-예요/이에요）と 아니다（-이/가 아니에요）の形も文法として入れる
+{basics}
 
 # 書き方
 
@@ -573,14 +605,14 @@ def build_grammar_prompt(level: int, units: list[dict]) -> str:
 - ja: 日本語での意味（短く。例:「〜は」「〜です・ます（해요체）」）
 - example: その文法を使った短い例文（韓国語）
 - unit: その文法を最初に例文で使ってよいユニット
-  - 1 つ目のユニットから文を作れるように、最初のユニットに基本（-예요/이에요、은/는、-아/어요 など）を置く
+{first_unit}
   - ユニットの場面で必要になる文法は、そのユニットまでに使えるようにする（注文の場面なら -(으)세요 など）
   - 難しい文法ほど後のユニットにし、1 つのユニットで新しく使えるようになる文法は 0〜3 個にして、なだらかに増やす
 - items は unit の順に並べる
 
 # ユニット（id 名前（場面）: 単語）
 
-{unit_lines}
+{unit_lines}{earlier_text}
 """
 
 
@@ -756,7 +788,7 @@ def build_sentences_prompt(
 このユニットの単語は、どれも 1 文以上で使ってください。ユニットの場面で実際に交わす会話の文を中心にしてください。"""
     return f"""# 依頼
 
-日本語話者向けの韓国語の教材の例文を作っています。{_LEARNER}
+日本語話者向けの韓国語の教材の例文を作っています。{_learner(unit.get("level", 1))}
 学習者が知っているのは、このユニットまでの単語だけです。例文は、聞いて意味を選ぶ・穴埋め・書き取り・日本語から韓国語への作文の練習に使います。
 
 {task}
@@ -777,7 +809,7 @@ def build_sentences_prompt(
 # 書き方
 
 - ko: 韓国語の文。分かち書きは標準どおり。文末は「.」か「?」
-- ja: 自然な日本語訳。해요체・합니다체の文は「です・ます」で訳す
+- ja: 自然な日本語訳。해요체・합니다체の文は「です・ます」で、반말の文はくだけた話し言葉（〜だよ、〜する？）で、한다체の文は「だ・である」で訳す
 - register: 文体
 - scene: 誰がどこで言うか（日本語、15 字ほどまで。例:「カフェで店員に」）
 - tokens: ko を空白で区切った語節を、前から順にすべて並べる。surface は語節の表記（句読点を除く）。
@@ -847,7 +879,7 @@ def build_verify_sentences_prompt(unit: dict, items: list[dict], grammar: list[d
 
 次のどれかに当てはまれば ok を false にして、problems に何が問題かを日本語で短く書く（ok が true なら problems は空）。
 
-- ko が韓国語として正しく自然か（文法・語の選び方・分かち書き・綴り・句読点）。実際の会話でそう言うか
+- ko が韓国語として正しく自然か（文法・語の選び方・分かち書き・綴り・句読点）。実際の会話でそう言うか（한다체 の書き言葉の文は、実際にそう書くか）
 - ja が ko の意味を過不足なく訳しているか
 - register（文体）の表示が ko と合っているか（あいさつなどの決まった表現が別の文体なのはよい）
 - ko が「使える文法」にない語尾や文型を使っていないか
@@ -918,7 +950,7 @@ def build_variants_prompt(unit: dict, items: list[dict]) -> str:
         )
     return f"""# 依頼
 
-日本語話者向けの韓国語の教材で、例文の「許容例」を作っています。{_LEARNER}
+日本語話者向けの韓国語の教材で、例文の「許容例」を作っています。{_learner(unit.get("level", 1))}
 学習者の答えが模範解答か許容例と一致すると、その場で正解になります。一致しない答えは、別に AI が採点します。
 学習者が書きそうな、正しい別の言い方を集めてください。ユニット {unit['id']}「{unit['title']}」（場面: {unit['scene']}）の例文です。
 「今ある許容例」は残るので、挙げなくてかまいません（挙げても重複は除きます）。
