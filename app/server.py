@@ -31,7 +31,7 @@ from pydantic import BaseModel
 
 from app import content as content_mod
 from app import claude_cli, grader, langs, session, settings as settings_mod
-from app.content import ContentError
+from app.content import ContentError, meaning_atoms
 from app.graded import GradedStore
 from app.jobs import JobBusy, JobStore
 from app.langs.base import LanguagePack, UnsupportedLanguage
@@ -311,6 +311,8 @@ def create_app(
         if not norm:
             raise HTTPException(400, "答えが空です")
         judged = grader.judge_task(pack, task, req.answer)
+        if judged is None and req.type == "word_spell":
+            judged = _synonym_answer(content, pack, content.word(task.item_id), req.answer)
         if judged is None:
             judged = app.state.graded.get(req.language, task, norm)
         if judged is not None:
@@ -477,6 +479,20 @@ def task_for(content: content_mod.Content, pack: LanguagePack, req: AnswerReques
         required = s.grammar[0] if s.grammar else "（なし。自由に書いてよい）"
         problem = [("指定の表現", required), ("例文", s.ko), ("例文の日本語訳", s.ja), ("例文の文体", s.register)]
     return grader.Task(req.type, s.id, s.ko, variants, {**common, "problem": problem}, word_ids)
+
+
+def _synonym_answer(content: content_mod.Content, pack: LanguagePack, word: content_mod.Word, answer: str) -> grader.Judgement | None:
+    """綴りの面で、問題に出した意味（主な意味）にも合う別の語を書いた答えは正解にする（複数に解釈できる答えはどれも正解）。
+    合う語は、類語と、訳が問題の意味と重なる語。"""
+    norm = pack.normalize(answer)
+    asked = meaning_atoms(word.meaning)
+    for other in content.words:
+        if other.id == word.id or pack.normalize(other.lemma) != norm:
+            continue
+        if other.id in word.synonyms or word.id in other.synonyms or asked & other.meaning_atoms:
+            comment = f"「{other.lemma}」も「{word.meaning}」の意味なので正解です。読み上げた語は「{word.lemma}」です。"
+            return grader.Judgement(grader.VERDICT_CORRECT, "synonym", corrected=other.lemma, comment_ja=comment)
+    return None
 
 
 def _word_brief(word: content_mod.Word) -> dict[str, str]:

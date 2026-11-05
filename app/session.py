@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import difflib
 import random
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -34,6 +35,8 @@ OPTIONS = 4
 FAMILIAR_DAYS = 7
 # 取り違えた相手と形や意味の近い語は、ダミー 3 つのうち 2 つまで（全部が近い語だと消去法が効かず、運になるため）
 MAX_NEAR_DISTRACTORS = 2
+# 聞いて選ぶ問題で、訳がこれ以上似ている文はダミーにしない（difflib の ratio）
+CLOSE_TRANSLATION = 0.8
 OUTPUT_ITEMS = 3
 WORD_FACES = ("meaning", "listen", "reverse", "spell")
 FIRST_PRACTICE = "listen_choose"
@@ -415,7 +418,7 @@ def _sentence_item(kind: str, sentence: Sentence, content: Content, new_ids: set
         "sentence": _sentence_view(sentence, content, new_ids),
     }
     if kind == "listen_choose":
-        pool = [s for s in content.sentences if s.id != sentence.id and not (_translations(s) & _translations(sentence))]
+        pool = [s for s in content.sentences if s.id != sentence.id and not _close_translations(s, sentence)]
         options = [sentence, *rng.sample(pool, min(len(pool), OPTIONS - 1))]
         rng.shuffle(options)
         item["options"] = [{"sentence_id": s.id, "label": s.ja} for s in options]
@@ -435,8 +438,17 @@ def _sentence_item(kind: str, sentence: Sentence, content: Content, new_ids: set
 
 
 def _translations(sentence: Sentence) -> set[str]:
-    """文の訳と許容訳（記号と空白を除いた形）。聞いて選ぶ問題で、訳が重なる文をダミーにしないために比べる。"""
+    """文の訳と許容訳（記号と空白を除いた形）。"""
     return {normalize_ja(t) for t in [sentence.ja, *sentence.variants.get("ja", [])]}
+
+
+def _close_translations(a: Sentence, b: Sentence) -> bool:
+    """聞いて選ぶ問題で、ダミーにしない文か。訳か許容訳が同じ文と、訳がほとんど同じ文
+    （「そして」の有無だけが違う など。選択肢の違いが小さすぎて、どちらとも読めてしまうため）。"""
+    if _translations(a) & _translations(b):
+        return True
+    matcher = difflib.SequenceMatcher(None, normalize_ja(a.ja), normalize_ja(b.ja))
+    return matcher.real_quick_ratio() >= CLOSE_TRANSLATION and matcher.quick_ratio() >= CLOSE_TRANSLATION and matcher.ratio() >= CLOSE_TRANSLATION
 
 
 def _sentence_view(sentence: Sentence, content: Content, new_ids: set[str]) -> dict[str, Any]:

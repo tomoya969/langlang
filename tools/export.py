@@ -4,8 +4,8 @@
   詳しい付与がまだの語は書き出さない（意味がないと画面に出せないため）。人が決めた語（work/decisions.json）は、
   決めた品詞・意味・漢字・語種にして approved にする
 - 取り違えやすい語・同義語は、書き出す単語の中から辞書形で探して id にする。見つからない語は落とす
-- 類語（synonyms）は両方向にし、類語の段階（link_synonyms）の組と、訳が 1 つでも重なる語も入れる。
-  矢印ゲームで、正解の語の類語をダミーに出さないため
+- 類語（synonyms）は、付与の同義語と類語の段階（link_synonyms）の組を両方向にそろえる。矢印ゲームで、正解の語の類語を
+  ダミーに出さないため（訳が 1 つでも重なるだけの語は類語ではないので入れない。ダミーからは出題のときに除く）
 - 文は needs_review も書き出す（学習に出すのは approved だけ。content.load が除く）
 - 文の許容例は、許容例の段階（gen_variants）が今の文の中身で作ったものがあれば、それに置き換える
 - 書き出したら content.validate で整合を確かめ、work/report.md に結果をまとめる
@@ -14,11 +14,9 @@
 from __future__ import annotations
 
 from collections import Counter
-from itertools import combinations
 from typing import Any
 
 from app import content as content_mod
-from app.content import meaning_atoms
 from tools import candidates, decisions, gen_grammar, gen_variants, link_synonyms
 from tools.assign_levels import IDS, LEVEL_REST, RANKING, UNITS, layout
 from tools.enrich_words import ENRICH
@@ -144,7 +142,7 @@ def build_words(ws: Workspace, units: list[dict[str, Any]]) -> list[dict[str, An
 
 
 def _link_synonyms(words: list[dict[str, Any]], extra: list[tuple[str, str]]) -> None:
-    """類語を両方向にそろえ、類語の段階の組と、訳が 1 つでも重なる語（同じ訳を持つ語どうし）を足す。"""
+    """類語を両方向にそろえ、類語の段階の組を足す。"""
     linked = {w["id"]: list(w["synonyms"]) for w in words}
 
     def link(a: str, b: str) -> None:
@@ -159,13 +157,6 @@ def _link_synonyms(words: list[dict[str, Any]], extra: list[tuple[str, str]]) ->
             link(w["id"], other)
     for a, b in extra:
         link(a, b)
-    by_atom: dict[str, list[str]] = {}
-    for w in words:
-        for atom in {a for m in w["meanings"] for a in meaning_atoms(m["ja"])}:
-            by_atom.setdefault(atom, []).append(w["id"])
-    for ids in by_atom.values():
-        for a, b in combinations(ids, 2):
-            link(a, b)
     for w in words:
         w["synonyms"] = linked[w["id"]]
 

@@ -46,15 +46,16 @@ GRADE_SCHEMA: dict = {
     "required": ["verdict", "meaning_ok", "issues", "corrected", "comment_ja"],
 }
 
-GRADE_STYLE = 1
+GRADE_STYLE = 2
 
 # 練習ごとの、問題の説明・不正解と注意の追加の条件・corrected の単位。
 # 判定の粒度をそろえるため、条件は箇条書きで言い切り、判定は「不正解 → 注意 → 正解」の順に確かめさせる
 _GRADE_PRACTICES: dict[str, dict[str, Any]] = {
     "word_spell": {
         "about": "日本語の意味を見て、単語の読み上げを聞き、その単語をハングルで書く練習です。問われているのは、その単語を正しく綴れるかです。",
-        "incorrect": ["問われている単語と別の語を書いている（意味の近い語でも不正解。読み上げを聞いているため）"],
+        "incorrect": ["日本語の意味に合わない語を書いている"],
         "notes": ["問われている単語の活用した形を書いている（가다 に 가요 など）"],
+        "correct": ["読み上げた語と違っても、日本語の意味に合う類語を正しく綴っていれば正解（複数に解釈できる答えはどれも正解にする）"],
         "unit": "単語だけ",
     },
     "sentence_cloze": {
@@ -721,7 +722,7 @@ def build_verify_words_prompt(items: list[dict]) -> str:
 
 # 類語の紐づけ（矢印ゲームで、正解の語の類語をダミーに出さないため。tools/link_synonyms.py）
 
-SYNONYMS_STYLE = 1
+SYNONYMS_STYLE = 2
 
 
 def synonyms_schema(word_ids: list[str]) -> dict:
@@ -729,8 +730,16 @@ def synonyms_schema(word_ids: list[str]) -> dict:
     return _obj({"pairs": {"type": "array", "items": pair}})
 
 
-def build_synonyms_prompt(group: str, words: list[dict]) -> str:
-    """words: id, lemma, pos, meaning（すべての意味）。"""
+def build_synonyms_prompt(group: str, words: list[dict], found: list[tuple[str, str]] | None = None) -> str:
+    """words: id, lemma, pos, meaning（すべての意味）。found を渡すと、それ以外の見落としだけを挙げさせる（2 回目の呼び出し）。"""
+    lemma = {w["id"]: w["lemma"] for w in words}
+    review = (
+        "\n# すでに挙がった組\n\n別の担当が下の組を挙げました。これらは挙げなくてよい。見落としている組だけを、一覧を 1 語ずつ見直して挙げてください。\n\n"
+        + ("\n".join(f"- {lemma[a]}（{a}）／{lemma[b]}（{b}）" for a, b in found) or "（なし）")
+        + "\n"
+        if found is not None
+        else ""
+    )
     return f"""# 依頼
 
 日本語話者向けの韓国語の単語帳で、韓国語の単語を見て日本語の意味を 4 択で選ぶゲーム（と、日本語を見て韓国語を 4 択で選ぶゲーム）を作っています。
@@ -753,7 +762,7 @@ def build_synonyms_prompt(group: str, words: list[dict]) -> str:
 
 - a と b は下の一覧の id。同じ組を 2 回挙げない。reason は日本語で短く
 - 迷ったら挙げる（挙げすぎても、ダミーの候補が少し減るだけなので）
-
+{review}
 # 単語（id: 単語（品詞）意味）
 
 {chr(10).join(_word_line(w) for w in words)}

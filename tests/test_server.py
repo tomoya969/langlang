@@ -429,3 +429,25 @@ def test_weak_practice_session(client):
     assert plan["mode"] == "weak"
     assert {i["word"]["id"] for i in plan["items"]} == {"t-w-0001"}
     assert plan["timing"] == {}
+
+
+def test_spell_accepts_a_synonym_of_the_asked_meaning(root, ai):
+    import json
+
+    path = root / "content" / "ko" / "words.json"
+    words = json.loads(path.read_text(encoding="utf-8"))
+    for w in words:
+        if w["id"] == "t-w-0004":  # 우유＝牛乳 を、물 の類語ということにする
+            w["synonyms"] = ["t-w-0001"]
+        if w["id"] == "t-w-0002":  # 빵 の訳に「水」を足す（主な意味ではない）
+            w["meanings"].append({"ja": "水", "primary": False})
+    path.write_text(json.dumps(words, ensure_ascii=False), encoding="utf-8")
+    app = create_app(root, jobs=JobStore(inline=True), ask=ai)
+    with TestClient(app) as c:
+        def spell(answer):
+            return c.post("/api/answer", json={"language": "ko", "type": "word_spell", "word_id": "t-w-0001", "answer": answer}).json()
+
+        res = spell("우유")
+        assert res["verdict"] == "correct" and res["source"] == "synonym" and "물" in res["comment_ja"]
+        assert spell("빵")["source"] == "synonym"  # 問題の意味「水」が訳にある語
+        assert "job" in spell("커피")  # 意味が違う語は AI に判定させる

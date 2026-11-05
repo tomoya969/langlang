@@ -46,7 +46,7 @@ class Task:
 @dataclass
 class Judgement:
     verdict: str
-    source: str  # "exact" / "variant" / "spacing" / "pronunciation"（機械）、"ai" / "cache"（AI）
+    source: str  # "exact" / "variant" / "spacing" / "pronunciation" / "synonym"（機械）、"ai" / "cache"（AI）
     issues: list[dict[str, Any]] = field(default_factory=list)
     corrected: str | None = None
     comment_ja: str = ""
