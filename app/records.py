@@ -3,6 +3,9 @@
 - cards: 単語の 1 つの面、または文 1 つごとの FSRS の状態（安定度・難しさ・次に出す日）と、文の段階。
   まだ出していない面と文の行は作らない
 - reviews: 解答 1 回ごとの記録
+- graded_answers: AI が判定した答え（app/graded.py が使う）
+- ai_cache: 解説などの AI の結果
+- traces: なぞりタイピングの速さ（流暢さの練習なので、FSRS には使わない）
 
 FSRS に渡すのは、その日のその面（文）の最初の 1 回だけ（docs/plan.md 4.4・4.7）。間違えて最後尾に回ったあとの正解や、
 同じ日の 2 回目の学習は、reviews に残すが FSRS も段階も動かさない（counted = 0）。
@@ -58,9 +61,38 @@ CREATE TABLE IF NOT EXISTS reviews (
     correct     INTEGER NOT NULL,
     elapsed_sec REAL,
     answer      TEXT,              -- 選んだ単語の id、打った答え
-    detail      TEXT               -- そのほか（JSON）
+    detail      TEXT               -- そのほか（JSON。打つ練習の判定と誤りのタグなど）
 );
 CREATE INDEX IF NOT EXISTS reviews_item ON reviews (language, kind, item_id, reviewed_at);
+CREATE TABLE IF NOT EXISTS graded_answers (
+    language  TEXT NOT NULL,
+    practice  TEXT NOT NULL,
+    item_id   TEXT NOT NULL,
+    answer    TEXT NOT NULL,       -- 正規化した答え
+    expected  TEXT NOT NULL,       -- 判定したときの模範解答
+    style     INTEGER NOT NULL,    -- 採点のプロンプトの版
+    judgement TEXT NOT NULL,       -- JSON
+    graded_at TEXT NOT NULL,
+    PRIMARY KEY (language, practice, item_id, answer)
+);
+CREATE TABLE IF NOT EXISTS ai_cache (
+    language   TEXT NOT NULL,
+    kind       TEXT NOT NULL,      -- explain など
+    key        TEXT NOT NULL,      -- 文の id など
+    style      INTEGER NOT NULL,   -- プロンプトの版
+    basis      TEXT NOT NULL,      -- 何から作ったか（教材が変わったら作り直す）
+    body       TEXT NOT NULL,      -- JSON
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (language, kind, key)
+);
+CREATE TABLE IF NOT EXISTS traces (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    language    TEXT NOT NULL,
+    sentence_id TEXT NOT NULL,
+    traced_at   TEXT NOT NULL,
+    seconds     REAL NOT NULL,
+    units       INTEGER NOT NULL   -- 打った単位の数（韓国語は字母）
+);
 """
 
 
@@ -242,6 +274,66 @@ class Records:
 
     def retrievability(self, card: CardRow, now: datetime) -> float:
         return self.scheduler.get_card_retrievability(card.card, now.astimezone(timezone.utc))
+
+    # ---- AI の判定と結果 ----
+
+    def graded(self, language: str, practice: str, item_id: str, answer: str) -> dict[str, Any] | None:
+        """保存した判定（expected・style・judgement）。"""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT expected, style, judgement FROM graded_answers WHERE language = ? AND practice = ? AND item_id = ? AND answer = ?",
+                (language, practice, item_id, answer),
+            ).fetchone()
+        if row is None:
+            return None
+        return {"expected": row["expected"], "style": row["style"], "judgement": json.loads(row["judgement"])}
+
+    def save_graded(self, language: str, practice: str, item_id: str, answer: str, *, expected: str, style: int, judgement: dict[str, Any]) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                """INSERT OR REPLACE INTO graded_answers (language, practice, item_id, answer, expected, style, judgement, graded_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (language, practice, item_id, answer, expected, style, json.dumps(judgement, ensure_ascii=False), _now_iso()),
+            )
+
+    def cached(self, language: str, kind: str, key: str, *, style: int, basis: str) -> dict[str, Any] | None:
+        """保存した AI の結果。プロンプトの版か、もとにした教材（basis）が変わっていたら None。"""
+        with self._connect() as conn:
+            row = conn.execute("SELECT style, basis, body FROM ai_cache WHERE language = ? AND kind = ? AND key = ?", (language, kind, key)).fetchone()
+        if row is None or row["style"] != style or row["basis"] != basis:
+            return None
+        return json.loads(row["body"])
+
+    def save_cached(self, language: str, kind: str, key: str, body: dict[str, Any], *, style: int, basis: str) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO ai_cache (language, kind, key, style, basis, body, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (language, kind, key, style, basis, json.dumps(body, ensure_ascii=False), _now_iso()),
+            )
+
+    # ---- なぞりタイピング ----
+
+    def trace(self, language: str, sentence_id: str, *, seconds: float, units: int, now: datetime) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO traces (language, sentence_id, traced_at, seconds, units) VALUES (?, ?, ?, ?, ?)",
+                (language, sentence_id, now.astimezone(timezone.utc).isoformat(), seconds, units),
+            )
+
+    def trace_speed(self, language: str, since: datetime) -> float | None:
+        """since 以降のなぞりの速さ（1 分あたりの単位の数）。打った量で重みを付けた平均。"""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT SUM(units) AS units, SUM(seconds) AS seconds FROM traces WHERE language = ? AND traced_at >= ?",
+                (language, since.astimezone(timezone.utc).isoformat()),
+            ).fetchone()
+        if not row["seconds"]:
+            return None
+        return row["units"] / row["seconds"] * 60
+
+
+def _now_iso() -> str:
+    return datetime.now().astimezone().isoformat(timespec="seconds")
 
 
 def _card_row(row: sqlite3.Row) -> CardRow:

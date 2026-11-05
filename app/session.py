@@ -5,8 +5,8 @@
 
 単語と文は学習の記録（app/records.py のカード）から組む。期限が来たもの（単語は出し始める面も。4.5）を復習に、
 まだ出していないものを新出にする。ユニットを指定したときは、そのユニットの単語と文だけで組む（ユニットの練習）。
-文の練習の種類は段階で決める（4.7）。産出（日→韓・応用作文）は時間がかかるので 1 日 OUTPUT_ITEMS 問までにし、
-産出に回らなかった段階 3〜5 の文は書き取りにする。
+文の練習の種類は段階で決める（4.7）。段階 1 は、新しい文の最初の出題を聞いて選ぶ（テンポのため）、復習を韓→日訳にする。
+産出（日→韓・応用作文）は時間がかかるので 1 日 OUTPUT_ITEMS 問までにし、産出に回らなかった段階 3〜5 の文は書き取りにする。
 """
 
 from __future__ import annotations
@@ -29,7 +29,8 @@ REVIEW_EVERY = 3
 OPTIONS = 4
 OUTPUT_ITEMS = 3
 WORD_FACES = ("meaning", "listen", "reverse", "spell")
-STAGE_PRACTICE = {1: "listen_choose", 2: "cloze", 3: "dictation", 4: "dictation", 5: "dictation"}
+FIRST_PRACTICE = "listen_choose"
+STAGE_PRACTICE = {1: "ko_to_ja", 2: "cloze", 3: "dictation", 4: "dictation", 5: "dictation"}
 OUTPUT_PRACTICE = {3: "ja_to_ko", 4: "compose", 5: "ja_to_ko"}
 
 Cards = dict[tuple[str, str], CardRow]
@@ -321,11 +322,10 @@ def _distractors(word: Word, pool: list[Word], rng: random.Random) -> list[Word]
 
 
 def _sentence_round(content: Content, new: list[Sentence], reviews: list[dict[str, Any]], new_ids: set[str], rng: random.Random) -> list[dict[str, Any]]:
-    """新しい文は導入のあと、2〜3 問はさんで段階 1 の練習を出す（4.7）。復習の文は段階の練習。"""
+    """新しい文は導入のあと、2〜3 問はさんで聞いて選ぶ問題を出す（4.7）。復習の文は段階の練習。"""
     pairs = []
     for sentence in new:
-        first, _ = practice_for(sentence, FIRST_STAGE, 0)
-        pairs.append((_sentence_item("intro", sentence, content, new_ids, rng), _sentence_item(first, sentence, content, new_ids, rng)))
+        pairs.append((_sentence_item("intro", sentence, content, new_ids, rng), _sentence_item(FIRST_PRACTICE, sentence, content, new_ids, rng)))
     reviews = list(reviews)
     rng.shuffle(reviews)
     return _interleave(pairs, reviews, SENTENCE_GAP, rng)
@@ -348,6 +348,8 @@ def _sentence_item(kind: str, sentence: Sentence, content: Content, new_ids: set
         item["expected"] = cloze["answer"]
     elif kind in ("dictation", "ja_to_ko", "trace"):
         item["expected"] = sentence.ko
+    elif kind == "ko_to_ja":
+        item["expected"] = sentence.ja
     elif kind == "compose":
         item["required"] = sentence.grammar[0]
         item["task"] = f"「{sentence.grammar[0]}」を使って、自分のことを 1 文で書いてください"

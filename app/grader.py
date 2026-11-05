@@ -2,10 +2,15 @@
 
 機械で決めるのは「正解」と「正解（注意つき）」だけ。機械では打ち間違いと意味が変わる誤り（있어요 と 없어요）を
 見分けられないので、不正解は AI だけが決める。
+
+韓→日訳の答えは学習者の言葉（日本語）なので、言語パックの正規化ではなく normalize_ja で比べる。
+訳は言い回しの幅が広く、機械で決まるのは模範訳か許容訳との一致だけ。
 """
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -32,6 +37,10 @@ class Task:
     variants: tuple[str, ...] = ()
     context: dict[str, Any] = field(default_factory=dict)
     word_ids: tuple[str, ...] = ()
+    native: bool = False  # 答えが学習者の言葉（日本語）か。韓→日訳
+
+    def normalize(self, pack: LanguagePack, text: str) -> str:
+        return normalize_ja(text) if self.native else pack.normalize(text)
 
 
 @dataclass
@@ -68,6 +77,22 @@ class Judgement:
             comment_ja=data.get("comment_ja") or "",
             diff=data.get("diff"),
         )
+
+
+def normalize_ja(text: str) -> str:
+    """日本語の訳の正規化。全角と半角をそろえ、空白と記号（句読点・かっこ・？！など）を除く。"""
+    return re.sub(r"[\s、。，．,.!?「」『』()（）・…]", "", unicodedata.normalize("NFKC", text))
+
+
+def judge_task(pack: LanguagePack, task: Task, answer: str) -> Judgement | None:
+    """機械で決まる判定。決まらなければ None。"""
+    if task.native:
+        norm = normalize_ja(answer)
+        candidates = [normalize_ja(task.expected)] + [normalize_ja(v) for v in task.variants]
+        if norm in candidates:
+            return Judgement(VERDICT_CORRECT, "exact" if norm == candidates[0] else "variant", corrected=task.expected)
+        return None
+    return judge_machine(pack, answer, task.expected, task.variants)
 
 
 def judge_machine(pack: LanguagePack, answer: str, expected: str, variants: tuple[str, ...] | list[str] = ()) -> Judgement | None:
@@ -112,12 +137,13 @@ def judge_ai(pack: LanguagePack, task: Task, answer: str, ask: AskFn) -> Judgeme
     if verdict == VERDICT_CORRECT and issues:
         verdict = VERDICT_NOTES
     corrected = (raw.get("corrected") or "").strip() or None
-    norm = pack.normalize(answer)
-    if corrected is not None and pack.normalize(corrected) == pack.normalize(task.expected):
+    norm = task.normalize(pack, answer)
+    if corrected is not None and task.normalize(pack, corrected) == task.normalize(pack, task.expected):
         corrected = task.expected
     diff = None
-    if verdict != VERDICT_CORRECT and corrected is not None and pack.normalize(corrected) != norm:
-        diff = char_diff(norm, pack.normalize(corrected))
+    if verdict != VERDICT_CORRECT and corrected is not None and task.normalize(pack, corrected) != norm:
+        # 差分は見せるための文字の並びなので、記号を除かない形で比べる
+        diff = char_diff(pack.normalize(answer), pack.normalize(corrected))
     return Judgement(verdict, "ai", issues=issues, corrected=corrected, comment_ja=(raw.get("comment_ja") or "").strip(), diff=diff)
 
 

@@ -89,7 +89,8 @@ function showNextHint(hintEl) {
   hintEl.replaceChildren(el("span", {}, el("kbd", { text: "⏎" }), " 次へ"));
 }
 
-function typingHint(...extra) {
+function typingHint({ plain = false } = {}, ...extra) {
+  if (plain) return hint([el("kbd", { text: "⏎" }), " 送る"], ...extra, ["日本語入力をオンにして打ちます"]);
   return hint([el("kbd", { text: "⏎" }), " 送る"], [el("kbd", { text: "←" }), el("kbd", { text: "→" }), " カーソル"], ...extra, ["日本語入力はオフのままで打てます"]);
 }
 
@@ -168,8 +169,8 @@ function nextItem() {
 }
 
 /** 解答を記録する。その日の最初の解答なら、サーバーが FSRS で次に出す日を決める（文は段階も）。テンポを優先して、記録を待たずに進む */
-function record(body) {
-  api.post("/api/review", { language: LANGUAGE, ...body }).catch((err) => {
+function record(body, path = "/api/review") {
+  api.post(path, { language: LANGUAGE, ...body }).catch((err) => {
     if (state.recordFailed) return;
     state.recordFailed = true;
     toast(`解答を記録できませんでした: ${err.message}`, { type: "error", sticky: true });
@@ -180,13 +181,16 @@ function recordWord(item, { rating, correct, elapsed = null, answer = null }) {
   record({ kind: "word", item_id: item.word.id, face: item.face, practice: item.type, rating, correct, elapsed_sec: elapsed, answer });
 }
 
-function recordSentence(item, { rating, correct, elapsed = null, answer = null }) {
-  record({ kind: "sentence", item_id: item.sentence.id, practice: item.type, rating, correct, elapsed_sec: elapsed, answer });
+function recordSentence(item, { rating, correct, elapsed = null, answer = null, detail = null }) {
+  record({ kind: "sentence", item_id: item.sentence.id, practice: item.type, rating, correct, elapsed_sec: elapsed, answer, detail });
 }
 
-/** 打つ練習の文は、1 回目の判定で記録する（自分で直したあとの正解は評価に使わない） */
+/** 打つ練習の文は、1 回目の判定で記録する（自分で直したあとの正解は評価に使わない）。誤りのタグも残す */
 function recordSentenceJudgement(item) {
-  return (j, value) => recordSentence(item, { rating: j.rating, correct: j.verdict !== "incorrect", answer: value });
+  return (j, value) => {
+    const issues = (j.issues || []).map((i) => ({ tag: i.tag, axis: i.axis, word_id: i.word_id || null }));
+    recordSentence(item, { rating: j.rating, correct: j.verdict !== "incorrect", answer: value, detail: { verdict: j.verdict, source: j.source, issues } });
+  };
 }
 
 function finishItem(correct, detail) {
@@ -241,6 +245,19 @@ function sceneFor(item) {
         expected: item.expected,
         body: { type: "sentence_ja_to_ko", sentence_id: item.sentence.id },
         placeholder: `${item.sentence.register}で書く`,
+        aiHint: true,
+        onFirstJudgement: recordSentenceJudgement(item),
+      });
+    case "sentence_ko_to_ja":
+      return typingScene(item, {
+        title: head("韓国語 → 日本語", item.sentence.register, item.sentence.scene),
+        prompt: (box) => {
+          box.append(el("div", { class: "ko-lg", lang: "ko", text: item.sentence.ko }), speakBtn(item.sentence.ko));
+        },
+        expected: item.expected,
+        body: { type: "sentence_ko_to_ja", sentence_id: item.sentence.id },
+        placeholder: "日本語に訳す",
+        plain: true,
         aiHint: true,
         onFirstJudgement: recordSentenceJudgement(item),
       });
@@ -485,7 +502,7 @@ function sentenceIntroScene(item) {
       box.append(
         frame(
           head("新しい文", s.register, s.scene),
-          [el("div", { class: "sentence" }, tokensView(s), el("div", { class: "ja-md", text: s.ja })), el("div", { class: "chips" }, ...s.grammar.map((g) => el("span", { class: "chip", text: g }))), btn],
+          [el("div", { class: "sentence" }, tokensView(s), el("div", { class: "ja-md", text: s.ja })), el("div", { class: "chips" }, ...s.grammar.map((g) => el("span", { class: "chip", text: g }))), btn, explainBlock(s)],
           hint([el("kbd", { text: "⏎" }), " 次へ"], [el("kbd", { text: "Space" }), " もう一度聞く"], ["単語を押すとその語だけ読み上げます。下線は新しい単語"]),
         ),
       );
@@ -500,6 +517,43 @@ function sentenceIntroScene(item) {
       }
     },
   };
+}
+
+/** 「解説」のボタンと、押したら出す解説。AI が作るのは初めて押したときだけで、2 回目からは保存したものを返す */
+function explainBlock(sentence) {
+  const panel = el("div", { class: "explain", hidden: true });
+  const btn = el("button", { type: "button", class: "btn ghost explain-btn" }, "解説");
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    panel.hidden = false;
+    panel.replaceChildren(el("p", { class: "muted small", text: "AI が解説を作っています…（初めての文は 1 分ほどかかります）" }));
+    try {
+      let res = await api.post(`/api/explain/${encodeURIComponent(sentence.id)}`, { language: LANGUAGE });
+      if (res.job) res = { explanation: await api.waitJob(res.job) };
+      if (!panel.isConnected) return;
+      renderExplanation(panel, res.explanation);
+      btn.hidden = true;
+    } catch (err) {
+      btn.disabled = false;
+      panel.hidden = true;
+      toast(`解説を作れませんでした: ${err.message}`, { type: "error" });
+    }
+  });
+  return el("div", { class: "explain-area" }, btn, panel);
+}
+
+function renderExplanation(panel, x) {
+  const section = (label, ...children) => el("div", { class: "explain-section" }, el("span", { class: "explain-label", text: label }), ...children);
+  panel.replaceChildren(
+    ...[
+      x.summary ? el("p", { text: x.summary }) : null,
+      x.parts.length ? section("語節", el("dl", { class: "explain-parts" }, ...x.parts.flatMap((p) => [el("dt", { lang: "ko", text: p.surface }), el("dd", { text: p.breakdown })]))) : null,
+      x.grammar.length ? section("文法", ...x.grammar.map((g) => el("div", {}, el("span", { class: "chip", lang: "ko", text: g.form }), " ", g.explanation))) : null,
+      x.register ? section("文体", el("div", { text: x.register })) : null,
+      x.pronunciation ? section("発音", el("div", { lang: "ko", text: x.pronunciation })) : null,
+      x.tips.length ? section("ポイント", el("ul", {}, ...x.tips.map((t) => el("li", { text: t })))) : null,
+    ].filter(Boolean),
+  );
 }
 
 // ---- 場面: 聞いて意味を選ぶ ----
@@ -581,9 +635,28 @@ function clozeScene(item) {
   });
 }
 
-// ---- 場面: 入力して採点（綴り・穴埋め・書き取り・日→韓・応用作文） ----
+// ---- 場面: 入力して採点（綴り・穴埋め・書き取り・日→韓・韓→日・応用作文） ----
 
-function typingScene(item, { title, prompt, expected, body, placeholder, aiHint = false, reveal = null, speakText = null, onFirstJudgement = null }) {
+/** 日本語を打つ入力欄（韓→日訳）。TypingField と同じ形（focus・setEnabled）で使う。
+   Enter は IME の変換の確定にも使うので、変換中の Enter では送らない */
+function plainField(container, { onSubmit, placeholder }) {
+  const input = el("input", { type: "text", class: "plain-field", lang: "ja", placeholder, autocomplete: "off", spellcheck: "false" });
+  input.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" || e.isComposing || e.keyCode === 229) return;
+    e.preventDefault();
+    onSubmit(input.value);
+  });
+  container.append(input);
+  return {
+    focus: () => input.focus(),
+    setEnabled: (on) => {
+      input.disabled = !on;
+    },
+  };
+}
+
+function typingScene(item, { title, prompt, expected, body, placeholder, plain = false, aiHint = false, reveal = null, speakText = null, onFirstJudgement = null }) {
+  const answerLang = plain ? "ja" : "ko";
   let field;
   let resultBox;
   let hintEl;
@@ -638,17 +711,18 @@ function typingScene(item, { title, prompt, expected, body, placeholder, aiHint 
         el(
           "div",
           { class: "issue" },
-          el("div", {}, el("span", { class: "chip warn", text: issue.tag }), " ", el("span", { class: "span", lang: "ko", text: issue.span })),
+          el("div", {}, el("span", { class: "chip warn", text: issue.tag }), " ", el("span", { class: "span", lang: answerLang, text: issue.span })),
           done ? el("div", { class: "muted", text: issue.note + (issue.suggestion ? ` → ${issue.suggestion}` : "") }) : null,
         ),
       );
     }
-    if (!ok && j.diff) box.append(diffView(j.diff, !done));
+    if (!ok && j.diff) box.append(diffView(j.diff, !done, answerLang));
     if (done) {
       // AI の corrected は模範解答ではなく、学習者の答えを最小限直したもの。違えば両方を見せる
-      if (!ok && j.corrected && j.corrected !== expected) box.append(modelLine("直した答え", j.corrected));
-      if (expected) box.append(modelLine("模範解答", expected));
+      if (!ok && j.corrected && j.corrected !== expected) box.append(modelLine("直した答え", j.corrected, answerLang));
+      if (expected) box.append(modelLine(plain ? "模範訳" : "模範解答", expected, answerLang));
       if (reveal) reveal(box);
+      if (item.sentence) box.append(explainBlock(item.sentence));
       finished = true;
       field.setEnabled(false);
       // 答えが決まったらキーボードは要らないので畳む。打ち直しの間は配列を見たいので出したまま
@@ -664,14 +738,14 @@ function typingScene(item, { title, prompt, expected, body, placeholder, aiHint 
   }
 
   const scene = {
-    keyboard: true,
+    keyboard: !plain,
     render(box) {
       const promptBox = el("div", { class: "sentence" });
       prompt(promptBox);
       const fieldBox = el("div");
-      field = TypingField.create(fieldBox, { keymap: pack.keymap, composer: pack.composer, keyboard, onSubmit: submit, placeholder });
+      field = plain ? plainField(fieldBox, { onSubmit: submit, placeholder }) : TypingField.create(fieldBox, { keymap: pack.keymap, composer: pack.composer, keyboard, onSubmit: submit, placeholder });
       resultBox = el("div");
-      hintEl = typingHint(...(aiHint ? [["違う書き方は AI が判定"]] : []));
+      hintEl = typingHint({ plain }, ...(aiHint ? [["違う書き方は AI が判定"]] : []));
       const q = frame(title, [promptBox, el("div", { class: "answer-area" }, fieldBox, resultBox)], hintEl);
       q.classList.add("typing");
       box.append(q);
@@ -692,12 +766,12 @@ function typingScene(item, { title, prompt, expected, body, placeholder, aiHint 
   return scene;
 }
 
-function modelLine(label, text) {
-  return el("div", { class: "model" }, el("span", { class: "model-label", text: label }), el("span", { class: "model-text", lang: "ko", text }));
+function modelLine(label, text, lang = "ko") {
+  return el("div", { class: "model" }, el("span", { class: "model-label", text: label }), el("span", { class: "model-text", lang, text }));
 }
 
-function diffView(diff, maskMissing) {
-  const node = el("div", { class: "diff", lang: "ko" });
+function diffView(diff, maskMissing, lang = "ko") {
+  const node = el("div", { class: "diff", lang });
   for (const part of diff) {
     if (part.kind === "missing" && maskMissing) node.append(el("span", { class: "mask", text: "＿".repeat(part.text.length) }));
     else node.append(el("span", { class: part.kind, text: part.text }));
@@ -723,6 +797,7 @@ function traceScene(item) {
     const jamoCount = pack.composer.decompose(s.ko).length;
     const perMin = Math.round((jamoCount / seconds) * 60);
     state.log.traces.push({ id: item.id, seconds, perMin });
+    record({ sentence_id: s.id, seconds, units: jamoCount }, "/api/trace");
     statsBox.replaceChildren(el("span", {}, el("strong", { text: `${perMin}` }), "字母/分"), el("span", {}, el("strong", { text: seconds.toFixed(1) }), "秒"), el("span", { class: "result-next" }, el("kbd", { text: "⏎" }), "次へ"));
     showNextHint(hintEl);
     field.setEnabled(false);

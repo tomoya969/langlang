@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.jobs import JobStore
+from app.records import Records
 from app.server import API_VERSION, create_app
 
 
@@ -202,7 +203,7 @@ def test_answer_goes_to_ai_and_is_saved(ai_client, ai, root):
     assert job["result"]["comment_ja"].startswith("있어요")
     assert job["result"]["diff"]
     assert "読み上げた文（模範解答）: 커피가 있어요." in ai.calls[0]
-    assert (root / "records" / "graded" / "ko.json").exists()
+    assert Records(root).graded("ko", "sentence_dictation", "t-s-U01-002", "커피가 없어요") is not None
 
     again = ai_client.post("/api/answer", json={**body, "answer": "커피가  없어요."}).json()
     assert again["source"] == "cache"
@@ -240,7 +241,7 @@ def test_answer_ai_failure_is_job_error(root):
         job = c.post("/api/answer", json={"language": "ko", "type": "word_spell", "word_id": "t-w-0003", "answer": "코피"}).json()["job"]
     assert job["status"] == "error"
     assert "利用枠" in job["error"]
-    assert not (root / "records" / "graded" / "ko.json").exists()
+    assert Records(root).graded("ko", "word_spell", "t-w-0003", "코피") is None
 
 
 def test_answer_requires_ids_and_text(client):
@@ -281,3 +282,93 @@ def test_settings_affect_language_today(client):
 
 def test_job_not_found(client):
     assert client.get("/api/jobs/nope").status_code == 404
+
+
+# ---- 韓→日訳 ----
+
+
+def test_ko_to_ja_matches_translations_ignoring_marks(ai_client, ai):
+    def post(answer):
+        return ai_client.post("/api/answer", json={"language": "ko", "type": "sentence_ko_to_ja", "sentence_id": "t-s-U01-001", "answer": answer}).json()
+
+    assert post("お水ください")["source"] == "exact"
+    assert post("「水を ください！」")["source"] == "variant"  # 記号・空白・全角半角は比べない
+    assert not ai.calls
+
+
+def test_ko_to_ja_goes_to_ai_with_translation_rules(ai_client, ai):
+    ai.result = {"verdict": "correct", "meaning_ok": True, "issues": [], "corrected": "水ちょうだい", "comment_ja": "意味は合っています。"}
+    res = ai_client.post("/api/answer", json={"language": "ko", "type": "sentence_ko_to_ja", "sentence_id": "t-s-U01-001", "answer": "水ちょうだい"}).json()
+    assert res["job"]["result"]["verdict"] == "correct"
+    prompt = ai.calls[0]
+    assert "韓国語の文: 물 주세요." in prompt and "模範訳: お水ください。" in prompt
+    assert "です／ます体かどうかは問いません" in prompt
+    assert "받침" not in prompt  # 韓国語の答えの条件は入れない
+
+
+def test_korean_grade_prompt_keeps_korean_rules(ai_client, ai):
+    ai_client.post("/api/answer", json={"language": "ko", "type": "sentence_ja_to_ko", "sentence_id": "t-s-U01-002", "answer": "커피가 없어요"})
+    assert "띄어쓰기の誤り" in ai.calls[0]
+    assert "模範訳" not in ai.calls[0]
+
+
+# ---- 解説 ----
+
+EXPLANATION = {
+    "summary": "カフェで水を頼む文です。",
+    "parts": [{"surface": "물", "breakdown": "물（水）"}, {"surface": "", "breakdown": "空"}],
+    "grammar": [{"form": "-(으)세요", "explanation": "丁寧に頼む言い方です。"}],
+    "register": "해요체で、店員に丁寧に頼んでいます。",
+    "pronunciation": "",
+    "tips": ["  ", "좀 を入れるとやわらかくなります。"],
+}
+
+
+def test_explain_is_made_once_and_reused(ai_client, ai, root):
+    import json
+
+    ai.result = EXPLANATION
+    first = ai_client.post("/api/explain/t-s-U01-001", json={"language": "ko"}).json()
+    result = first["job"]["result"]
+    assert result["parts"] == [{"surface": "물", "breakdown": "물（水）"}]  # 空の項目は除く
+    assert result["tips"] == ["좀 を入れるとやわらかくなります。"]
+    assert "韓国語: 물 주세요." in ai.calls[0]
+    assert "- -(으)세요" in ai.calls[0]  # 文法リストにない文法は、文の表示のまま渡す
+    again = ai_client.post("/api/explain/t-s-U01-001", json={"language": "ko"}).json()
+    assert again["explanation"] == result
+    assert len(ai.calls) == 1
+    # 文が変わったら作り直す
+    path = root / "content" / "ko" / "sentences" / "T-U01.json"
+    items = json.loads(path.read_text(encoding="utf-8"))
+    items[0]["ja"] = "水をください。"
+    path.write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
+    assert "job" in ai_client.post("/api/explain/t-s-U01-001", json={"language": "ko"}).json()
+    assert len(ai.calls) == 2
+
+
+def test_explain_unknown_sentence(client):
+    assert client.post("/api/explain/nope", json={"language": "ko"}).status_code == 404
+
+
+# ---- 記録の中身 ----
+
+
+def test_review_keeps_judgement_detail(client, root):
+    import sqlite3
+
+    detail = {"verdict": "incorrect", "source": "ai", "issues": [{"tag": "助詞", "axis": "grammar", "word_id": None}]}
+    body = {"language": "ko", "kind": "sentence", "item_id": "t-s-U01-002", "practice": "sentence_ja_to_ko", "rating": "again", "correct": False, "answer": "커피를 있어요", "detail": detail}
+    assert client.post("/api/review", json=body).status_code == 200
+    with sqlite3.connect(root / "records" / "langlang.db") as conn:
+        saved = conn.execute("SELECT detail FROM reviews WHERE item_id = 't-s-U01-002'").fetchone()[0]
+    assert "助詞" in saved
+
+
+def test_trace_is_recorded(client, root):
+    from datetime import datetime, timedelta
+
+    res = client.post("/api/trace", json={"language": "ko", "sentence_id": "t-s-U01-001", "seconds": 6.0, "units": 30})
+    assert res.json() == {"per_min": 300}
+    assert Records(root).trace_speed("ko", datetime.now().astimezone() - timedelta(days=1)) == 300
+    assert client.post("/api/trace", json={"language": "ko", "sentence_id": "t-s-U01-001", "seconds": 0, "units": 30}).status_code == 400
+    assert client.post("/api/trace", json={"language": "ko", "sentence_id": "nope", "seconds": 1, "units": 3}).status_code == 404

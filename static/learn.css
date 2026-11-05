@@ -727,3 +727,84 @@
   font-weight: 500;
   color: var(--text-2);
 }
+
+/* ---- 韓→日訳の入力欄（日本語入力を使うので、ふつうの input） ---- */
+
+input[type="text"].plain-field {
+  height: 64px;
+  padding: 12px 18px;
+  font-size: var(--fs-xl);
+  font-weight: 500;
+}
+
+input[type="text"].plain-field:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+input[type="text"].plain-field:disabled {
+  background: transparent;
+  color: var(--text-2);
+}
+
+/* ---- 解説 ---- */
+
+.explain-area {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.result .explain-area {
+  justify-items: start;
+}
+
+.explain {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  max-width: 640px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  text-align: left;
+}
+
+.explain p {
+  margin: 0;
+}
+
+.explain-section {
+  display: grid;
+  gap: 4px;
+}
+
+.explain-label {
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.explain-parts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+  margin: 0;
+}
+
+.explain-parts dt {
+  font-weight: 600;
+}
+
+.explain-parts dd {
+  margin: 0;
+}
+
+.explain ul {
+  margin: 0;
+  padding-left: 1.2em;
+}

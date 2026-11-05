@@ -118,7 +118,7 @@ def test_due_sentences_get_the_practice_of_their_stage(root):
     later = NOW + timedelta(days=30)
     plan = build(root, unit=None, records=records, now=later, new_sentences_per_day=0)
     kinds = {i["sentence"]["id"]: i["type"] for i in plan["items"] if i["round"] == "sentences"}
-    assert kinds == {"t-s-U01-001": "sentence_listen_choose", "t-s-U02-003": "sentence_dictation"}
+    assert kinds == {"t-s-U01-001": "sentence_ko_to_ja", "t-s-U02-003": "sentence_dictation"}  # 段階 1 の復習は韓→日訳
     assert plan["review_count"] == 2
 
 

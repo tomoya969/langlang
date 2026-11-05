@@ -5,7 +5,7 @@
    applyLanguage() が今の言語の URL に書き換える。 */
 "use strict";
 
-const REQUIRED_API_VERSION = 5;
+const REQUIRED_API_VERSION = 6;
 
 const LANGUAGE = document.body.dataset.scope === "language" ? decodeURIComponent(location.pathname.split("/")[1] || "") : null;
 

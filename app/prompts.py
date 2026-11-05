@@ -99,6 +99,17 @@ _GRADE_PRACTICES: dict[str, dict[str, Any]] = {
         "notes": [],
         "unit": "文全体",
     },
+    # 答えが日本語の練習。共通の条件と判定の例は _GRADE_NATIVE を使う（docs/plan.md 5.3「韓→日」）
+    "sentence_ko_to_ja": {
+        "about": (
+            "韓国語の文を読んで、日本語に訳す練習です。"
+            "問われているのは、韓国語の文の意味を過不足なく読み取れたかで、日本語の書き方ではありません。"
+        ),
+        "incorrect": [],
+        "notes": [],
+        "unit": "日本語訳の全体",
+        "native": True,
+    },
 }
 
 _GRADE_INCORRECT = [
@@ -117,12 +128,63 @@ _GRADE_NOTES = [
     "指定の文体と違うが、場面上は許される文体",
 ]
 
+_GRADE_KOREAN = {
+    "premise": (
+        "この答えは、模範解答・許容例のどれとも一致せず、空白の位置だけの違いや、発音が同じになる綴りの違いでもありませんでした。\n"
+        "模範解答と違うことだけを理由に、注意や不正解にしないでください。言い方が違っても、正しい韓国語なら正解です。\n"
+        "文末の記号（. ? !）の有無と前後の空白は、比べる前に取り除いているので、判定にも issues にも含めないでください。"
+    ),
+    "incorrect": _GRADE_INCORRECT,
+    "notes": _GRADE_NOTES,
+    "examples": """# 判定の例（どの練習にも共通。模範解答が「민수는 누구예요?」のとき）
+
+- 민수는 누구예오 → correct_with_notes（예오 は 예요 の打ち間違い。直し方が一つに決まり、別の形にならない）
+- 민수능 누구예요 → correct_with_notes（능 は 는 の打ち間違い）
+- 민수를 누구예요 → incorrect（를 は別の助詞で、文が成り立たない）
+- 민수는 누구였어요 → incorrect（時制が変わる）
+- 민수 누구 → incorrect（助詞と語尾が抜けて、文になっていない）""",
+    "span": "学習者の答えから、誤りのある語節をそのまま抜き出す（語が抜けているときは、抜けた位置の直前の語節）",
+}
+
+# 答えが日本語の練習（韓→日訳）。日本語の書き方は問わず、意味だけを厳しく見る（docs/plan.md 5.3）
+_GRADE_NATIVE = {
+    "premise": (
+        "この答えは、模範訳・許容訳のどれとも一致しませんでした。\n"
+        "模範訳と違うことだけを理由に、注意や不正解にしないでください。"
+        "日本語の言い回し・語順・表記ゆれ（漢字とかな、送り仮名、人名の書き方）・です／ます体かどうかは問いません。"
+        "意味が過不足なく合っていれば正解です。\n"
+        "空白と記号（句読点・かっこ・？！）は、比べる前に取り除いているので、判定にも issues にも含めないでください。"
+    ),
+    "incorrect": [
+        "韓国語の文の意味を取り違えている（語の意味、時制、否定、疑問か平叙か、誰が誰に何をするか）",
+        "韓国語の文の一部を訳していない、韓国語の文にない意味を足している（日本語として自然に補う主語や目的語は除く）",
+        "崩れていて、何を書こうとしたのか一つに決められない",
+    ],
+    "notes": [
+        "意味は合っているが、韓国語の文の丁寧さが訳から完全に消えている（丁寧に頼む文を「〜しろ」「〜くれ」と訳す、など）",
+    ],
+    "examples": """# 判定の例（韓国語の文が「민수는 누구예요?」、模範訳が「ミンスは誰ですか？」のとき）
+
+- 民秀は誰ですか → correct（人名の書き方の違い）
+- ミンスってどなたですか → correct（言い回しの違い）
+- ミンスは誰？ → correct（です／ます体でなくても、丁寧さは問わない）
+- ミンスは誰でしたか → incorrect（時制が変わる）
+- ミンスはどこですか → incorrect（누구 を「どこ」と取り違えている）
+
+韓国語の文が「물 좀 주세요.」のとき:
+
+- 水をちょっとください → correct
+- 水をくれ → correct_with_notes（意味は合っているが、丁寧に頼む言い方が命令になっている）""",
+    "span": "学習者の答えから、誤りのある部分をそのまま抜き出す（訳が抜けているときは、抜けた位置の直前の部分）",
+}
+
 
 def build_grade_prompt(practice: str, context: dict[str, Any], answer: str) -> str:
     """採点のプロンプト。context は練習ごとの問題の中身（app/server.py の task_for が作る）。"""
     p = _GRADE_PRACTICES[practice]
-    incorrect = p["incorrect"] + _GRADE_INCORRECT
-    notes = p["notes"] + _GRADE_NOTES
+    frame = _GRADE_NATIVE if p.get("native") else _GRADE_KOREAN
+    incorrect = p["incorrect"] + frame["incorrect"]
+    notes = p["notes"] + frame["notes"]
     problem = "\n".join(f"- {label}: {value}" for label, value in context.get("problem", []) if value)
     words = "\n".join(f"- {w['id']}: {w['lemma']}（{w['meaning']}）" for w in context.get("words", []))
     return f"""# 依頼
@@ -130,9 +192,7 @@ def build_grade_prompt(practice: str, context: dict[str, Any], answer: str) -> s
 韓国語の学習アプリの採点です。学習者の答えを、下の手順で 3 段階に判定してください。
 学習者は日本語話者で、韓国語を学んでいる途中です。
 
-この答えは、模範解答・許容例のどれとも一致せず、空白の位置だけの違いや、発音が同じになる綴りの違いでもありませんでした。
-模範解答と違うことだけを理由に、注意や不正解にしないでください。言い方が違っても、正しい韓国語なら正解です。
-文末の記号（. ? !）の有無と前後の空白は、比べる前に取り除いているので、判定にも issues にも含めないでください。
+{frame["premise"]}
 
 # 練習
 
@@ -160,13 +220,7 @@ def build_grade_prompt(practice: str, context: dict[str, Any], answer: str) -> s
 {_bullets(notes)}
 3. 正解（correct）: どれにも当てはまらない{_bullets_after(p.get("correct", []))}
 
-# 判定の例（どの練習にも共通。模範解答が「민수는 누구예요?」のとき）
-
-- 민수는 누구예오 → correct_with_notes（예오 は 예요 の打ち間違い。直し方が一つに決まり、別の形にならない）
-- 민수능 누구예요 → correct_with_notes（능 は 는 の打ち間違い）
-- 민수를 누구예요 → incorrect（를 は別の助詞で、文が成り立たない）
-- 민수는 누구였어요 → incorrect（時制が変わる）
-- 민수 누구 → incorrect（助詞と語尾が抜けて、文になっていない）
+{frame["examples"]}
 
 # 書き方
 
@@ -177,7 +231,7 @@ def build_grade_prompt(practice: str, context: dict[str, Any], answer: str) -> s
   - incorrect のときは、不正解の理由になった誤りを最初に挙げる
   - axis: meaning（意味）/ grammar（文法）/ naturalness（自然さ）/ register（文体）/ orthography（表記）
   - tag: 誤りの種類
-  - span: 学習者の答えから、誤りのある語節をそのまま抜き出す（語が抜けているときは、抜けた位置の直前の語節）
+  - span: {frame["span"]}
   - note: その誤りの説明を日本語で 1 文。不正解の理由になった誤りは、なぜ不正解なのか（意味がどう変わるか、問われていることのどれを満たさないか）が分かるように書く
   - suggestion: span を直した形
   - word_id: 誤りが「問題の単語」のどれかに関わるときはその id。なければ null
@@ -192,6 +246,80 @@ def _bullets(items: list[str]) -> str:
 
 def _bullets_after(items: list[str]) -> str:
     return "\n" + _bullets(items) if items else ""
+
+
+# ---- 解説（docs/plan.md 4.9。「解説」を押したときだけ作り、保存して使い回す） ----
+
+EXPLAIN_STYLE = 1
+
+EXPLAIN_SCHEMA: dict = {
+    "type": "object",
+    "properties": {
+        "summary": {"type": "string"},
+        "parts": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"surface": {"type": "string"}, "breakdown": {"type": "string"}},
+                "required": ["surface", "breakdown"],
+            },
+        },
+        "grammar": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"form": {"type": "string"}, "explanation": {"type": "string"}},
+                "required": ["form", "explanation"],
+            },
+        },
+        "register": {"type": "string"},
+        "pronunciation": {"type": "string"},
+        "tips": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["summary", "parts", "grammar", "register", "pronunciation", "tips"],
+}
+
+
+def build_explain_prompt(sentence: dict[str, Any], words: list[dict[str, Any]], grammar: list[dict[str, Any]]) -> str:
+    """文の解説のプロンプト。words は文の単語（lemma・pos・meaning）、grammar は文法の表示に当たる文法リストの項目。"""
+    tokens = "\n".join(f"- {t['surface']}" for t in sentence["tokens"])
+    word_lines = "\n".join(f"- {w['lemma']}（{w['pos']}）: {w['meaning']}" for w in words)
+    grammar_lines = "\n".join(f"- {g['form']}: {g['ja']}" for g in grammar) or "\n".join(f"- {g}" for g in sentence.get("grammar", []))
+    return f"""# 依頼
+
+韓国語の学習アプリで、学習者が「解説」を押した文の解説を書いてください。
+{_LEARNER}今は初級（ハン検 5〜4 級ほど）です。
+解説は保存して何度も見せるので、正確さを最優先にしてください。確かでないことは書かないでください。
+
+# 文
+
+- 韓国語: {sentence["ko"]}
+- 日本語訳: {sentence["ja"]}
+- 文体: {sentence["register"]}
+- 場面: {sentence["scene"]}
+
+# 語節
+
+{tokens}
+
+# 文の単語（この文での意味）
+
+{word_lines or "（なし）"}
+
+# 文の文法
+
+{grammar_lines or "（なし）"}
+
+# 書き方（すべて日本語。韓国語の語や形はハングルのまま書く）
+
+- summary: 文全体の意味と、どんな場面で誰が誰に言う文かを 1〜2 文
+- parts: 語節ごとに 1 つ。surface は語節（記号を除く）、breakdown は「原形（意味）＋ 助詞・語尾（働き）」の形の分解
+  （例: 먹었어요 → 「먹다（食べる）＋ -었-（過去）＋ -어요（해요체の語尾）」）。活用で形が変わるときは原形との関係も書く
+- grammar: 文の文法を 1 つずつ。form は文法の形、explanation は意味と使い方を 1〜2 文。この文での使われ方が分かるように
+- register: 文体（{sentence["register"]}）が、この場面でどういう丁寧さか 1 文
+- pronunciation: 書いたとおりに読まない所（連音化・鼻音化・濃音化・激音化など）を「표기 → [発音]」の形で。なければ空
+- tips: 間違えやすい点、似た言い方との違いなどを 0〜3 個。なければ空
+"""
 
 
 # ---- 教材づくり（韓国語） ----

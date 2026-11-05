@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import random
 from datetime import datetime
@@ -34,12 +35,12 @@ from app.content import ContentError
 from app.graded import GradedStore
 from app.jobs import JobBusy, JobStore
 from app.langs.base import LanguagePack, UnsupportedLanguage
-from app.prompts import ERROR_TAGS
+from app.prompts import ERROR_TAGS, EXPLAIN_SCHEMA, EXPLAIN_STYLE, build_explain_prompt
 from app.records import RATINGS, Records
 
 log = logging.getLogger("langlang.server")
 
-API_VERSION = 5
+API_VERSION = 6
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 LANGUAGE_PAGES = {"": "index.html", "learn": "learn.html", "words": "words.html"}
 
@@ -60,6 +61,18 @@ class ReviewRequest(BaseModel):
     correct: bool
     elapsed_sec: float | None = None
     answer: str | None = None
+    detail: dict[str, Any] | None = None  # 打つ練習の判定（verdict・source・issues）
+
+
+class TraceRequest(BaseModel):
+    language: str
+    sentence_id: str
+    seconds: float
+    units: int
+
+
+class ExplainRequest(BaseModel):
+    language: str
 
 
 class AnswerRequest(BaseModel):
@@ -77,13 +90,13 @@ def create_app(
     records: Records | None = None,
     clock: Callable[[], datetime] | None = None,
 ) -> FastAPI:
-    """ask は採点で AI を呼ぶ関数、clock は今の時刻（どちらもテストで差し込む）。
-    ask が None なら claude_cli の採点用の設定で呼ぶ。"""
+    """ask は採点と解説で AI を呼ぶ関数、clock は今の時刻（どちらもテストで差し込む）。
+    ask が None なら claude_cli の用途ごとの設定（grade / explain）で呼ぶ。"""
     app = FastAPI(title="langlang", docs_url=None, redoc_url=None)
     app.state.root = root
     app.state.jobs = jobs or JobStore()
-    app.state.graded = GradedStore(root)
     app.state.records = records or Records(root)
+    app.state.graded = GradedStore(app.state.records)
     now = clock or (lambda: datetime.now().astimezone())
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -211,19 +224,53 @@ def create_app(
             now=now(),
             elapsed_sec=req.elapsed_sec,
             answer=req.answer,
+            detail=req.detail,
         )
         return {"counted": result.counted, "card": result.card.to_dict()}
+
+    @app.post("/api/trace")
+    def trace(req: TraceRequest) -> dict[str, Any]:
+        """なぞりタイピングの速さを記録する（FSRS には使わない）。"""
+        content = load_content(req.language)
+        _or_404(lambda: content.sentence(req.sentence_id))
+        if req.seconds <= 0 or req.units <= 0:
+            raise HTTPException(400, "時間と打った数は正の値です")
+        app.state.records.trace(req.language, req.sentence_id, seconds=req.seconds, units=req.units, now=now())
+        return {"per_min": round(req.units / req.seconds * 60)}
+
+    @app.post("/api/explain/{sentence_id}")
+    def explain(sentence_id: str, req: ExplainRequest) -> dict[str, Any]:
+        """文の解説。保存してあればそれを返し、なければ作るジョブにして {"job": ...} を返す。"""
+        content = load_content(req.language)
+        sentence = _or_404(lambda: content.sentence(sentence_id))
+        prompt = explain_prompt(content, sentence)
+        basis = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+        cached = app.state.records.cached(req.language, "explain", sentence.id, style=EXPLAIN_STYLE, basis=basis)
+        if cached is not None:
+            return {"explanation": cached}
+
+        def run(_job) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+            result = clean_explanation((ask or claude_cli.ask_for("explain"))(prompt, EXPLAIN_SCHEMA))
+            app.state.records.save_cached(req.language, "explain", sentence.id, result, style=EXPLAIN_STYLE, basis=basis)
+            log.info("解説を作成: %s", sentence.id)
+            return result
+
+        try:
+            job = app.state.jobs.submit("explain", run)
+        except JobBusy as exc:
+            raise HTTPException(409, str(exc)) from exc
+        return {"job": job.to_dict()}
 
     @app.post("/api/answer")
     def answer(req: AnswerRequest) -> dict[str, Any]:
         """機械で決まれば判定を返す。決まらず、保存した判定もなければ AI の採点をジョブにして {"job": ...} を返す。"""
         content = load_content(req.language)
         pack = pack_of(req.language)
-        norm = pack.normalize(req.answer)
+        task = task_for(content, pack, req)
+        norm = task.normalize(pack, req.answer)
         if not norm:
             raise HTTPException(400, "答えが空です")
-        task = task_for(content, pack, req)
-        judged = grader.judge_machine(pack, req.answer, task.expected, task.variants)
+        judged = grader.judge_task(pack, task, req.answer)
         if judged is None:
             judged = app.state.graded.get(req.language, task, norm)
         if judged is not None:
@@ -345,7 +392,7 @@ def task_for(content: content_mod.Content, pack: LanguagePack, req: AnswerReques
         word = _or_404(lambda: content.word(req.word_id))
         problem = [("日本語の意味", word.meaning), ("品詞", word.pos), ("模範解答", word.lemma)]
         return grader.Task(req.type, word.id, word.lemma, context={"problem": problem, "words": [_word_brief(word)]}, word_ids=(word.id,))
-    if req.type not in ("sentence_cloze", "sentence_dictation", "sentence_ja_to_ko", "sentence_compose"):
+    if req.type not in ("sentence_cloze", "sentence_dictation", "sentence_ja_to_ko", "sentence_ko_to_ja", "sentence_compose"):
         raise HTTPException(400, f"採点できない種類です: {req.type}")
     if not req.sentence_id:
         raise HTTPException(400, "sentence_id が要ります")
@@ -354,6 +401,10 @@ def task_for(content: content_mod.Content, pack: LanguagePack, req: AnswerReques
     words = [content.word(w) for w in s.word_ids if w in content._word_by_id]
     common = {"words": [_word_brief(w) for w in words]}
     word_ids = tuple(w.id for w in words)
+    if req.type == "sentence_ko_to_ja":
+        ja_variants = tuple(s.variants.get("ja", []))
+        problem = [("韓国語の文", s.ko), ("文の文体", s.register), ("場面", s.scene), ("模範訳", s.ja), ("許容訳", "、".join(ja_variants))]
+        return grader.Task(req.type, s.id, s.ja, ja_variants, {**common, "problem": problem}, word_ids, native=True)
     if req.type == "sentence_cloze":
         if not s.cloze:
             raise HTTPException(400, "この文には穴埋めがありません")
@@ -383,6 +434,25 @@ def task_for(content: content_mod.Content, pack: LanguagePack, req: AnswerReques
 
 def _word_brief(word: content_mod.Word) -> dict[str, str]:
     return {"id": word.id, "lemma": word.lemma, "meaning": word.meaning}
+
+
+def explain_prompt(content: content_mod.Content, sentence: content_mod.Sentence) -> str:
+    words = [content.word(w) for w in sentence.word_ids if w in content._word_by_id]
+    by_form = {g["form"]: g for g in content.grammar}
+    grammar = [by_form[g] for g in sentence.grammar if g in by_form]
+    return build_explain_prompt(sentence.to_dict(), [{"lemma": w.lemma, "pos": w.pos, "meaning": w.meaning} for w in words], grammar)
+
+
+def clean_explanation(raw: dict[str, Any]) -> dict[str, Any]:
+    """画面がそのまま描けるように、項目をそろえて空のものを除く。"""
+    return {
+        "summary": (raw.get("summary") or "").strip(),
+        "parts": [p for p in raw.get("parts") or [] if p.get("surface") and p.get("breakdown")],
+        "grammar": [g for g in raw.get("grammar") or [] if g.get("form") and g.get("explanation")],
+        "register": (raw.get("register") or "").strip(),
+        "pronunciation": (raw.get("pronunciation") or "").strip(),
+        "tips": [t.strip() for t in raw.get("tips") or [] if t and t.strip()],
+    }
 
 
 def _cloze_variants(pack: LanguagePack, ko: str, eojeol: int, variants: tuple[str, ...]) -> tuple[str, ...]:
