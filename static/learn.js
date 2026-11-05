@@ -120,7 +120,7 @@ async function start() {
   state.settings = await api.get(`/api/settings/${encodeURIComponent(LANGUAGE)}`);
   keyboard.showLatin(state.settings.keyboard_show_latin);
   Speak.setOnMissing(() => toast("この言語の読み上げの声が見つかりません。OS に韓国語の音声を追加してください", { type: "warn", sticky: true }));
-  state.session = await api.post("/api/session/start", { language: LANGUAGE, unit: params.get("unit") || null });
+  state.session = await api.post("/api/session/start", { language: LANGUAGE, unit: params.get("unit") || null, weak: params.get("weak") === "1" });
   state.startedAt = Date.now();
   if (state.session.items.length === 0) {
     show(nothingTodayScene());
@@ -297,8 +297,8 @@ function nothingTodayScene() {
           el(
             "div",
             { class: "round-intro" },
-            el("h2", { text: "今日の分は終わっています" }),
-            el("p", { text: "期限が来た復習も、今日の新出の枠も残っていません。ホームからユニットを選ぶと、そのユニットを練習できます" }),
+            el("h2", { text: state.session.mode === "weak" ? "苦手な単語はありません" : "今日の分は終わっています" }),
+            el("p", { text: state.session.mode === "weak" ? "間違いや取り違えが続いた単語、反応が遅い単語が苦手になります" : "期限が来た復習も、今日の新出の枠も残っていません。ホームからユニットを選ぶと、そのユニットを練習できます" }),
             el("a", { class: "btn primary big", href: languageUrl() }, "ホームへ", el("kbd", { text: "⏎" })),
           ),
         ]),
@@ -409,7 +409,9 @@ function arrowScene(item) {
     const correct = Boolean(picked && picked.word_id === item.answer_id);
     const correctDir = Object.keys(placed).find((d) => placed[d] && placed[d].word_id === item.answer_id);
     const correctEl = optionEls[correctDir];
-    const rating = ArrowGame.rate(correct, elapsed, { fast: state.settings.fast_sec, slow: state.settings.slow_sec });
+    // 記録がたまった面は、自分の正解時の反応時間の中央値から決めた基準を使う（サーバーが session.timing に入れる）
+    const timing = state.session.timing[item.face] || { fast: state.settings.fast_sec, slow: state.settings.slow_sec };
+    const rating = ArrowGame.rate(correct, elapsed, timing);
     state.log.words.push({ id: item.id, word: item.word, face: item.face, correct, elapsed, gaveUp, rating, picked: picked && picked.word_id, first: !state.game.first.has(item.id) });
     recordWord(item, { rating, correct, elapsed, answer: picked ? picked.word_id : null });
     if (correct) {
@@ -445,7 +447,7 @@ function arrowScene(item) {
       grid = arrowGrid(center, placed, optionEls, { ko: isKo, onChoose: choose });
       answerLine = el("div", { class: "answer-line" });
       const faceLabel = { meaning: "意味", listen: "聞き取り", reverse: "逆引き" }[item.face];
-      box.append(frame(head(faceLabel, item.word.pos), [grid, answerLine], hint(["↑ → ↓ ← で選ぶ"], [el("kbd", { text: "⏎" }), " わからない"], [el("kbd", { text: "Space" }), " もう一度聞く"])));
+      box.append(frame(head(faceLabel, item.word.pos, item.weak ? "苦手" : null), [grid, answerLine], hint(["↑ → ↓ ← で選ぶ"], [el("kbd", { text: "⏎" }), " わからない"], [el("kbd", { text: "Space" }), " もう一度聞く"])));
       shownAt = performance.now();
       timer = later(() => choose(null), state.settings.timeout_sec * 1000);
     },
@@ -882,6 +884,7 @@ function summaryScene() {
 function sessionTitle() {
   const s = state.session;
   if (s.mode === "unit") return s.unit ? `${s.unit.title} の練習` : "ユニットの練習";
+  if (s.mode === "weak") return `苦手の練習 ・ ${s.review_count} 問`;
   return `今日の学習 ・ 新出 ${s.new_word_count} 語・${s.new_sentence_count} 文 ・ 復習 ${s.review_count}`;
 }
 

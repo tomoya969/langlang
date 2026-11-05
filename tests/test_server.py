@@ -372,3 +372,60 @@ def test_trace_is_recorded(client, root):
     assert Records(root).trace_speed("ko", datetime.now().astimezone() - timedelta(days=1)) == 300
     assert client.post("/api/trace", json={"language": "ko", "sentence_id": "t-s-U01-001", "seconds": 0, "units": 30}).status_code == 400
     assert client.post("/api/trace", json={"language": "ko", "sentence_id": "nope", "seconds": 1, "units": 3}).status_code == 404
+
+
+# ---- 苦手・取り違え・文の誤りを単語へ ----
+
+
+def word_review(client, word_id="t-w-0001", face="meaning", rating="again", answer=None, correct=None):
+    body = {"language": "ko", "kind": "word", "item_id": word_id, "face": face, "practice": f"word_{face}", "rating": rating,
+            "correct": rating != "again" if correct is None else correct, "answer": answer}
+    return client.post("/api/review", json=body).json()
+
+
+def test_wrong_pick_is_recorded_as_confusion_and_makes_weak(client):
+    word_review(client, answer="t-w-0002")
+    word_review(client, answer="t-w-0002")  # 同じ日の 2 回目（評価には使わないが、取り違えは残す）
+    detail = client.get("/api/words/t-w-0001?language=ko").json()
+    assert [(c["id"], c["times"]) for c in detail["confused_with"]] == [("t-w-0002", 2)]
+    assert detail["weak"] and detail["weak_reasons"] == ["取り違えが多い"]
+    assert client.get("/api/today?language=ko").json()["weak_count"] == 1
+    words = {w["id"]: w for w in client.get("/api/words?language=ko").json()}
+    assert words["t-w-0001"]["weak"] and not words["t-w-0002"]["weak"]
+    # 「わからない」と時間切れ（answer なし）は取り違えにしない
+    word_review(client, word_id="t-w-0003")
+    assert client.get("/api/words/t-w-0003?language=ko").json()["confused_with"] == []
+
+
+def test_sentence_errors_go_back_to_word_faces(client, root):
+    word_review(client, word_id="t-w-0003", rating="good")  # 커피 の意味の面
+    issues = [
+        {"tag": "語彙の選択", "axis": "meaning", "word_id": "t-w-0003"},  # 意味の面へ
+        {"tag": "받침", "axis": "orthography", "word_id": "t-w-0003"},  # 綴りの面はまだないので記録だけ
+        {"tag": "助詞", "axis": "grammar", "word_id": "t-w-0003"},  # 文法の誤りは返さない
+    ]
+    body = {"language": "ko", "kind": "sentence", "item_id": "t-s-U01-002", "practice": "sentence_ja_to_ko", "rating": "again", "correct": False,
+            "detail": {"verdict": "incorrect", "source": "ai", "issues": issues}}
+    client.post("/api/review", json=body)
+    records = Records(root)
+    history = records.history("ko", "word", "t-w-0003")
+    assert sorted(h["face"] for h in history if h["practice"] == "sentence_ja_to_ko") == ["context", "meaning", "spell"]
+    assert ("t-w-0003", "spell") not in records.cards("ko")
+    detail = client.get("/api/words/t-w-0003?language=ko").json()
+    assert detail["context_count"] == 1
+
+
+def test_notes_verdict_does_not_go_back_to_words(client, root):
+    body = {"language": "ko", "kind": "sentence", "item_id": "t-s-U01-002", "practice": "sentence_dictation", "rating": "hard", "correct": True,
+            "detail": {"verdict": "correct_with_notes", "source": "ai", "issues": [{"tag": "받침", "axis": "orthography", "word_id": "t-w-0003"}]}}
+    client.post("/api/review", json=body)
+    assert [h["face"] for h in Records(root).history("ko", "word", "t-w-0003")] == ["context"]
+
+
+def test_weak_practice_session(client):
+    word_review(client, answer="t-w-0002")
+    word_review(client, answer="t-w-0002")
+    plan = client.post("/api/session/start", json={"language": "ko", "weak": True}).json()
+    assert plan["mode"] == "weak"
+    assert {i["word"]["id"] for i in plan["items"]} == {"t-w-0001"}
+    assert plan["timing"] == {}

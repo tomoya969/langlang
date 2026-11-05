@@ -29,11 +29,12 @@ function renderList() {
   const rows = allWords.filter((w) => {
     if (f.level && String(w.level) !== f.level) return false;
     if (f.unit && w.unit !== f.unit) return false;
-    if (f.state && w.state !== f.state) return false;
+    if (f.state === "weak" ? !w.weak : f.state && w.state !== f.state) return false;
     if (f.q && !w.lemma.toLowerCase().includes(f.q) && !w.meaning.toLowerCase().includes(f.q)) return false;
     return true;
   });
   document.getElementById("f-count").textContent = `${rows.length} 語`;
+  document.getElementById("btn-weak-practice").hidden = !(f.state === "weak" && rows.length);
   // 選んでいた単語が絞り込みで一覧から消えたら、詳細も空に戻す（一覧にない単語の詳細が残らないように）
   if (selected && !rows.some((w) => w.id === selected)) {
     selected = null;
@@ -59,7 +60,7 @@ function renderList() {
         el("span", { class: "word-lemma", lang: "ko", text: w.lemma }),
         el("span", { class: "word-meaning", text: w.meaning }),
         el("span", { class: "word-pos", text: w.pos }),
-        el("span", { class: `chip state-${w.state}`, text: STATE_LABELS[w.state] || w.state }),
+        el("span", { class: "word-chips" }, w.weak ? el("span", { class: "chip state-weak", text: STATE_LABELS.weak }) : null, el("span", { class: `chip state-${w.state}`, text: STATE_LABELS[w.state] || w.state })),
       ),
     );
   }
@@ -91,7 +92,9 @@ async function select(id) {
         el("div", { class: "detail-meaning", text: w.meaning }),
         el("div", { class: "row" }, el("span", { class: "chip", text: w.pos }), el("span", { class: "chip", text: w.origin }), w.hanja ? el("span", { class: "chip", text: `漢字 ${w.hanja}` }) : null, el("span", { class: "chip", text: `L${w.level} ・ ${w.unit}` }), ...w.tags.map((t) => el("span", { class: "chip", text: t }))),
       ),
-      section("面ごとの状態", el("div", { class: "faces" }, ...FACES.map(([key, label]) => faceRow(label, w.faces[key])))),
+      w.weak ? section("苦手", el("p", { class: "note", text: `${w.weak_reasons.join("・")}。苦手枠で、期限の前でも出します` })) : null,
+      section("面ごとの状態", el("div", { class: "faces" }, ...FACES.map(([key, label]) => (key === "context" ? contextRow(label, w.context_count) : faceRow(label, w.faces[key]))))),
+      w.confused_with.length ? section("取り違えた相手", el("div", { class: "row" }, ...w.confused_with.map((c) => el("button", { type: "button", class: "chip warn", lang: "ko", text: `${c.lemma} ${c.meaning} ・ ${c.times} 回`, onClick: () => select(c.id) })))) : null,
       w.confusable_words.length ? section("取り違えやすい語", wordChips(w.confusable_words)) : null,
       w.homograph_words.length ? section("同じ綴りの別の語", wordChips(w.homograph_words)) : null,
       section(
@@ -111,6 +114,11 @@ function faceRow(label, face) {
   if (!face) return el("div", { class: "face-row" }, el("span", { text: label }), el("div", { class: "meter" }, el("span", { style: "width:0%" })), el("span", { class: "note", text: "まだ出していません" }));
   const pct = Math.min(100, Math.round((face.stability / masteredDays) * 100));
   return el("div", { class: "face-row" }, el("span", { text: label }), el("div", { class: "meter" }, el("span", { style: `width:${pct}%` })), el("span", { class: "note", text: `安定度 ${face.stability} 日 ・ 次は ${shortDate(face.due)}` }));
+}
+
+/** 文脈の面は FSRS を動かさず、文の問題で出会った回数だけを持つ */
+function contextRow(label, count) {
+  return el("div", { class: "face-row" }, el("span", { text: label }), el("span"), el("span", { class: "note", text: count ? `文の問題で ${count} 回` : "まだ出していません" }));
 }
 
 const RATING_LABELS = { again: "もう一度", hard: "難しい", good: "ふつう", easy: "簡単" };

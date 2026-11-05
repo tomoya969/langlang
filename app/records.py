@@ -6,6 +6,7 @@
 - graded_answers: AI が判定した答え（app/graded.py が使う）
 - ai_cache: 解説などの AI の結果
 - traces: なぞりタイピングの速さ（流暢さの練習なので、FSRS には使わない）
+- confusions: 矢印ゲームの取り違え（正解の語と、選んでしまった語）
 
 FSRS に渡すのは、その日のその面（文）の最初の 1 回だけ（docs/plan.md 4.4・4.7）。間違えて最後尾に回ったあとの正解や、
 同じ日の 2 回目の学習は、reviews に残すが FSRS も段階も動かさない（counted = 0）。
@@ -93,6 +94,15 @@ CREATE TABLE IF NOT EXISTS traces (
     seconds     REAL NOT NULL,
     units       INTEGER NOT NULL   -- 打った単位の数（韓国語は字母）
 );
+CREATE TABLE IF NOT EXISTS confusions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    language    TEXT NOT NULL,
+    word_id     TEXT NOT NULL,     -- 正解の語
+    picked_id   TEXT NOT NULL,     -- 選んでしまった語
+    face        TEXT NOT NULL,
+    confused_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS confusions_word ON confusions (language, word_id);
 """
 
 
@@ -251,6 +261,64 @@ class Records:
                 ),
             )
         return ReviewResult(counted, current)
+
+    def note(
+        self,
+        language: str,
+        kind: str,
+        item_id: str,
+        face: str,
+        *,
+        practice: str,
+        rating: str,
+        correct: bool,
+        now: datetime,
+        detail: dict[str, Any] | None = None,
+    ) -> None:
+        """FSRS を動かさず、カードも作らずに解答だけを残す（文脈の面、まだ出していない面への文の誤り）。"""
+        with self._connect() as conn:
+            conn.execute(
+                """INSERT INTO reviews (language, kind, item_id, face, practice, reviewed_at, rating, counted, correct, elapsed_sec, answer, detail)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, NULL, NULL, ?)""",
+                (language, kind, item_id, face, practice, now.astimezone(timezone.utc).isoformat(), rating, int(correct),
+                 json.dumps(detail, ensure_ascii=False) if detail else None),
+            )
+
+    def review_count(self, language: str, kind: str, item_id: str, face: str) -> int:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM reviews WHERE language = ? AND kind = ? AND item_id = ? AND face = ?", (language, kind, item_id, face)
+            ).fetchone()
+        return int(row[0])
+
+    def counted_reviews(self, language: str, kind: str = "word") -> list[dict[str, Any]]:
+        """FSRS を動かした解答（その日のその面の最初の 1 回）を古い順に。苦手と反応時間の集計に使う。"""
+        with self._connect() as conn:
+            rows = conn.execute(
+                """SELECT item_id, face, practice, correct, elapsed_sec FROM reviews
+                   WHERE language = ? AND kind = ? AND counted = 1 ORDER BY reviewed_at, id""",
+                (language, kind),
+            ).fetchall()
+        return [{"item_id": r["item_id"], "face": r["face"], "practice": r["practice"], "correct": bool(r["correct"]), "elapsed_sec": r["elapsed_sec"]} for r in rows]
+
+    def confuse(self, language: str, word_id: str, picked_id: str, face: str, now: datetime) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO confusions (language, word_id, picked_id, face, confused_at) VALUES (?, ?, ?, ?, ?)",
+                (language, word_id, picked_id, face, now.astimezone(timezone.utc).isoformat()),
+            )
+
+    def confusion_counts(self, language: str) -> dict[str, dict[str, int]]:
+        """正解の語 → {選んでしまった語: 回数}。"""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT word_id, picked_id, COUNT(*) AS n FROM confusions WHERE language = ? GROUP BY word_id, picked_id",
+                (language,),
+            ).fetchall()
+        result: dict[str, dict[str, int]] = {}
+        for r in rows:
+            result.setdefault(r["word_id"], {})[r["picked_id"]] = r["n"]
+        return result
 
     def history(self, language: str, kind: str, item_id: str, limit: int = 30) -> list[dict[str, Any]]:
         with self._connect() as conn:

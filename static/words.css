@@ -70,7 +70,7 @@
 /* 列の幅を決めておき、行ごとに訳の始まりがずれないようにする */
 .word-row {
   display: grid;
-  grid-template-columns: 10rem minmax(0, 1fr) 4.5rem 4.5rem;
+  grid-template-columns: 10rem minmax(0, 1fr) 4.5rem 8.5rem;
   align-items: center;
   gap: 16px;
   width: 100%;
@@ -249,4 +249,11 @@
     position: static;
     max-height: none;
   }
+}
+
+/* 状態のチップ（苦手なら 2 つ並ぶ） */
+.word-chips {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
 }

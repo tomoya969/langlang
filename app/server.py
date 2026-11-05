@@ -37,10 +37,11 @@ from app.jobs import JobBusy, JobStore
 from app.langs.base import LanguagePack, UnsupportedLanguage
 from app.prompts import ERROR_TAGS, EXPLAIN_SCHEMA, EXPLAIN_STYLE, build_explain_prompt
 from app.records import RATINGS, Records
+from app import weak as weak_mod
 
 log = logging.getLogger("langlang.server")
 
-API_VERSION = 6
+API_VERSION = 7
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 LANGUAGE_PAGES = {"": "index.html", "learn": "learn.html", "words": "words.html"}
 
@@ -48,6 +49,7 @@ LANGUAGE_PAGES = {"": "index.html", "learn": "learn.html", "words": "words.html"
 class SessionRequest(BaseModel):
     language: str
     unit: str | None = None
+    weak: bool = False
     seed: int | None = None
 
 
@@ -122,16 +124,23 @@ def create_app(
     def priority(at: datetime) -> session.Priority:
         return lambda card: app.state.records.retrievability(card, at)
 
+    def analysis_of(language: str, cards: session.Cards) -> weak_mod.Analysis:
+        records = app.state.records
+        return weak_mod.analyze(cards, records.counted_reviews(language), records.confusion_counts(language))
+
     def summary(language: str) -> dict[str, Any]:
-        """言語ごとの今日の見通し（復習・新出の数、目安の時間、レベルとユニットの進み）。"""
+        """言語ごとの今日の見通し（復習・新出の数、目安の時間、レベルとユニットの進み、苦手の数）。"""
         pack = pack_of(language)
         if not content_mod.content_dir(root, language).is_dir():
             return {"language": pack.to_dict(), "available": False}
         content = load_content(language)
         cfg = settings_mod.load(root, language)
         cards = cards_of(language)
+        analysis = analysis_of(language, cards)
         at = now()
-        plan = session.build(content, pack, cfg, cards, at, priority=priority(at), rng=random.Random(0), sentence_cards=sentence_cards_of(language))
+        plan = session.build(
+            content, pack, cfg, cards, at, priority=priority(at), rng=random.Random(0), sentence_cards=sentence_cards_of(language), analysis=analysis
+        )
         states = {w.id: session.word_state(w.id, cards, cfg["mastered_days"]) for w in content.words}
         levels = []
         for level in sorted({u.level for u in content.units}):
@@ -149,7 +158,7 @@ def create_app(
             "review_count": plan["review_count"],
             "new_word_count": plan["new_word_count"],
             "new_sentence_count": plan["new_sentence_count"],
-            "weak_count": 0,
+            "weak_count": sum(1 for wid in analysis.weak if wid in content._word_by_id),
             "estimate_min": plan["estimate_min"],
             "levels": levels,
             "units": [unit_summary(content, u, states) for u in content.units],
@@ -179,7 +188,7 @@ def create_app(
 
     @app.post("/api/session/start")
     def session_start(req: SessionRequest) -> dict[str, Any]:
-        """今日の学習の問題の列。unit を指定したときは、そのユニットの練習。"""
+        """今日の学習の問題の列。unit を指定したときは、そのユニットの練習。weak なら苦手な単語だけの練習。"""
         content = load_content(req.language)
         pack = pack_of(req.language)
         if not content.units:
@@ -189,11 +198,14 @@ def create_app(
         rng = random.Random(req.seed) if req.seed is not None else None
         at = now()
         cfg = settings_mod.load(root, req.language)
-        plan = session.build(content, pack, cfg, cards_of(req.language), at, req.unit, priority(at), rng, sentence_cards_of(req.language))
+        cards = cards_of(req.language)
+        plan = session.build(
+            content, pack, cfg, cards, at, req.unit, priority(at), rng, sentence_cards_of(req.language), analysis_of(req.language, cards), req.weak
+        )
         log.info(
-            "学習を開始: %s %s（新出 %d 語・%d 文、復習 %d、%d 問、目安 %d 分）",
-            req.language, req.unit or "今日の学習", plan["new_word_count"], plan["new_sentence_count"], plan["review_count"],
-            len(plan["items"]), plan["estimate_min"],
+            "学習を開始: %s %s（新出 %d 語・%d 文、復習 %d（苦手枠 %d）、%d 問、目安 %d 分）",
+            req.language, "苦手の練習" if req.weak else req.unit or "今日の学習", plan["new_word_count"], plan["new_sentence_count"],
+            plan["review_count"], plan["weak_slot_count"], len(plan["items"]), plan["estimate_min"],
         )
         return plan
 
@@ -213,7 +225,9 @@ def create_app(
             raise HTTPException(400, f"記録できない種類です: {req.kind}")
         if req.rating not in RATINGS:
             raise HTTPException(400, f"評価は {', '.join(RATINGS)} のいずれかです: {req.rating}")
-        result = app.state.records.review(
+        at = now()
+        records = app.state.records
+        result = records.review(
             req.language,
             req.kind,
             req.item_id,
@@ -221,12 +235,38 @@ def create_app(
             practice=req.practice,
             rating=req.rating,
             correct=req.correct,
-            now=now(),
+            now=at,
             elapsed_sec=req.elapsed_sec,
             answer=req.answer,
             detail=req.detail,
         )
+        if req.kind == "word" and not req.correct and req.face in weak_mod.ARROW_FACES and req.answer in content._word_by_id and req.answer != req.item_id:
+            records.confuse(req.language, req.item_id, req.answer, req.face, at)
+        if req.kind == "sentence":
+            feed_words(req.language, content.sentence(req.item_id), req, at)
         return {"counted": result.counted, "card": result.card.to_dict()}
+
+    def feed_words(language: str, sentence: content_mod.Sentence, req: ReviewRequest, at: datetime) -> None:
+        """文の解答を単語に返す（docs/plan.md 4.5）。文の単語には文脈の記録を残し、不正解の理由になった単語の誤りは、
+        誤りの種類に応じた面に Again を記録する（まだ出していない面なら記録だけ）。"""
+        records = app.state.records
+        detail = req.detail or {}
+        for wid in sentence.word_ids:
+            records.note(language, "word", wid, "context", practice=req.practice, rating=req.rating, correct=req.correct, now=at, detail={"sentence_id": sentence.id})
+        if detail.get("verdict") != grader.VERDICT_INCORRECT:
+            return
+        cards = cards_of(language)
+        returned: set[tuple[str, str]] = set()
+        for issue in detail.get("issues") or []:
+            wid, face = issue.get("word_id"), weak_mod.face_for_issue(issue)
+            if not face or wid not in sentence.word_ids or (wid, face) in returned:
+                continue
+            returned.add((wid, face))
+            fields = {"practice": req.practice, "rating": "again", "correct": False, "now": at, "detail": {"sentence_id": sentence.id, "tag": issue.get("tag")}}
+            if (wid, face) in cards:
+                records.review(language, "word", wid, face, **fields)
+            else:
+                records.note(language, "word", wid, face, **fields)
 
     @app.post("/api/trace")
     def trace(req: TraceRequest) -> dict[str, Any]:
@@ -310,9 +350,10 @@ def create_app(
             needle = q.strip().lower()
             result = [w for w in result if needle in w.lemma.lower() or needle in w.meaning.lower()]
         cards = cards_of(language)
+        analysis = analysis_of(language, cards)
         mastered = settings_mod.load(root, language)["mastered_days"]
         return [
-            {**w.to_dict(), "state": session.word_state(w.id, cards, mastered), "faces": _faces(w.id, cards)}
+            {**w.to_dict(), "state": session.word_state(w.id, cards, mastered), "faces": _faces(w.id, cards), **_weak_view(w.id, analysis)}
             for w in sorted(result, key=lambda w: (w.level, w.order))
         ]
 
@@ -321,13 +362,18 @@ def create_app(
         content = load_content(language)
         word = _or_404(lambda: content.word(word_id))
         cards = cards_of(language)
+        analysis = analysis_of(language, cards)
+        picked = analysis.partners.get(word.id, {})
         return {
             **word.to_dict(),
             "state": session.word_state(word.id, cards, settings_mod.load(root, language)["mastered_days"]),
             "faces": _faces(word.id, cards),
+            **_weak_view(word.id, analysis),
             "sentences": [s.to_dict() for s in content.sentences if word.id in s.word_ids],
             "confusable_words": [content.word(c).to_dict() for c in word.confusables if c in content._word_by_id],
             "homograph_words": [content.word(c).to_dict() for c in word.homographs if c in content._word_by_id],
+            "confused_with": [{**content.word(p).to_dict(), "times": picked[p]} for p in analysis.partners_of(word.id) if p in content._word_by_id],
+            "context_count": app.state.records.review_count(language, "word", word.id, "context"),
             "history": app.state.records.history(language, "word", word.id),
         }
 
@@ -477,6 +523,11 @@ def unit_summary(content: content_mod.Content, unit: content_mod.Unit, states: d
     if states is not None:
         result["started_count"] = sum(1 for w in words if states.get(w.id, "new") != "new")
     return result
+
+
+def _weak_view(word_id: str, analysis: weak_mod.Analysis) -> dict[str, Any]:
+    reasons = analysis.weak.get(word_id, [])
+    return {"weak": bool(reasons), "weak_reasons": [weak_mod.REASONS[r] for r in reasons]}
 
 
 def _faces(word_id: str, cards: session.Cards) -> dict[str, Any]:

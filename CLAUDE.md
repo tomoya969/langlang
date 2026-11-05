@@ -7,7 +7,7 @@ langlang は、ゲーム感覚の反復で日常会話の語彙まで到達す�
 
 - 画面のたたき台ができたので、L1 の本番の教材を `tools/`（`uv run langlang-build`）で作って `content/ko/` に入れた段階。手順と決めたことは `content/README.md` と `docs/design.md`
 - 教材は `content/ko/work/`（途中のデータ）を直して `langlang-build export` で書き出す。`content/ko/*.json` は書き出しのたびに作り直すので手で直さない
-- 学習の記録は `records/langlang.db`（SQLite・FSRS、`app/records.py`）。単語の面と文（段階）、AI の判定と解説、なぞりの速さを持つ。苦手・取り違えはこれから（`docs/design.md`「学習の記録」「文の記録」）
+- 学習の記録は `records/langlang.db`（SQLite・FSRS、`app/records.py`）。単語の面と文（段階）、AI の判定と解説、なぞりの速さ、取り違えを持つ。苦手は記録からその場で数える（`app/weak.py`。`docs/design.md`「学習の記録」「文の記録」「苦手と取り違え」）
 
 ## AI の呼び出し方
 

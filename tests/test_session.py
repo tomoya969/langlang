@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 
 from app import content, langs, session, settings
 from app.records import Records, make_scheduler
+from app.weak import Analysis
+from conftest import word as conftest_word
 
 pack = langs.get("ko")
 NOW = datetime(2026, 11, 4, 9, 0).astimezone()
@@ -231,3 +233,72 @@ def test_sentences_prefer_new_words_and_skip_unseen(root):
     assert "t-s-U02-001" not in sentence_ids
     first = next(i for i in plan["items"] if i["round"] == "sentences")
     assert first["sentence"]["id"] == "t-s-U01-001"
+
+
+# ---- 苦手と取り違え ----
+
+
+def weak_of(*word_ids, partners=None):
+    return Analysis(weak={w: ["misses"] for w in word_ids}, partners=partners or {})
+
+
+def test_weak_slots_add_weak_words_before_they_are_due(root):
+    records = Records(root, make_scheduler(fuzz=False))
+    for wid in ("t-w-0001", "t-w-0002", "t-w-0003"):
+        answer(records, wid)  # 翌日はまだ期限が来ず、ほかの面も出し始めない
+    tomorrow = NOW + timedelta(days=1)
+    cards = records.cards("ko")
+    plan = session.build(
+        content.load(root, "ko"), pack, {**settings.DEFAULTS, "weak_slots": 2, "new_words_per_day": 0}, cards, tomorrow,
+        rng=random.Random(1), analysis=weak_of("t-w-0001", "t-w-0002", "t-w-0003"),
+    )
+    weak_items = [i for i in plan["items"] if i.get("weak")]
+    assert len(weak_items) == plan["weak_slot_count"] == 2
+    assert {i["type"] for i in weak_items} == {"word_meaning"}
+    # 今日もう答えた単語は、苦手枠に入れない（FSRS を動かせないため）
+    today = session.build(content.load(root, "ko"), pack, {**settings.DEFAULTS, "new_words_per_day": 0}, cards, NOW, rng=random.Random(1), analysis=weak_of("t-w-0001"))
+    assert today["weak_slot_count"] == 0
+
+
+def test_weak_only_practice(root):
+    records = Records(root, make_scheduler(fuzz=False))
+    answer(records, "t-w-0001")
+    answer(records, "t-w-0001", face="listen")
+    answer(records, "t-w-0002")
+    plan = session.build(content.load(root, "ko"), pack, dict(settings.DEFAULTS), records.cards("ko"), NOW, rng=random.Random(1), analysis=weak_of("t-w-0001"), weak_only=True)
+    assert plan["mode"] == "weak"
+    assert sorted((i["word"]["id"], i["face"]) for i in plan["items"]) == [("t-w-0001", "listen"), ("t-w-0001", "meaning")]
+    assert [r["key"] for r in plan["rounds"] if r["count"]] == ["words"]
+
+
+def word_obj(num, lemma, ja, tags=(), pos="名詞", **extra):
+    return content._word(conftest_word(num, lemma, ja, "T-U01", pos=pos, tags=list(tags), **extra))
+
+
+def test_distractors_include_confused_words_and_avoid_shared_scenes():
+    target = word_obj(1, "사다", "買う", tags=["買い物"], pos="動詞", confusables=["t-w-0002"])
+    near = word_obj(2, "싸다", "安い", tags=["買い物"], pos="動詞")
+    partner = word_obj(3, "자다", "寝る", tags=["家"], pos="動詞")
+    same_scene = [word_obj(10 + i, f"가{i}", f"買い物{i}", tags=["買い物"], pos="動詞") for i in range(5)]
+    distant = [word_obj(20 + i, f"나{i}", f"遠い{i}", tags=["天気"], pos="動詞") for i in range(5)]
+    pool = [target, near, partner, *same_scene, *distant]
+    rng = random.Random(0)
+    for _ in range(20):
+        picked = session._distractors(target, pool, rng, familiar=False, partners=["t-w-0003"])
+        assert partner in picked  # 取り違えた相手は必ず入れる
+        assert near not in picked  # 慣れるまでは形の近い語を入れない
+        assert not [w for w in picked if w in same_scene]  # 場面のタグが重ならない語から選ぶ
+    familiar = session._distractors(target, pool, rng, familiar=True, partners=["t-w-0003"])
+    assert partner in familiar and near in familiar
+
+
+def test_sentences_prefer_weak_words(root):
+    records = Records(root, make_scheduler(fuzz=False))
+    for wid in ("t-w-0001", "t-w-0003", "t-w-0004", "t-w-0008"):
+        answer(records, wid)
+    later = NOW + timedelta(days=1)
+    cfg = {**settings.DEFAULTS, "new_words_per_day": 0, "new_sentences_per_day": 1}
+    c = content.load(root, "ko")
+    plan = session.build(c, pack, cfg, records.cards("ko"), later, rng=random.Random(1), analysis=weak_of("t-w-0008"))
+    first = next(i for i in plan["items"] if i["round"] == "sentences")
+    assert first["sentence"]["id"] == "t-s-U02-002"  # 우유를 마셔요（마시다 が苦手）
