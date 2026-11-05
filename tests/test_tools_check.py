@@ -36,6 +36,10 @@ WORDS = {
     "w-책": {"lemma": "책", "pos": "名詞"},
     "w-읽다": {"lemma": "읽다", "pos": "動詞"},
     "w-없다": {"lemma": "없다", "pos": "形容詞"},
+    "w-여권": {"lemma": "여권", "pos": "名詞"},
+    "w-지갑": {"lemma": "지갑", "pos": "名詞"},
+    "w-찾다": {"lemma": "찾다", "pos": "動詞"},
+    "w-있다": {"lemma": "있다", "pos": "形容詞"},
 }
 LEXICON = Lexicon(
     allowed=WORDS,
@@ -230,3 +234,18 @@ def test_batch_stops_on_usage_limit_and_keeps_finished_work():
     with pytest.raises(StopRun, match="利用枠"):
         batch.run("t", ["a", "b", "c"], work, saved.__setitem__, label=str, parallel=1)
     assert saved == {"a": "a"}
+
+
+def test_hada_on_the_particle_hago_is_removed(checker):
+    # 커피하고 の 하고 は助詞（〜と）。하다 の id は外す
+    s = sentence("커피하고 물 주세요.", [("커피하고", ["w-커피", "w-하다"]), ("물", ["w-물"]), ("주세요", ["w-주다"])])
+    assert checker.check(s, LEXICON, UNIT) == []
+    assert s["tokens"][0]["word_ids"] == ["w-커피"]
+    # Kiwi が 여권＋하（動詞）＋고 と読み違える形でも、하다 を外し、足し直さない
+    s = sentence("여권하고 지갑을 찾고 있어요.", [("여권하고", ["w-여권", "w-하다"]), ("지갑을", ["w-지갑"]), ("찾고", ["w-찾다"]), ("있어요", [])])
+    assert checker.check(s, LEXICON, {"w-여권"}) == []
+    assert s["tokens"][0]["word_ids"] == ["w-여권"]
+    # 결혼하고 の 하 は 하다（결혼＋하다）なので残す
+    s = sentence("결혼하고 공부해요.", [("결혼하고", ["w-결혼", "w-하다"]), ("공부해요", ["w-공부하다"])], eojeol=1)
+    assert checker.check(s, LEXICON, UNIT) == []
+    assert s["tokens"][0]["word_ids"] == ["w-결혼", "w-하다"]

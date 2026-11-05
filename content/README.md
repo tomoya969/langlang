@@ -12,6 +12,7 @@
 | `grammar.json` | レベルごとの文法と、例文に使ってよい最初のユニット |
 | `sentences/<ユニット>.json` | 文（ユニットごと）。学習に出すのは approved で、使う単語もすべて approved の文だけ |
 | `work/` | 教材づくりの途中のデータ（AI の結果、単語の id など）と報告（`work/report.md`）。Git で管理する |
+| `work/decisions.json` | 人が決めたこと（要確認の単語の決着）。AI の付与と検算より優先する |
 | `sources/` | 元の語彙リスト（Git 管理外） |
 
 ## 元の語彙リスト
@@ -35,3 +36,9 @@ AI を使う段階は `claude -p` を呼ぶので、Claude の利用枠を使う
 今の L1 の文は `LANGLANG_ENRICH_EFFORT=medium uv run langlang-build sentences` で作った（既定の effort だと 1 回に 4〜17 分かかるため。`docs/design.md`）。
 許容例（採点で AI を呼ばずに正解にする別の言い方）は、文ができたあとに `variants` で作って検算する。文の中身かプロンプトの版
 （`VARIANTS_STYLE`・`VERIFY_VARIANTS_STYLE`）が変わった文だけを作り直す。今の L1 は `LANGLANG_ENRICH_EFFORT=medium uv run langlang-build variants` で作った。
+
+要確認の直し方（`docs/design.md`「L1 の要確認の直し」）:
+
+- 単語は `work/decisions.json` に、id ごとに決めた品詞・意味・漢字・語種となぜそう決めたかを書いて、`export` する
+- 文は `work/sentences/<ユニット>.json` を直し、`uv run langlang-build reopen ko-s-L1-U02-008 ...` で機械の検算を通してから、
+  `uv run langlang-build sentences --units L1-U02` で AI の検算だけをやり直す。中身が変わった文は `variants` で許容例を作り直し、`export` する

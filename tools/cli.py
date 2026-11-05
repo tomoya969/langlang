@@ -10,6 +10,7 @@
     langlang-build enrich [--level 1]         詳しい付与（AI）
     langlang-build verify-words [--level 1]   単語の検算（AI）
     langlang-build sentences [--level 1] [--units L1-U01,L1-U02] [--recheck]   文の生成と検算（AI）
+    langlang-build reopen ko-s-L1-U02-008 ...  work/ で直した文を機械で確かめ、AI の検算待ちに戻す
     langlang-build variants [--level 1] [--units L1-U01,L1-U02]   許容例の生成と検算（AI）
     langlang-build export [--level 1]         content/ko/ に書き出す
     langlang-build all [--level 1]            上を順に全部
@@ -107,6 +108,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub.choices["sentences"].add_argument(
         "--recheck", action="store_true", help="機械の検算で要確認になった文を、今の検算で確かめ直してから進める"
     )
+    p = sub.add_parser("reopen", help="work/ で直した文を機械で確かめ、AI の検算待ちに戻す（次の sentences で検算）")
+    p.add_argument("--level", type=int, default=1)
+    p.add_argument("ids", nargs="+", help="文の id（ko-s-L1-U02-008 など）")
     return parser
 
 
@@ -130,6 +134,7 @@ def steps_for(args: argparse.Namespace) -> list[tuple[str, Step]]:
         "sentences": lambda ws: gen_sentences.run(ws, asker("enrich"), asker("verify"), level, unit_ids, parallel),
         "variants": lambda ws: gen_variants.run(ws, asker("enrich"), asker("verify"), level, unit_ids, parallel),
         "export": lambda ws: export.run(ws, level),
+        "reopen": lambda ws: gen_sentences.reopen(ws, getattr(args, "ids", []), level),
     }
     if args.command == "sentences" and args.recheck:
         return [("recheck", lambda ws: gen_sentences.recheck(ws, level, unit_ids)), ("sentences", steps["sentences"])]

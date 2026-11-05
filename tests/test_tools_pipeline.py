@@ -9,6 +9,7 @@ import pytest
 from app import content
 from tools import (
     assign_levels,
+    decisions,
     enrich_words,
     export,
     gen_grammar,
@@ -19,7 +20,7 @@ from tools import (
     tag_candidates,
     verify_words,
 )
-from tools.work import Workspace
+from tools.work import BuildError, Workspace
 
 pytest.importorskip("kiwipiepy")
 
@@ -249,3 +250,31 @@ def test_pipeline_from_list_to_content(tmp_path):
     gen_sentences.run(ws, ai, ai, 1)
     assert next(s for s in ws.read(path)["sentences"] if s["ko"] == "물 주세요.")["status"] == "approved"
     assert ai.calls[-1] == "verify-sentences"
+
+    # 人が決めた語（work/decisions.json）は、決めた意味で approved にする
+    coffee = words["커피"].id
+    ws.write(decisions.DECISIONS, {"words": {coffee: {"lemma": "커피", "meanings": [{"ja": "コーヒー", "primary": True}], "note": "テスト"}}})
+    export.run(ws, 1)
+    decided = {w.lemma: w for w in content.load(tmp_path, "ko", approved_only=False).words}["커피"]
+    assert decided.status == "approved" and decided.meaning == "コーヒー" and "review" not in decided.raw
+    ws.write(decisions.DECISIONS, {"words": {coffee: {"lemma": "물"}}})
+    with pytest.raises(BuildError, match="見出しが違います"):
+        export.run(ws, 1)
+    ws.write(decisions.DECISIONS, {})
+
+    # work/ で直した要確認の文は、reopen で機械の検算を通してから AI の検算に回す
+    state = ws.read(path)
+    target = next(s for s in state["sentences"] if s["ko"] == "물 주세요.")
+    target.update(status="needs_review", failures=2, checked=False, problems=["AI の指摘"], failed_by="ai")
+    ws.write(path, state)
+    sid = f"ko-s-L1-U02-{target['slot']:03d}"
+    assert "AI の検算に回します" in gen_sentences.reopen(ws, [sid], 1)
+    gen_sentences.run(ws, ai, ai, 1)
+    assert next(s for s in ws.read(path)["sentences"] if s["ko"] == "물 주세요.")["status"] == "approved"
+    state = ws.read(path)
+    broken = next(s for s in state["sentences"] if s["ko"] == "물 주세요.")
+    broken["tokens"][0]["surface"] = "물을"
+    ws.write(path, state)
+    assert "機械の検算で落ちました" in gen_sentences.reopen(ws, [sid], 1)
+    with pytest.raises(BuildError, match="id の形"):
+        gen_sentences.reopen(ws, ["L1-U02"], 1)

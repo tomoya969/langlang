@@ -1,7 +1,8 @@
 """書き出し（langlang-build export）。work/ の途中のデータから、画面が読む教材（content/<言語>/ の JSON）を作る。AI は使わない。
 
 - 単語の status: 検算を通った語は approved、食い違った語は needs_review（2 つの案を review に残す）、検算がまだの語は draft。
-  詳しい付与がまだの語は書き出さない（意味がないと画面に出せないため）
+  詳しい付与がまだの語は書き出さない（意味がないと画面に出せないため）。人が決めた語（work/decisions.json）は、
+  決めた品詞・意味・漢字・語種にして approved にする
 - 取り違えやすい語・同義語は、書き出す単語の中から辞書形で探して id にする。見つからない語は落とす
 - 文は needs_review も書き出す（学習に出すのは approved だけ。content.load が除く）
 - 文の許容例は、許容例の段階（gen_variants）が今の文の中身で作ったものがあれば、それに置き換える
@@ -14,7 +15,7 @@ from collections import Counter
 from typing import Any
 
 from app import content as content_mod
-from tools import candidates, gen_grammar, gen_variants
+from tools import candidates, decisions, gen_grammar, gen_variants
 from tools.assign_levels import IDS, LEVEL_REST, RANKING, layout
 from tools.enrich_words import ENRICH
 from tools.gen_sentences import APPROVED, NEEDS_REVIEW, STATE_DONE, unit_path
@@ -62,6 +63,7 @@ def build_words(ws: Workspace, level: int, units: list[dict[str, Any]]) -> list[
     tags = ws.read(TAGS, {})
     enrich = ws.read(ENRICH, {})
     verified = ws.read(VERIFY_WORDS, {})
+    decided = decisions.words(ws, {wid: by_key[key]["lemma"] for key, wid in ids.items() if key in by_key})
 
     words: list[dict[str, Any]] = []
     order = 0
@@ -106,6 +108,11 @@ def build_words(ws: Workspace, level: int, units: list[dict[str, Any]]) -> list[
                             {"by": "検算", **suggestion(result, e, tag["origin"])},
                         ],
                     }
+            decision = decided.get(word["id"])
+            if decision:
+                word.update({f: decision[f] for f in decisions.WORD_FIELDS if f in decision})
+                word["status"] = "approved"
+                word.pop("review", None)
             words.append(word)
 
     by_lemma: dict[str, list[str]] = {}

@@ -22,7 +22,7 @@ from typing import Any
 
 from app.claude_cli import AskFn
 from app.prompts import SENTENCES_STYLE, VERIFY_SENTENCES_STYLE, build_sentences_prompt, sentences_schema
-from tools import batch, candidates, gen_grammar
+from tools import batch, candidates, decisions, gen_grammar
 from tools.assign_levels import IDS, LEVEL_REST, RANKING, layout
 from tools.batch import BadOutput
 from tools.enrich_words import ENRICH
@@ -79,6 +79,7 @@ class Context:
         ranking = ws.require(RANKING, "levels")
         by_key = {c["key"]: c for c in candidates.load(ws)}
         pos = {e["key"]: e.get("pos") for e in ranking}
+        decided = decisions.words(ws, {wid: by_key[key]["lemma"] for key, wid in ids.items() if key in by_key})
         words: dict[str, dict[str, Any]] = {}
         known: dict[str, str] = {}
         for unit in units:
@@ -86,12 +87,13 @@ class Context:
                 known.setdefault(normalize(by_key[key]["lemma"]), f"{unit['id']}「{unit['title']}」で出る語")
                 if key not in enrich:
                     continue
+                decision = decided.get(ids[key], {})
                 words[ids[key]] = {
                     "id": ids[key],
                     "key": key,
                     "lemma": by_key[key]["lemma"],
-                    "pos": pos[key],
-                    "meaning": _meaning(enrich[key], verified.get(key)),
+                    "pos": decision.get("pos", pos[key]),
+                    "meaning": decisions.primary_meaning(decision) or _meaning(enrich[key], verified.get(key)),
                     "unit": unit["id"],
                     "unit_order": unit["order"],
                 }
@@ -355,6 +357,45 @@ def recheck(ws: Workspace, level: int = 1, unit_ids: list[str] | None = None) ->
             ws.write(unit_path(unit["id"]), state)
             reopened += found
     return f"機械の検算で要確認になっていた文のうち {reopened} 文が、今の検算を通りました（AI の検算に回します）"
+
+
+def reopen(ws: Workspace, sentence_ids: list[str], level: int = 1) -> str:
+    """人が work/sentences/ で直した文（要確認の文など）を、機械の検算で確かめ直し、通れば AI の検算待ちに戻す。
+
+    作り直しはしない（AI の検算で落ちたらそのまま要確認）。次の sentences で AI の検算をする。
+    """
+    ctx = Context.load(ws, level)
+    checker = Checker()
+    by_unit: dict[str, list[int]] = {}
+    for sid in sentence_ids:
+        unit_id, _, slot = sid.removeprefix(f"{ws.language}-s-").rpartition("-")
+        if not unit_id or not slot.isdigit():
+            raise BuildError(f"文の id の形が違います: {sid}（例: {ws.language}-s-L1-U02-008）")
+        by_unit.setdefault(unit_id, []).append(int(slot))
+    units = {u["id"]: u for u in ctx.units}
+    lines = []
+    for unit_id, slots in by_unit.items():
+        if unit_id not in units:
+            raise BuildError(f"ユニットがありません: {unit_id}")
+        unit = units[unit_id]
+        state = ws.read(unit_path(unit_id))
+        found = {s["slot"]: s for s in (state or {}).get("sentences", [])}
+        lexicon = ctx.lexicon(unit)
+        unit_word_ids = {w["id"] for w in ctx.unit_words(unit)}
+        for slot in slots:
+            s = found.get(slot)
+            if s is None:
+                raise BuildError(f"文がありません: {unit_id} の {slot}")
+            problems = checker.check(s, lexicon, unit_word_ids)
+            if problems:
+                lines.append(f"{unit_id}-{slot:03d}: 機械の検算で落ちました（{' / '.join(problems)}）")
+                continue
+            s.update(status=PENDING, checked=True, problems=[], failed_by=None, failures=MAX_FAILURES - 1)
+            lines.append(f"{unit_id}-{slot:03d}: AI の検算に回します")
+        state["status"] = STATE_WORKING
+        state["updated_at"] = now_iso()
+        ws.write(unit_path(unit_id), state)
+    return "\n".join(lines)
 
 
 def build_unit(ctx: Context, unit: dict[str, Any], checker: Checker, ask_write: AskFn, ask_check: AskFn) -> dict[str, Any]:

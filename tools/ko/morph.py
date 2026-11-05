@@ -3,6 +3,7 @@
 文を形態素に分けて原形を取り出し、次を確かめる。
 - tokens（語節）が文を空白で区切ったものと合っているか
 - word_ids の単語が、その語節に本当にあるか
+  - 用言の語幹が助詞の一部としてしか現れないもの（여권하고 の 하고 に付けた 하다）は、word_ids から外す
 - word_ids に入っていない内容語（名詞・動詞・形容詞・副詞など）が、使ってよい単語か
   - 使ってよい単語で、同じ綴りの語が 1 つだけなら、word_ids に足す（直せるものは機械で直す）
   - まだ出ていない単語・一覧にない単語なら問題にする
@@ -111,6 +112,7 @@ class Lexicon:
 class Check:
     problems: list[str] = field(default_factory=list)
     added: list[tuple[int, str]] = field(default_factory=list)  # (語節の番号, 足した単語の id)
+    removed: list[tuple[int, str]] = field(default_factory=list)  # (語節の番号, 外した単語の id)
 
 
 class Analyzer:
@@ -155,7 +157,7 @@ class Analyzer:
         # 表現が覆う語節と、Kiwi の最上位の解析とは別の読みで単語が見つかった語節。どちらも残りの形態素は問わない
         settled: set[int] = set()
         for i, token in enumerate(tokens):
-            for wid in token["word_ids"]:
+            for wid in list(token["word_ids"]):
                 word = lexicon.allowed.get(wid)
                 if word is None:
                     result.problems.append(f"使ってよい単語の一覧にない id: {wid}")
@@ -164,6 +166,9 @@ class Analyzer:
                     if lemma not in sentence_text:
                         result.problems.append(f"表現「{word['lemma']}」がそのままの形で文にない")
                     settled |= {j for j, (s, _, _) in enumerate(spans) if s in lemma or lemma in s}
+                elif _in_particle_only(word["lemma"], by_eojeol[i]):
+                    token["word_ids"].remove(wid)
+                    result.removed.append((i, wid))
                 elif _found(word["lemma"], spans[i][0], by_eojeol[i]):
                     continue
                 elif _conjugated(word["lemma"], spans[i][0]) or normalize(word["lemma"]) in self.alternatives(spans[i][0]):
@@ -177,7 +182,7 @@ class Analyzer:
             morphs = by_eojeol[i]
             for j, m in enumerate(morphs):
                 referenced = _referenced(token, lexicon)
-                if m.tag not in CONTENT_TAGS or any(m.form in lemma for lemma in referenced):
+                if m.tag not in CONTENT_TAGS or any(m.form in lemma for lemma in referenced) or _particle_ha(morphs, j):
                     continue
                 if m.tag in COVERED_PREDICATE_TAGS and any(lemma.endswith("다") for lemma in referenced):
                     continue
@@ -249,6 +254,28 @@ def _found(lemma: str, surface: str, morphs: list[Morph]) -> bool:
         return True  # 공부하다 を「공부를 해요」の 공부 で使っている
     stem = lemma[:-1] if lemma.endswith("다") and len(lemma) > 1 else lemma
     return stem in normalize(surface)
+
+
+def _in_particle_only(lemma: str, morphs: list[Morph]) -> bool:
+    """用言の語幹が、語節の中では助詞の一部としてしか現れないか（여권하고 の 하고 に付けた 하다）。
+    _found は語幹が表記に含まれていれば見つかったことにするので、その前に確かめる。
+
+    名詞のすぐあとの 하고 を、Kiwi は助詞（JKB・JC）と読むか、名詞に空白なしで付いた独立の 하（VV）と読む。
+    名詞＋하다 の動詞（결혼하고）なら 하 は XSV になり、独立の動詞なら名詞とは分かち書きするので、
+    名詞に付いた VV の 하 は助詞として扱う。"""
+    lemma = normalize(lemma)
+    if not lemma.endswith("다") or len(lemma) < 2:
+        return False
+    stem = lemma[:-1]
+    holders = [j for j, m in enumerate(morphs) if stem in m.form]
+    return bool(holders) and all(morphs[j].tag.startswith("J") or _particle_ha(morphs, j) for j in holders)
+
+
+def _particle_ha(morphs: list[Morph], index: int) -> bool:
+    """名詞に空白なしで付いた独立の 하（VV）。助詞 하고 を Kiwi が読み違えたもの（_in_particle_only）。"""
+    m = morphs[index]
+    prev = morphs[index - 1] if index > 0 else None
+    return m.form == "하" and m.tag == "VV" and prev is not None and prev.tag.startswith("N") and prev.start + len(prev.form) == m.start
 
 
 def _conjugated(lemma: str, surface: str) -> bool:

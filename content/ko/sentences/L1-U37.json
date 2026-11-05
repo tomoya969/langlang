@@ -71,12 +71,11 @@
     "ja": "黒いネクタイと革靴を買いました。",
     "register": "해요체",
     "scene": "飲み会で先輩に買い物の話",
-    "tokens": [{"surface": "검은색", "word_ids": ["ko-w-0932"], "eojeol": 0}, {"surface": "넥타이하고", "word_ids": ["ko-w-0943", "ko-w-0002"], "eojeol": 1}, {"surface": "구두를", "word_ids": ["ko-w-0933"], "eojeol": 2}, {"surface": "샀어요", "word_ids": ["ko-w-0112"], "eojeol": 3}],
+    "tokens": [{"surface": "검은색", "word_ids": ["ko-w-0932"], "eojeol": 0}, {"surface": "넥타이하고", "word_ids": ["ko-w-0943"], "eojeol": 1}, {"surface": "구두를", "word_ids": ["ko-w-0933"], "eojeol": 2}, {"surface": "샀어요", "word_ids": ["ko-w-0112"], "eojeol": 3}],
     "grammar": ["하고", "을/를", "-았/었어요"],
     "cloze": [{"eojeol": 0, "answer": "검은색", "hint_ja": "黒色の", "variants": ["검은", "까만색", "검정"]}],
     "variants": {"ko": ["검은색 넥타이와 구두를 샀어요.", "검은색 넥타이하고 구두 샀어요.", "검은 넥타이하고 구두를 샀어요.", "까만색 넥타이하고 구두를 샀어요.", "검은색 넥타이랑 구두를 샀어요.", "검정 넥타이하고 구두를 샀어요.", "검은색 넥타이와 구두 샀어요."], "ja": ["黒色のネクタイと革靴を買いました。", "黒のネクタイと革靴を買いました。", "黒いネクタイと革靴を買ったんです。"]},
-    "status": "needs_review",
-    "review": {"problems": ["単語の「하다（動詞）＝する」は誤り。ko の「하고」は「〜と」の意味の助詞で、動詞の 하다 ではない"]}
+    "status": "approved"
   },
   {
     "id": "ko-s-L1-U37-007",

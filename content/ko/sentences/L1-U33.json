@@ -149,12 +149,11 @@
     "ja": "クーポンとカードはここにあります。",
     "register": "해요체",
     "scene": "カフェで店員に",
-    "tokens": [{"surface": "쿠폰하고", "word_ids": ["ko-w-0835", "ko-w-0002"], "eojeol": 0}, {"surface": "카드", "word_ids": ["ko-w-0821"], "eojeol": 1}, {"surface": "여기", "word_ids": ["ko-w-0030"], "eojeol": 2}, {"surface": "있어요", "word_ids": ["ko-w-0001"], "eojeol": 3}],
+    "tokens": [{"surface": "쿠폰하고", "word_ids": ["ko-w-0835"], "eojeol": 0}, {"surface": "카드", "word_ids": ["ko-w-0821"], "eojeol": 1}, {"surface": "여기", "word_ids": ["ko-w-0030"], "eojeol": 2}, {"surface": "있어요", "word_ids": ["ko-w-0001"], "eojeol": 3}],
     "grammar": ["하고", "-아/어요"],
     "cloze": [{"eojeol": 0, "answer": "쿠폰하고", "hint_ja": "クーポンと", "variants": ["쿠폰이랑", "쿠폰과"]}],
     "variants": {"ko": ["쿠폰하고 카드는 여기 있어요.", "여기 쿠폰하고 카드 있어요.", "쿠폰이랑 카드 여기 있어요.", "쿠폰하고 카드가 여기 있어요.", "쿠폰이랑 카드는 여기 있어요.", "여기 쿠폰이랑 카드 있어요.", "쿠폰과 카드는 여기 있어요."], "ja": ["クーポンとカード、ここにあります。", "こちらがクーポンとカードです。", "クーポンとカードはこちらです。", "クーポンとカードはここです。"]},
-    "status": "needs_review",
-    "review": {"problems": ["単語に「하다（動詞）＝する」があるが、ko の「하고」は「〜と」という助詞で、動詞の 하다 ではない。この項目は消す必要がある"]}
+    "status": "approved"
   },
   {
     "id": "ko-s-L1-U33-013",
@@ -189,11 +188,10 @@
     "ja": "クーポンとカードを一緒に使ってもいいですか？",
     "register": "해요체",
     "scene": "カフェで店員に",
-    "tokens": [{"surface": "쿠폰하고", "word_ids": ["ko-w-0835", "ko-w-0002"], "eojeol": 0}, {"surface": "카드를", "word_ids": ["ko-w-0821"], "eojeol": 1}, {"surface": "같이", "word_ids": ["ko-w-0568"], "eojeol": 2}, {"surface": "써도", "word_ids": ["ko-w-0492"], "eojeol": 3}, {"surface": "돼요", "word_ids": ["ko-w-0176"], "eojeol": 4}],
+    "tokens": [{"surface": "쿠폰하고", "word_ids": ["ko-w-0835"], "eojeol": 0}, {"surface": "카드를", "word_ids": ["ko-w-0821"], "eojeol": 1}, {"surface": "같이", "word_ids": ["ko-w-0568"], "eojeol": 2}, {"surface": "써도", "word_ids": ["ko-w-0492"], "eojeol": 3}, {"surface": "돼요", "word_ids": ["ko-w-0176"], "eojeol": 4}],
     "grammar": ["-아/어도 되다", "하고", "을/를"],
     "cloze": [{"eojeol": 1, "answer": "카드를", "hint_ja": "カードを", "variants": ["카드"]}],
     "variants": {"ko": ["카드하고 쿠폰을 같이 써도 돼요?", "쿠폰하고 카드 같이 써도 돼요?", "쿠폰이랑 카드를 같이 써도 돼요?", "쿠폰하고 카드를 같이 사용해도 돼요?", "쿠폰하고 카드를 같이 써도 되나요?", "쿠폰하고 카드를 함께 써도 돼요?", "쿠폰과 카드를 같이 써도 돼요?", "쿠폰하고 카드를 같이 써도 괜찮아요?"], "ja": ["クーポンとカードを一緒に使えますか？", "クーポンとカードを併用してもいいですか？", "カードとクーポンを一緒に使ってもいいですか？", "クーポンとカードを一緒に使ってもいいですか。", "クーポンとカード、一緒に使ってもいいですか？"]},
-    "status": "needs_review",
-    "review": {"problems": ["単語「하다（動詞）＝する」が合っていません。ko の「쿠폰하고」の 하고 は「〜と」という意味の助詞で、動詞 하다 ではありません。"]}
+    "status": "approved"
   }
 ]
