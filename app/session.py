@@ -18,6 +18,7 @@ from datetime import datetime
 from typing import Any, Callable
 
 from app.content import Content, Sentence, Unit, Word
+from app.grader import normalize_ja
 from app.langs.base import LanguagePack
 from app.records import FIRST_STAGE, CardRow, day_start
 from app.weak import ARROW_FACES, Analysis
@@ -362,8 +363,10 @@ def _word_item(
 
 
 def _distractors(word: Word, pool: list[Word], rng: random.Random, familiar: bool = False, partners: list[str] | None = None) -> list[Word]:
-    """ダミーの選択肢（docs/plan.md 4.4・4.6）。同義語・同じ綴りの別語・意味が同じ語は入れない。
+    """ダミーの選択肢（docs/plan.md 4.4・4.6）。正しい答えが選択肢の中に 1 つだけになるようにする。
 
+    類語（synonyms。どちらから紐づいていても）・同じ綴りの別語と、訳が 1 つでも重なる語は入れない
+    （主な意味以外の訳でも、選んだら正解と言えてしまうため）。
     過去に取り違えた相手は、見分けさせるために入れる。慣れてきた面（familiar）では、形や意味の近い語（confusables）も混ぜる。
     残りは同じ品詞から選び、慣れるまでは場面のタグが重ならない（意味の離れた）語にする。足りなければほかの品詞から補う。
     """
@@ -371,7 +374,7 @@ def _distractors(word: Word, pool: list[Word], rng: random.Random, familiar: boo
     excluded = {word.id, *word.synonyms, *word.homographs}
 
     def usable(w: Word) -> bool:
-        return w.id not in excluded and w.meaning != word.meaning
+        return w.id not in excluded and word.id not in w.synonyms and not (w.meaning_atoms & word.meaning_atoms)
 
     near_ids = list(partners or []) + (list(word.confusables) if familiar else [])
     picked: list[Word] = []
@@ -412,7 +415,7 @@ def _sentence_item(kind: str, sentence: Sentence, content: Content, new_ids: set
         "sentence": _sentence_view(sentence, content, new_ids),
     }
     if kind == "listen_choose":
-        pool = [s for s in content.sentences if s.id != sentence.id and s.ja != sentence.ja]
+        pool = [s for s in content.sentences if s.id != sentence.id and not (_translations(s) & _translations(sentence))]
         options = [sentence, *rng.sample(pool, min(len(pool), OPTIONS - 1))]
         rng.shuffle(options)
         item["options"] = [{"sentence_id": s.id, "label": s.ja} for s in options]
@@ -429,6 +432,11 @@ def _sentence_item(kind: str, sentence: Sentence, content: Content, new_ids: set
         item["required"] = sentence.grammar[0]
         item["task"] = f"「{sentence.grammar[0]}」を使って、自分のことを 1 文で書いてください"
     return item
+
+
+def _translations(sentence: Sentence) -> set[str]:
+    """文の訳と許容訳（記号と空白を除いた形）。聞いて選ぶ問題で、訳が重なる文をダミーにしないために比べる。"""
+    return {normalize_ja(t) for t in [sentence.ja, *sentence.variants.get("ja", [])]}
 
 
 def _sentence_view(sentence: Sentence, content: Content, new_ids: set[str]) -> dict[str, Any]:

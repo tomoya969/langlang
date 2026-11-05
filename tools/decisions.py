@@ -29,7 +29,3 @@ def words(ws: Workspace, lemma_of: dict[str, str]) -> dict[str, dict[str, Any]]:
             raise BuildError(f"{DECISIONS}: {wid} の meanings は primary を 1 つだけにします")
     return decided
 
-
-def primary_meaning(decision: dict[str, Any]) -> str | None:
-    meanings = decision.get("meanings")
-    return next(m["ja"] for m in meanings if m["primary"]) if meanings else None

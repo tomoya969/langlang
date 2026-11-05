@@ -70,3 +70,12 @@ def test_repo_content_is_consistent():
         if w.origin == "漢字語":
             assert w.hanja, f"漢字語に漢字表記がありません: {w.lemma}"
         assert sum(1 for m in w.meanings if m.get("primary")) == 1, f"主な意味がちょうど 1 つではありません: {w.lemma}"
+
+
+def test_meaning_atoms():
+    from app.content import meaning_atoms
+
+    assert meaning_atoms("グラス・コップ") == {"グラス", "コップ"}
+    assert meaning_atoms("（値段が）安い") == {"安い"}
+    assert meaning_atoms("〜杯") == {"杯"}
+    assert meaning_atoms("うん／そう") == {"うん", "そう"}

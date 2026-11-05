@@ -719,6 +719,47 @@ def build_verify_words_prompt(items: list[dict]) -> str:
 """
 
 
+# 類語の紐づけ（矢印ゲームで、正解の語の類語をダミーに出さないため。tools/link_synonyms.py）
+
+SYNONYMS_STYLE = 1
+
+
+def synonyms_schema(word_ids: list[str]) -> dict:
+    pair = _obj({"a": {"type": "string", "enum": word_ids}, "b": {"type": "string", "enum": word_ids}, "reason": {"type": "string"}})
+    return _obj({"pairs": {"type": "array", "items": pair}})
+
+
+def build_synonyms_prompt(group: str, words: list[dict]) -> str:
+    """words: id, lemma, pos, meaning（すべての意味）。"""
+    return f"""# 依頼
+
+日本語話者向けの韓国語の単語帳で、韓国語の単語を見て日本語の意味を 4 択で選ぶゲーム（と、日本語を見て韓国語を 4 択で選ぶゲーム）を作っています。
+ダミーの選択肢には、ほかの単語の意味を使います。正しい答えが選択肢の中に 1 つだけになるように、ダミーにしてはいけない組を挙げてください。
+下の単語（{group}）のうち、片方の問題に、もう片方をダミーとして出すと、どちらを選んでも正解と言えてしまう（間違いと言い切れない）組をすべて挙げてください。
+
+# 挙げる組
+
+- 類語・同じ意味の語（아버지／아빠、집／댁、말／얘기）
+- 意味の一部が重なる語（보다＝見る・会う と 만나다＝会う）
+- 片方がもう片方を含む語（고기＝肉 と 쇠고기＝牛肉、과일＝果物 と 사과＝りんご は、사과 の問題で「果物」を選んでも間違いと言い切れない）
+- 敬語とふつうの言い方（먹다／드시다、자다／주무시다、있다／계시다）
+- 書き言葉と話し言葉（그러나／하지만）
+
+# 挙げない組
+
+- 対義語（크다／작다）、同じ場面で使うだけの語（의사／병원）、形が似ているだけの語（사다／싸다）
+
+# 書き方
+
+- a と b は下の一覧の id。同じ組を 2 回挙げない。reason は日本語で短く
+- 迷ったら挙げる（挙げすぎても、ダミーの候補が少し減るだけなので）
+
+# 単語（id: 単語（品詞）意味）
+
+{chr(10).join(_word_line(w) for w in words)}
+"""
+
+
 # 文の生成（docs/plan.md 6.3）
 
 def sentences_schema(word_ids: list[str], grammar_forms: list[str]) -> dict:

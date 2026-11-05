@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.claude_cli import AskFn
+from app.content import all_meanings_text
 from app.prompts import SENTENCES_STYLE, VERIFY_SENTENCES_STYLE, build_sentences_prompt, sentences_schema
 from tools import batch, candidates, decisions, gen_grammar
 from tools.assign_levels import IDS, LEVEL_REST, RANKING, layout
@@ -99,7 +100,7 @@ class Context:
                     "key": key,
                     "lemma": by_key[key]["lemma"],
                     "pos": decision.get("pos", pos[key]),
-                    "meaning": decisions.primary_meaning(decision) or _meaning(enrich[key], verified.get(key)),
+                    "meaning": _meanings(enrich[key], verified.get(key), decision),
                     "unit": unit["id"],
                     "unit_order": (unit["level"], unit["order"]),
                 }
@@ -131,11 +132,15 @@ class Context:
         return sum(1 for u in self.units if u["order"] <= unit["order"] for k in u["keys"] if k not in enriched)
 
 
-def _meaning(enriched: dict[str, Any], verified: dict[str, Any] | None) -> str:
-    """文に使う意味。検算で意味が直されていれば、検算の案を使う（要確認の語でも文は作る）。"""
+def _meanings(enriched: dict[str, Any], verified: dict[str, Any] | None, decision: dict[str, Any]) -> str:
+    """文に使う意味。主な意味が先で、ほかの意味も並べる（主な意味だけだと、別の意味で使った正しい文を検算が落とすため）。
+    人が決めた意味があればそれ、検算で主な意味が直されていれば検算の案を主な意味にする（要確認の語でも文は作る）。"""
+    if decision.get("meanings"):
+        return all_meanings_text(decision["meanings"])
+    meanings = list(enriched["meanings"])
     if verified and not verified.get("meaning_ok", True) and verified.get("suggested_meaning", "").strip():
-        return verified["suggested_meaning"].strip()
-    return next(m["ja"] for m in enriched["meanings"] if m["primary"])
+        meanings = [{"ja": verified["suggested_meaning"].strip(), "primary": True}] + [m for m in meanings if not m["primary"]]
+    return all_meanings_text(meanings)
 
 
 def run(ws: Workspace, ask_write: AskFn, ask_check: AskFn, level: int = 1, unit_ids: list[str] | None = None, parallel: int = 3) -> str:

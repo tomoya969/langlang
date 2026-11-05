@@ -320,3 +320,30 @@ def test_start_level_skips_earlier_levels(root):
     plan = build(root, unit=None, start_level=2, new_words_per_day=2)
     assert [i["word"]["unit"] for i in plan["items"] if i["type"] == "word_intro"] == ["T-U02", "T-U02"]
     assert plan["unit"]["id"] == "T-U02"
+
+
+def test_distractors_never_include_synonyms_or_words_sharing_a_meaning():
+    target = word_obj(1, "보다", "見る", pos="動詞", meanings=[{"ja": "見る", "primary": True}, {"ja": "会う", "primary": False}])
+    shares = word_obj(2, "만나다", "会う", pos="動詞")  # 보다 の主な意味でない訳と同じ
+    linked = word_obj(3, "구경하다", "見物する", pos="動詞", synonyms=["t-w-0001"])  # 相手の側からだけ紐づいている
+    others = [word_obj(10 + i, f"다{i}", f"別の意味{i}", pos="動詞") for i in range(6)]
+    pool = [target, shares, linked, *others]
+    rng = random.Random(0)
+    for _ in range(50):
+        picked = session._distractors(target, pool, rng)
+        assert shares not in picked and linked not in picked
+        assert len(picked) == session.OPTIONS - 1
+
+
+def test_listen_choose_skips_sentences_with_the_same_translation(root):
+    import json
+
+    path = root / "content" / "ko" / "sentences" / "T-U02.json"
+    items = json.loads(path.read_text(encoding="utf-8"))
+    items[1]["ja"] = "水を、ください！"  # t-s-U01-001 の許容訳「水をください。」と記号を除けば同じ
+    path.write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
+    c = content.load(root, "ko")
+    rng = random.Random(0)
+    for _ in range(30):
+        item = session._sentence_item("listen_choose", c.sentence("t-s-U01-001"), c, set(), rng)
+        assert "t-s-U02-002" not in {o["sentence_id"] for o in item["options"]}

@@ -20,6 +20,20 @@ class ContentError(Exception):
 
 
 _TRAILING_PUNCT = re.compile(r"[.?!,。？！、]+$")
+_MEANING_NOTE = re.compile(r"[（(][^）)]*[）)]")
+_MEANING_SPLIT = re.compile(r"[・、，,／/]")
+
+
+def meaning_atoms(text: str) -> set[str]:
+    """訳を、比べられる最小の訳に分ける。「グラス・コップ」は 2 つ、「（値段が）安い」の補足と「〜」は除く。
+    2 つの語の訳に同じものがあれば、意味を選ぶ問題でどちらを選んでも正解と言えてしまう。"""
+    core = _MEANING_NOTE.sub("", text).replace("〜", "").replace("～", "")
+    return {a.strip() for a in _MEANING_SPLIT.split(core) if a.strip()}
+
+
+def all_meanings_text(meanings: list[dict[str, Any]]) -> str:
+    ordered = sorted(meanings, key=lambda m: not m.get("primary"))
+    return "／".join(dict.fromkeys(str(m["ja"]) for m in ordered))
 
 
 def blank_eojeol(ko: str, eojeol: int) -> str:
@@ -52,14 +66,24 @@ class Word:
 
     @property
     def meaning(self) -> str:
-        """主な意味（primary）。多義語の 2 つ目以降は当面出題しない。"""
+        """主な意味（primary）。問題の答えに出すのはこれ 1 つ（いちばん自然な訳）。"""
         for m in self.meanings:
             if m.get("primary"):
                 return str(m["ja"])
         return str(self.meanings[0]["ja"]) if self.meanings else ""
 
+    @property
+    def all_meanings(self) -> str:
+        """すべての意味（主な意味が先）。文の検算・採点・解説と、文の中の単語の表示に使う。"""
+        return all_meanings_text(list(self.meanings))
+
+    @property
+    def meaning_atoms(self) -> frozenset[str]:
+        """すべての意味を、比べられる最小の訳に分けたもの（類語の判定に使う）。"""
+        return frozenset(a for m in self.meanings for a in meaning_atoms(str(m["ja"])))
+
     def to_dict(self) -> dict[str, Any]:
-        return {**self.raw, "meaning": self.meaning}
+        return {**self.raw, "meaning": self.meaning, "all_meanings": self.all_meanings}
 
 
 @dataclass(frozen=True)

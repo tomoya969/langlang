@@ -16,6 +16,7 @@ from tools import (
     gen_sentences,
     gen_variants,
     import_nikl,
+    link_synonyms,
     supplement,
     tag_candidates,
     verify_words,
@@ -69,6 +70,13 @@ class FakeAI:
             keys = props["items"]["properties"]["keys"]["items"]["enum"]
             title = "あいさつ" if "네03" in keys else "カフェ"
             return {"units": [{"title": title, "scene": "場面", "keys": keys}]}
+        if field == "pairs":
+            self.calls.append("synonyms")
+            ids = props["items"]["properties"]["a"]["enum"]
+            lemmas = dict(re.findall(r"^(ko-w-\d{4}): (.+?)（", prompt, re.M))
+            by_lemma = {v: k for k, v in lemmas.items()}
+            pair = [by_lemma.get("가다"), by_lemma.get("주다")]
+            return {"pairs": [{"a": pair[0], "b": pair[1], "reason": "テスト"}] if all(pair) and set(pair) <= set(ids) else []}
         if field == "items":
             self.calls.append("grammar")
             unit = props["items"]["properties"]["unit"]["enum"][0]
@@ -200,6 +208,7 @@ def test_pipeline_from_list_to_content(tmp_path):
     gen_grammar.run(ws, ai, 1)
     enrich_words.run(ws, ai, 1)
     verify_words.run(ws, ai, 1)
+    link_synonyms.run(ws, ai, 1)
     gen_sentences.run(ws, ai, ai, 1)
     gen_variants.run(ws, ai, ai, 1)
     message = export.run(ws)
@@ -215,6 +224,9 @@ def test_pipeline_from_list_to_content(tmp_path):
     assert words["커피"].raw["review"]["proposals"][1]["meaning"] == "コーヒー（飲み物）"
     assert words["커피"].confusables == (words["물"].id,)
     assert words["물"].status == "approved"
+    # 類語の段階の組（가다・주다）は両方向に紐づく。付与で挙げた同義語がなくても
+    assert words["주다"].id in words["가다"].synonyms and words["가다"].id in words["주다"].synonyms
+    assert words["물"].id not in words["가다"].synonyms
 
     by_ko = {s.ko: s for s in loaded.sentences}
     assert "우유 마셔요." not in by_ko and by_ko["물 마셔요."].status == "approved"
@@ -234,6 +246,7 @@ def test_pipeline_from_list_to_content(tmp_path):
     gen_grammar.run(ws, ai, 1)
     enrich_words.run(ws, ai, 1)
     verify_words.run(ws, ai, 1)
+    link_synonyms.run(ws, ai, 1)
     gen_sentences.run(ws, ai, ai, 1)
     gen_variants.run(ws, ai, ai, 1)
     assert len(ai.calls) == before

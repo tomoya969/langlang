@@ -13,6 +13,7 @@
 | `sentences/<ユニット>.json` | 文（ユニットごと）。学習に出すのは approved で、使う単語もすべて approved の文だけ |
 | `work/` | 教材づくりの途中のデータ（AI の結果、単語の id など）と報告（`work/report.md`）。Git で管理する |
 | `work/decisions.json` | 人が決めたこと（要確認の単語の決着）。AI の付与と検算より優先する |
+| `work/synonyms.json` | 類語の段階で AI が挙げた類語の組。書き出しで単語の synonyms に両方向に入れる（矢印ゲームのダミーに出さない） |
 | `sources/` | 元の語彙リスト（Git 管理外） |
 
 ## 元の語彙リスト
@@ -29,7 +30,7 @@ uv run langlang-build status    # どこまで済んだか
 uv run langlang validate        # 教材の整合を確かめる
 ```
 
-段階ごとにも実行できる（`import` → `supplement` → `tag` → `levels` → `units` → `grammar` → `enrich` → `verify-words` → `sentences` → `variants` → `export`）。
+段階ごとにも実行できる（`import` → `supplement` → `tag` → `levels` → `units` → `grammar` → `enrich` → `verify-words` → `synonyms` → `sentences` → `variants` → `export`）。
 `units` から `variants` までは `--level 2` のようにレベルを指定する（既定は 1）。L2 の文は L1 の単語と文法も使うので、前のレベルを作り終えてから作る。
 `export` はユニット分けまで済んだすべてのレベルを書き出す。
 AI を使う段階は `claude -p` を呼ぶので、Claude の利用枠を使う。上限に当たったら止まり、時間をおいて同じコマンドを実行すると続きから進む。

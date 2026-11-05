@@ -354,6 +354,7 @@ function wordIntroScene(item) {
               { class: "intro" },
               el("div", { class: "ko-xl", lang: "ko", text: w.lemma }),
               el("div", { class: "intro-meaning", text: w.meaning }),
+              otherMeanings(w) ? el("div", { class: "intro-others", text: `ほかの意味: ${otherMeanings(w)}` }) : null,
               el("div", { class: "chips" }, w.hanja ? el("span", { class: "chip", text: `漢字 ${w.hanja}` }) : null, el("span", { class: "chip", text: w.origin })),
               btn,
             ),
@@ -372,6 +373,11 @@ function wordIntroScene(item) {
       }
     },
   };
+}
+
+/** 主な意味（問題の答え）のほかの意味。初見カードと単語帳で見せる */
+function otherMeanings(w) {
+  return (w.meanings || []).filter((m) => !m.primary).map((m) => m.ja).join("／");
 }
 
 // ---- 場面: 矢印ゲーム ----
@@ -485,7 +491,7 @@ function tokensView(sentence, { blankEojeol = null, clickable = true } = {}) {
         Speak.speak(token.surface, { lang: pack.tts, rate: state.settings.tts_rate });
         if (pop) pop.remove();
         if (!words.length) return;
-        pop = el("span", { class: "token-pop", text: words.map((w) => `${w.lemma}: ${w.meaning}`).join(" / ") });
+        pop = el("span", { class: "token-pop", text: words.map((w) => `${w.lemma}: ${w.all_meanings || w.meaning}`).join(" / ") });
         node.append(pop);
         later(() => pop && pop.remove(), 2500);
       });

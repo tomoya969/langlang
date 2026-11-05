@@ -274,6 +274,11 @@
   font-weight: 600;
 }
 
+.intro-others {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
 .intro .speak-btn {
   margin-top: 8px;
 }

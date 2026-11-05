@@ -41,7 +41,7 @@ from app import weak as weak_mod
 
 log = logging.getLogger("langlang.server")
 
-API_VERSION = 7
+API_VERSION = 8
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 LANGUAGE_PAGES = {"": "index.html", "learn": "learn.html", "words": "words.html"}
 
@@ -370,6 +370,7 @@ def create_app(
             "faces": _faces(word.id, cards),
             **_weak_view(word.id, analysis),
             "sentences": [s.to_dict() for s in content.sentences if word.id in s.word_ids],
+            "synonym_words": [content.word(c).to_dict() for c in word.synonyms if c in content._word_by_id],
             "confusable_words": [content.word(c).to_dict() for c in word.confusables if c in content._word_by_id],
             "homograph_words": [content.word(c).to_dict() for c in word.homographs if c in content._word_by_id],
             "confused_with": [{**content.word(p).to_dict(), "times": picked[p]} for p in analysis.partners_of(word.id) if p in content._word_by_id],
@@ -479,7 +480,8 @@ def task_for(content: content_mod.Content, pack: LanguagePack, req: AnswerReques
 
 
 def _word_brief(word: content_mod.Word) -> dict[str, str]:
-    return {"id": word.id, "lemma": word.lemma, "meaning": word.meaning}
+    # 主な意味だけだと、別の意味で正しく使った答えを AI が不正解にしかねないので、すべての意味を見せる
+    return {"id": word.id, "lemma": word.lemma, "meaning": word.all_meanings}
 
 
 def explain_prompt(content: content_mod.Content, sentence: content_mod.Sentence) -> str:
@@ -487,7 +489,7 @@ def explain_prompt(content: content_mod.Content, sentence: content_mod.Sentence)
     by_form = {g["form"]: g for g in content.grammar}
     grammar = [by_form[g] for g in sentence.grammar if g in by_form]
     level = content.unit(sentence.unit).level
-    return build_explain_prompt(sentence.to_dict(), [{"lemma": w.lemma, "pos": w.pos, "meaning": w.meaning} for w in words], grammar, level)
+    return build_explain_prompt(sentence.to_dict(), [{"lemma": w.lemma, "pos": w.pos, "meaning": w.all_meanings} for w in words], grammar, level)
 
 
 def clean_explanation(raw: dict[str, Any]) -> dict[str, Any]:

@@ -90,11 +90,13 @@ async function select(id) {
         { class: "detail-head" },
         el("div", { class: "detail-lemma", lang: "ko" }, w.lemma, speak),
         el("div", { class: "detail-meaning", text: w.meaning }),
+        w.meanings.length > 1 ? el("div", { class: "detail-others", text: `ほかの意味: ${w.meanings.filter((m) => !m.primary).map((m) => m.ja).join("／")}` }) : null,
         el("div", { class: "row" }, el("span", { class: "chip", text: w.pos }), el("span", { class: "chip", text: w.origin }), w.hanja ? el("span", { class: "chip", text: `漢字 ${w.hanja}` }) : null, el("span", { class: "chip", text: `L${w.level} ・ ${w.unit}` }), ...w.tags.map((t) => el("span", { class: "chip", text: t }))),
       ),
       w.weak ? section("苦手", el("p", { class: "note", text: `${w.weak_reasons.join("・")}。苦手枠で、期限の前でも出します` })) : null,
       section("面ごとの状態", el("div", { class: "faces" }, ...FACES.map(([key, label]) => (key === "context" ? contextRow(label, w.context_count) : faceRow(label, w.faces[key]))))),
       w.confused_with.length ? section("取り違えた相手", el("div", { class: "row" }, ...w.confused_with.map((c) => el("button", { type: "button", class: "chip warn", lang: "ko", text: `${c.lemma} ${c.meaning} ・ ${c.times} 回`, onClick: () => select(c.id) })))) : null,
+      w.synonym_words.length ? section("類語（矢印ゲームのダミーに出さない語）", wordChips(w.synonym_words)) : null,
       w.confusable_words.length ? section("取り違えやすい語", wordChips(w.confusable_words)) : null,
       w.homograph_words.length ? section("同じ綴りの別の語", wordChips(w.homograph_words)) : null,
       section(

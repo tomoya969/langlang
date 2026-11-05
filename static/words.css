@@ -171,6 +171,11 @@
   font-weight: 600;
 }
 
+.detail-others {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
 .detail-section {
   display: grid;
   gap: 8px;
