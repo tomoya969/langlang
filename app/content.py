@@ -60,6 +60,8 @@ class Word:
     hanja: str | None
     confusables: tuple[str, ...]
     synonyms: tuple[str, ...]
+    # synonyms のうち、意味が合わないので単語帳に出さない語（矢印ゲームのダミーからは外したまま）
+    hidden_synonyms: tuple[str, ...]
     homographs: tuple[str, ...]
     tags: tuple[str, ...]
     tts_text: str
@@ -306,6 +308,7 @@ def _word(raw: dict[str, Any]) -> Word:
         hanja=raw.get("hanja"),
         confusables=tuple(raw.get("confusables", [])),
         synonyms=tuple(raw.get("synonyms", [])),
+        hidden_synonyms=tuple(raw.get("hidden_synonyms", [])),
         homographs=tuple(raw.get("homographs", [])),
         tags=tuple(raw.get("tags", [])),
         tts_text=raw.get("tts_text") or raw["lemma"],

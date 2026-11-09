@@ -12,7 +12,7 @@
 | `grammar.json` | レベルごとの文法と、例文に使ってよい最初のユニット |
 | `sentences/<ユニット>.json` | 文（ユニットごと）。学習に出すのは approved で、使う単語もすべて approved の文だけ |
 | `work/` | 教材づくりの途中のデータ（AI の結果、単語の id など）と報告（`work/report.md`）。Git で管理する |
-| `work/decisions.json` | 人が決めたこと（要確認の単語の決着）。AI の付与と検算より優先する |
+| `work/decisions.json` | 人が決めたこと（要確認の単語の決着と、単語帳に出さない類語の組 `not_similar`）。AI の付与と検算より優先する |
 | `work/synonyms.json` | 類語の段階で AI が挙げた類語の組。書き出しで単語の synonyms に両方向に入れる（矢印ゲームのダミーに出さない） |
 | `sources/` | 元の語彙リスト（Git 管理外） |
 

@@ -7,7 +7,8 @@
   複数あるときは、品詞と訳の重なりで 1 つに決め、決まらなければ落として報告に出す（別の語に紐づけないため）
 - 類語（synonyms）は、付与の同義語と類語の段階（link_synonyms）の組を両方向にそろえ、包含を推移的に閉じる。
   矢印ゲームで、正解の語の類語をダミーに出さないため（訳が 1 つでも重なるだけの語は類語ではないので入れない。
-  ダミーからは出題のときに除く）
+  ダミーからは出題のときに除く）。類語のうち意味が合わない組（work/decisions.json の not_similar）は hidden_synonyms にも
+  入れ、単語帳に出さない
 - 文は needs_review も書き出す（学習に出すのは approved だけ。content.load が除く）
 - 文の許容例は、許容例の段階（gen_variants）が今の文の中身で作ったものがあれば、それに置き換える
 - 書き出したら content.validate で整合を確かめ、work/report.md に結果をまとめる
@@ -81,7 +82,8 @@ def build_words(ws: Workspace, units: list[dict[str, Any]]) -> tuple[list[dict[s
     tags = ws.read(TAGS, {})
     enrich = ws.read(ENRICH, {})
     verified = ws.read(VERIFY_WORDS, {})
-    decided = decisions.words(ws, {wid: by_key[key]["lemma"] for key, wid in ids.items() if key in by_key})
+    lemma_of = {wid: by_key[key]["lemma"] for key, wid in ids.items() if key in by_key}
+    decided = decisions.words(ws, lemma_of)
 
     words: list[dict[str, Any]] = []
     order: Counter[int] = Counter()
@@ -147,8 +149,20 @@ def build_words(ws: Workspace, units: list[dict[str, Any]]) -> tuple[list[dict[s
     found = link_synonyms.pairs(ws)
     closed, added = link_synonyms.closed_pairs(found)
     _link_synonyms(words, closed)
-    links = {"unresolved": unresolved, "kinds": Counter(kind for _, _, kind in found), "closed": added}
+    hidden = _hide_synonyms(words, decisions.not_similar(ws, lemma_of))
+    links = {"unresolved": unresolved, "kinds": Counter(kind for _, _, kind in found), "closed": added, "hidden": hidden}
     return words, links
+
+
+def _hide_synonyms(words: list[dict[str, Any]], not_similar: dict[str, set[str]]) -> int:
+    """単語帳に出さない類語を hidden_synonyms に入れて、組の数を返す。synonyms は変えない（ダミーから外すのに使うため）。"""
+    total = 0
+    for w in words:
+        hidden = [other for other in w["synonyms"] if other in not_similar.get(w["id"], ())]
+        if hidden:
+            w["hidden_synonyms"] = hidden
+            total += len(hidden)
+    return total // 2
 
 
 def _link_synonyms(words: list[dict[str, Any]], extra: set[tuple[str, str]]) -> None:
@@ -344,6 +358,7 @@ def write_report(
         "",
         f"- 類語のある語: {sum(1 for w in words if w['synonyms'])} / {len(words)} 語",
         f"- 類語の段階の組: {kinds}。包含を推移的に閉じて足した組: {links['closed']}",
+        f"- 意味が合わないので単語帳に出さない組（ダミーからは外したまま）: {links['hidden']}",
     ]
     unresolved = links["unresolved"]
     lines += ["", f"## 同じ綴りの語が複数あって、どれか決められずに落とした類語・取り違えやすい語（{len(unresolved)} 件）", ""]

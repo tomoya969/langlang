@@ -2,8 +2,29 @@
 
 from __future__ import annotations
 
-from tools import export
+import pytest
+
+from tools import decisions, export
 from tools.link_synonyms import closed_pairs
+from tools.work import BuildError, Workspace
+
+
+def test_not_similar_pairs_are_hidden_without_touching_synonyms(tmp_path):
+    ws = Workspace(tmp_path, "ko")
+    ws.write(decisions.DECISIONS, {"not_similar": [{"why": "テスト", "pairs": [{"a": "넷", "b": "네"}]}]})
+    lemma_of = {"a": "넷", "b": "네", "c": "사"}
+    words = [{"id": "a", "synonyms": ["b", "c"]}, {"id": "b", "synonyms": ["a"]}, {"id": "c", "synonyms": ["a"]}]
+    assert export._hide_synonyms(words, decisions.not_similar(ws, lemma_of)) == 1
+    assert words[0] == {"id": "a", "synonyms": ["b", "c"], "hidden_synonyms": ["b"]}
+    assert words[1] == {"id": "b", "synonyms": ["a"], "hidden_synonyms": ["a"]}
+    assert "hidden_synonyms" not in words[2]
+
+
+def test_not_similar_stops_on_a_wrong_lemma(tmp_path):
+    ws = Workspace(tmp_path, "ko")
+    ws.write(decisions.DECISIONS, {"not_similar": [{"why": "テスト", "pairs": [{"a": "넷", "b": "네"}]}]})
+    with pytest.raises(BuildError, match="見出しが違います"):
+        decisions.not_similar(ws, {"a": "넷", "b": "예"})
 
 
 def test_inclusion_is_closed_transitively_through_same_meaning_groups():

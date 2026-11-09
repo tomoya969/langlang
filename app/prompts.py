@@ -303,10 +303,10 @@ EXPLAIN_SCHEMA: dict = {
 
 
 def build_explain_prompt(sentence: dict[str, Any], words: list[dict[str, Any]], grammar: list[dict[str, Any]], level: int = 1) -> str:
-    """文の解説のプロンプト。words は文の単語（lemma・pos・meaning）、grammar は文法の表示に当たる文法リストの項目。"""
+    """文の解説のプロンプト。words は文の単語（lemma・pos・meaning）、grammar は文の文法の表示すべて（form と、文法リストにあれば ja）。"""
     tokens = "\n".join(f"- {t['surface']}" for t in sentence["tokens"])
     word_lines = "\n".join(f"- {w['lemma']}（{w['pos']}）: {w['meaning']}" for w in words)
-    grammar_lines = "\n".join(f"- {g['form']}: {g['ja']}" for g in grammar) or "\n".join(f"- {g}" for g in sentence.get("grammar", []))
+    grammar_lines = "\n".join(f"- {g['form']}: {g['ja']}" if g.get("ja") else f"- {g['form']}" for g in grammar)
     return f"""# 依頼
 
 韓国語の学習アプリで、学習者が「解説」を押した文の解説を書いてください。

@@ -346,6 +346,31 @@ def test_explain_is_made_once_and_reused(ai_client, ai, root):
     assert len(ai.calls) == 2
 
 
+def test_explain_passes_grammar_labels_missing_from_the_list(ai_client, ai, root):
+    import json
+
+    base = root / "content" / "ko"
+    (base / "grammar.json").write_text(json.dumps([{"id": "g", "level": 1, "form": "이/가", "ja": "〜が", "example": "", "unit": "T-U01"}], ensure_ascii=False), encoding="utf-8")
+    path = base / "sentences" / "T-U01.json"
+    items = json.loads(path.read_text(encoding="utf-8"))
+    items[1]["grammar"] = ["-아/어（반말）", "이/가"]
+    path.write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
+    ai.result = EXPLANATION
+    ai_client.post("/api/explain/t-s-U01-002", json={"language": "ko"})
+    assert "- -아/어（반말）\n- 이/가: 〜が" in ai.calls[0]
+
+
+def test_word_detail_leaves_out_hidden_synonyms(client, root):
+    import json
+
+    path = root / "content" / "ko" / "words.json"
+    words = json.loads(path.read_text(encoding="utf-8"))
+    words[0].update(synonyms=["t-w-0002", "t-w-0003"], hidden_synonyms=["t-w-0003"])
+    path.write_text(json.dumps(words, ensure_ascii=False), encoding="utf-8")
+    detail = client.get("/api/words/t-w-0001?language=ko").json()
+    assert [w["id"] for w in detail["synonym_words"]] == ["t-w-0002"]
+
+
 def test_explain_unknown_sentence(client):
     assert client.post("/api/explain/nope", json={"language": "ko"}).status_code == 404
 

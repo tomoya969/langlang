@@ -326,12 +326,13 @@ def test_distractors_never_include_synonyms_or_words_sharing_a_meaning():
     target = word_obj(1, "보다", "見る", pos="動詞", meanings=[{"ja": "見る", "primary": True}, {"ja": "会う", "primary": False}])
     shares = word_obj(2, "만나다", "会う", pos="動詞")  # 보다 の主な意味でない訳と同じ
     linked = word_obj(3, "구경하다", "見物する", pos="動詞", synonyms=["t-w-0001"])  # 相手の側からだけ紐づいている
+    hidden = word_obj(4, "살펴보다", "調べる", pos="動詞", synonyms=["t-w-0001"], hidden_synonyms=["t-w-0001"])  # 単語帳に出さない組もダミーにしない
     others = [word_obj(10 + i, f"다{i}", f"別の意味{i}", pos="動詞") for i in range(6)]
-    pool = [target, shares, linked, *others]
+    pool = [target, shares, linked, hidden, *others]
     rng = random.Random(0)
     for _ in range(50):
         picked = session._distractors(target, pool, rng)
-        assert shares not in picked and linked not in picked
+        assert shares not in picked and linked not in picked and hidden not in picked
         assert len(picked) == session.OPTIONS - 1
 
 

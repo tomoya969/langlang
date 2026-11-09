@@ -393,7 +393,7 @@ def create_app(
             "faces": _faces(word.id, cards),
             **_weak_view(word.id, analysis),
             "sentences": [s.to_dict() for s in content.sentences if word.id in s.word_ids],
-            "synonym_words": [content.word(c).to_dict() for c in word.synonyms if c in content._word_by_id],
+            "synonym_words": [content.word(c).to_dict() for c in word.synonyms if c in content._word_by_id and c not in word.hidden_synonyms],
             "confusable_words": [content.word(c).to_dict() for c in word.confusables if c in content._word_by_id],
             "homograph_words": [content.word(c).to_dict() for c in word.homographs if c in content._word_by_id],
             "confused_with": [{**content.word(p).to_dict(), "times": picked[p]} for p in analysis.partners_of(word.id) if p in content._word_by_id],
@@ -533,7 +533,7 @@ def _word_brief(word: content_mod.Word) -> dict[str, str]:
 def explain_prompt(content: content_mod.Content, sentence: content_mod.Sentence) -> str:
     words = [content.word(w) for w in sentence.word_ids if w in content._word_by_id]
     by_form = {g["form"]: g for g in content.grammar}
-    grammar = [by_form[g] for g in sentence.grammar if g in by_form]
+    grammar = [by_form.get(form, {"form": form}) for form in sentence.grammar]
     level = content.unit(sentence.unit).level
     return build_explain_prompt(sentence.to_dict(), [{"lemma": w.lemma, "pos": w.pos, "meaning": w.all_meanings} for w in words], grammar, level)
 
