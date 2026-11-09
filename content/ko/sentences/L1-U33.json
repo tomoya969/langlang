@@ -176,7 +176,7 @@
     "register": "반말",
     "scene": "カフェで親しい同級生に",
     "tokens": [{"surface": "응", "word_ids": ["ko-w-0844"], "eojeol": 0}, {"surface": "이", "word_ids": ["ko-w-0075"], "eojeol": 1}, {"surface": "문제", "word_ids": ["ko-w-0120"], "eojeol": 2}, {"surface": "너무", "word_ids": ["ko-w-0265"], "eojeol": 3}, {"surface": "복잡해", "word_ids": ["ko-w-0840"], "eojeol": 4}],
-    "grammar": ["-아/어요"],
+    "grammar": ["-아/어（반말）"],
     "cloze": [{"eojeol": 4, "answer": "복잡해", "hint_ja": "複雑だ", "variants": ["복잡하네", "복잡하다"]}],
     "variants": {"ko": ["응, 이 문제는 너무 복잡해.", "응, 이 문제 진짜 복잡해.", "응, 이 문제 정말 복잡해.", "응, 이 문제 너무 복잡하다.", "응, 이 문제 너무 복잡하네.", "어, 이 문제 너무 복잡해.", "응, 이 문제 엄청 복잡해."], "ja": ["うん、この問題はとても複雑だ。", "うん、この問題、複雑すぎる。", "うん、この問題すごく複雑。", "うん、この問題とても複雑だね。"]},
     "status": "approved"
