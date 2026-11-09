@@ -22,7 +22,7 @@ from typing import Any
 
 from app.claude_cli import AskFn
 from app.content import all_meanings_text
-from app.prompts import SENTENCES_STYLE, VERIFY_SENTENCES_STYLE, build_sentences_prompt, sentences_schema
+from app.prompts import build_sentences_prompt, sentences_schema, style
 from tools import batch, candidates, decisions, gen_grammar
 from tools.assign_levels import IDS, LEVEL_REST, RANKING, layout
 from tools.batch import BadOutput
@@ -181,7 +181,7 @@ def unit_fingerprint(ctx: Context, unit: dict[str, Any]) -> str:
     """ユニットの単語・使ってよい単語・文法・プロンプトの版が変わったら作り直す。"""
     return fingerprint(
         {
-            "style": [SENTENCES_STYLE, VERIFY_SENTENCES_STYLE],
+            "style": [style("sentences", ctx.level), style("verify_sentences", ctx.level)],
             "unit": unit["id"],
             "words": [w["id"] for w in ctx.unit_words(unit)],
             "allowed": sorted(ctx.lexicon(unit).allowed),
@@ -240,7 +240,9 @@ class UnitBuilder:
         if not targets:
             return False
         words = {w["id"]: w for w in self.lexicon.allowed.values()}
-        verdicts = ai_check(self.ask_check, self.unit, [(f"s{s['slot']}", s) for s in targets], self.grammar, words)
+        verdicts = ai_check(
+            self.ask_check, self.unit, [(f"s{s['slot']}", s) for s in targets], self.grammar, words, style("verify_sentences", self.ctx.level)
+        )
         for s in targets:
             verdict = verdicts[f"s{s['slot']}"]
             if verdict["ok"]:
@@ -308,6 +310,7 @@ class UnitBuilder:
             self.grammar,
             REGISTER_RULES[self.ctx.level],
             **retry,
+            version=style("sentences", self.ctx.level),
         )
         result = self.ask_write(prompt, self.schema)["sentences"]
         if not result:

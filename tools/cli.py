@@ -35,6 +35,8 @@ from app.claude_cli import AskFn
 from app.content import ContentError
 from tools import (
     assign_levels,
+    candidates,
+    decisions,
     enrich_words,
     export,
     gen_grammar,
@@ -169,22 +171,38 @@ def status(ws: Workspace) -> str:
             by_level[e["level"]] = by_level.get(e["level"], 0) + 1
     lines.append("levels: " + "、".join(f"L{lv} {n} 語" for lv, n in sorted(by_level.items())))
     units = ws.read(assign_levels.UNITS, {})
+    ids = ws.read(assign_levels.IDS, {})
+    lemma_of = {c["key"]: c["lemma"] for c in candidates.load(ws)}
+    decided = decisions.words(ws, {wid: lemma_of[key] for key, wid in ids.items() if key in lemma_of})
     for level in sorted(int(k[1:]) for k in units):
         layout = assign_levels.layout(ws, level)
         keys = [k for u in layout for k in u["keys"]]
         enriched = ws.read(enrich_words.ENRICH, {})
         verified = ws.read(verify_words.VERIFY_WORDS, {})
         grammar = ws.read(gen_grammar.GRAMMAR, {}).get(f"L{level}")
-        done_units = [u for u in layout if (ws.read(gen_sentences.unit_path(u["id"])) or {}).get("status") == gen_sentences.STATE_DONE]
+        flagged = [k for k in keys if k in verified and verify_words.problems(verified[k])]
+        settled = sum(1 for k in flagged if ids.get(k) in decided)
+        if all(k in enriched for k in keys):
+            ctx = gen_sentences.Context.load(ws, level)
+            done_units = [u for u in layout if _sentences_done(ws, ctx, u)]
+            synonyms_done = len(link_synonyms.GROUPS) - len(link_synonyms.pending(ws, level))
+        else:
+            done_units, synonyms_done = [], 0
         variants_left = sum(len(gen_variants.pending_sentences(ws, u)) for u in layout)
         lines += [
             f"L{level} units: {len(layout)} ユニット",
             f"L{level} grammar: {str(len(grammar['items'])) + ' 個' if grammar else 'まだ'}",
             f"L{level} enrich: {sum(1 for k in keys if k in enriched)}/{len(keys)} 語",
             f"L{level} verify-words: {sum(1 for k in keys if k in verified)}/{len(keys)} 語"
-            f"（要確認 {sum(1 for k in keys if k in verified and verify_words.problems(verified[k]))}）",
-            f"L{level} synonyms: {len(ws.read(link_synonyms.SYNONYMS, {}).get(f'L{level}', {}))}/{len(link_synonyms.GROUPS)} まとまり",
+            f"（要確認 {len(flagged) - settled}。ほかに work/decisions.json で決めた語 {settled}）",
+            f"L{level} synonyms: {synonyms_done}/{len(link_synonyms.GROUPS)} まとまり",
             f"L{level} sentences: {len(done_units)}/{len(layout)} ユニット",
             f"L{level} variants: 残り {variants_left} 文",
         ]
     return "\n".join(lines)
+
+
+def _sentences_done(ws: Workspace, ctx: gen_sentences.Context, unit: dict) -> bool:
+    """今の単語・文法・プロンプトの版で作り終えたユニットか（版が変わったユニットは作り直しが要る）。"""
+    state = ws.read(gen_sentences.unit_path(unit["id"])) or {}
+    return state.get("status") == gen_sentences.STATE_DONE and state.get("fingerprint") == gen_sentences.unit_fingerprint(ctx, unit)

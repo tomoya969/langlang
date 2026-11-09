@@ -21,10 +21,9 @@ from app import langs
 from app.claude_cli import AskFn
 from app.content import blank_eojeol
 from app.prompts import (
-    VARIANTS_STYLE,
-    VERIFY_VARIANTS_STYLE,
     build_variants_prompt,
     build_verify_variants_prompt,
+    style,
     variants_schema,
     verify_variants_schema,
 )
@@ -47,10 +46,10 @@ def variants_path(unit_id: str) -> str:
     return f"{VARIANTS_DIR}/{unit_id}.json"
 
 
-def sentence_fingerprint(sentence: dict[str, Any]) -> str:
+def sentence_fingerprint(sentence: dict[str, Any], level: int) -> str:
     return fingerprint(
         {
-            "style": [VARIANTS_STYLE, VERIFY_VARIANTS_STYLE],
+            "style": [style("variants", level), style("verify_variants", level)],
             "ko": sentence["ko"],
             "ja": sentence["ja"],
             "register": sentence["register"],
@@ -59,10 +58,10 @@ def sentence_fingerprint(sentence: dict[str, Any]) -> str:
     )
 
 
-def lookup(ws: Workspace, unit_id: str, sentence: dict[str, Any]) -> dict[str, list[str]] | None:
+def lookup(ws: Workspace, unit: dict[str, Any], sentence: dict[str, Any]) -> dict[str, list[str]] | None:
     """書き出し用。文の今の中身で作った許容例（ko・ja・cloze）があれば返す。"""
-    entry = (ws.read(variants_path(unit_id)) or {}).get("sentences", {}).get(str(sentence["slot"]))
-    if not entry or entry.get("fingerprint") != sentence_fingerprint(sentence):
+    entry = (ws.read(variants_path(unit["id"])) or {}).get("sentences", {}).get(str(sentence["slot"]))
+    if not entry or entry.get("fingerprint") != sentence_fingerprint(sentence, unit["level"]):
         return None
     return {"ko": entry["ko"], "ja": entry["ja"], "cloze": entry["cloze"]}
 
@@ -105,7 +104,7 @@ def pending_sentences(ws: Workspace, unit: dict[str, Any]) -> list[dict[str, Any
     return [
         s
         for s in sorted(state["sentences"], key=lambda s: s["slot"])
-        if s["status"] in (APPROVED, NEEDS_REVIEW) and lookup(ws, unit["id"], s) is None
+        if s["status"] in (APPROVED, NEEDS_REVIEW) and lookup(ws, unit, s) is None
     ]
 
 
@@ -132,7 +131,7 @@ def build_unit(unit: dict[str, Any], sentences: list[dict[str, Any]], ask_write:
     entries: dict[str, dict[str, Any]] = {}
     for key, s in zip(keys, sentences):
         bad = {(b["kind"], " ".join(b["text"].split())) for b in checked[key]["bad"]}
-        entry: dict[str, Any] = {"fingerprint": sentence_fingerprint(s)}
+        entry: dict[str, Any] = {"fingerprint": sentence_fingerprint(s, unit["level"])}
         for kind in ("ko", "ja", "cloze"):
             entry[kind] = [v for v in candidates[key][kind] if (kind, v) not in bad]
         entry["rejected"] = [{"kind": b["kind"], "text": b["text"], "reason": b["reason"]} for b in checked[key]["bad"]]

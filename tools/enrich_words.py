@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.claude_cli import AskFn
-from app.prompts import ENRICH_STYLE, build_enrich_prompt, enrich_schema
+from app.prompts import build_enrich_prompt, enrich_schema, style
 from tools import batch, candidates
 from tools.assign_levels import layout, level_entries
 from tools.batch import BadOutput
@@ -34,7 +34,8 @@ def level_words(ws: Workspace, level: int) -> list[dict[str, Any]]:
 
 def run(ws: Workspace, ask: AskFn, level: int = 1, parallel: int = 3) -> str:
     enrich: dict[str, Any] = ws.read(ENRICH, {})
-    todo = [w for w in level_words(ws, level) if enrich.get(w["key"], {}).get("style") != ENRICH_STYLE]
+    version = style("enrich", level)
+    todo = [w for w in level_words(ws, level) if enrich.get(w["key"], {}).get("style") != version]
     if not todo:
         return f"済み（L{level}）"
 
@@ -49,7 +50,7 @@ def run(ws: Workspace, ask: AskFn, level: int = 1, parallel: int = 3) -> str:
 
     def save(group: list[dict[str, Any]], result: dict[str, Any]) -> None:
         for w in group:
-            enrich[w["key"]] = {**settle(result[w["key"]]), "style": ENRICH_STYLE}
+            enrich[w["key"]] = {**settle(result[w["key"]]), "style": version}
         ws.write(ENRICH, enrich)
 
     outcome = batch.run(

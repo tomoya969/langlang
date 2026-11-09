@@ -3,8 +3,8 @@
 採点のスキーマは docs/plan.md の 5.6 の形、判定の基準は 5.2・5.3。採点のプロンプトは韓国語用。
 GRADE_STYLE を上げると、保存してある AI の判定を使わずに判定し直す（app/graded.py）。
 
-教材づくり（tools/、docs/plan.md の 6 章）のプロンプトは韓国語用。*_STYLE はプロンプトの版で、保存してある結果の版が
-今と違えば、まだ作っていないものとして作り直す（プロンプトを直したら上げる）。
+教材づくり（tools/、docs/plan.md の 6 章）のプロンプトは韓国語用。版（SUPPLEMENT_STYLE・TAG_STYLE と、レベルごとの
+LEVEL_STYLES）は、保存してある結果の版が今と違えば、まだ作っていないものとして作り直すためのもの（プロンプトを直したら上げる）。
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ GRADE_SCHEMA: dict = {
     "required": ["verdict", "meaning_ok", "issues", "corrected", "comment_ja"],
 }
 
-GRADE_STYLE = 2
+GRADE_STYLE = 3
 
 # 練習ごとの、問題の説明・不正解と注意の追加の条件・corrected の単位。
 # 判定の粒度をそろえるため、条件は箇条書きで言い切り、判定は「不正解 → 注意 → 正解」の順に確かめさせる
@@ -57,6 +57,7 @@ _GRADE_PRACTICES: dict[str, dict[str, Any]] = {
         "notes": ["問われている単語の活用した形を書いている（가다 に 가요 など）"],
         "correct": ["読み上げた語と違っても、日本語の意味に合う類語を正しく綴っていれば正解（複数に解釈できる答えはどれも正解にする）"],
         "unit": "単語だけ",
+        "other_word": True,
     },
     "sentence_cloze": {
         "about": (
@@ -180,6 +181,17 @@ _GRADE_NATIVE = {
 }
 
 
+def grade_schema(practice: str) -> dict:
+    """採点のスキーマ。綴りの面だけ、読み上げた語と違う語を書いたか（other_word）も返させる。"""
+    if not _GRADE_PRACTICES[practice].get("other_word"):
+        return GRADE_SCHEMA
+    return {
+        **GRADE_SCHEMA,
+        "properties": {**GRADE_SCHEMA["properties"], "other_word": {"type": "boolean"}},
+        "required": [*GRADE_SCHEMA["required"], "other_word"],
+    }
+
+
 def build_grade_prompt(practice: str, context: dict[str, Any], answer: str) -> str:
     """採点のプロンプト。context は練習ごとの問題の中身（app/server.py の task_for が作る）。"""
     p = _GRADE_PRACTICES[practice]
@@ -237,8 +249,17 @@ def build_grade_prompt(practice: str, context: dict[str, Any], answer: str) -> s
   - suggestion: span を直した形
   - word_id: 誤りが「問題の単語」のどれかに関わるときはその id。なければ null
 - corrected: 学習者の答えを、学習者の言い方をなるべく残して、正解になるように最小限直したもの（{p["unit"]}）。correct なら答えのまま
-- comment_ja: 判定の理由を日本語で 1〜2 文。incorrect なら、なぜ不正解なのかを 1 文目に書く。correct_with_notes なら、何が合っていて、何を直すとよいか
+- comment_ja: 判定の理由を日本語で 1〜2 文。incorrect なら、なぜ不正解なのかを 1 文目に書く。correct_with_notes なら、何が合っていて、何を直すとよいか{_other_word_rule(p)}
 """
+
+
+def _other_word_rule(practice: dict[str, Any]) -> str:
+    if not practice.get("other_word"):
+        return ""
+    return (
+        "\n- other_word: 学習者の答えが、問われている単語（模範解答。その活用形・打ち間違いも含む）ではなく、別の語なら true。"
+        "問われている単語なら false"
+    )
 
 
 def _bullets(items: list[str]) -> str:
@@ -342,14 +363,33 @@ ORIGINS = ["固有語", "漢字語", "外来語", "混種語"]
 EXCLUDE_REASONS = ["なし", "固有名詞", "古い語", "文法"]
 REGISTERS = ["합니다체", "해요체", "반말", "한다체"]
 
+# すべての候補に 1 回ずつ使う段階の版
 SUPPLEMENT_STYLE = 1
 TAG_STYLE = 1
-UNITS_STYLE = 1
-GRAMMAR_STYLE = 1
-ENRICH_STYLE = 1
-VERIFY_WORDS_STYLE = 1
-SENTENCES_STYLE = 2
-VERIFY_SENTENCES_STYLE = 2
+
+# レベルごとに作る段階の版（{レベル: 版}。書いていないレベルは、それより前のいちばん近いレベルの版を使う）。
+# 作り終えたレベルの版は変えない（変えるとそのレベルの教材を作り直すことになる）。文面を変えたら、まだ作っていない
+# レベルから新しい版にし、プロンプトは版ごとの文面を使う（作り終えたレベルには前の版の文面のまま使う）
+LEVEL_STYLES: dict[str, dict[int, int]] = {
+    "units": {1: 1},
+    "grammar": {1: 1},
+    "enrich": {1: 1},
+    "verify_words": {1: 1},
+    # 版 3: 반말・한다체 の訳し方を足した（L2 から）
+    "sentences": {1: 2, 2: 3},
+    # 版 3: 한다체 の書き言葉の文は「実際にそう書くか」で見る（L2 から）
+    "verify_sentences": {1: 2, 2: 3},
+    "variants": {1: 1},
+    "verify_variants": {1: 1},
+    # 版 3: 組の種類（同義・包含など）を返させ、包含を推移的に閉じる
+    "synonyms": {1: 3},
+}
+
+
+def style(stage: str, level: int) -> int:
+    """そのレベルで使うプロンプトの版。"""
+    versions = LEVEL_STYLES[stage]
+    return versions[max(lv for lv in versions if lv <= level)]
 
 
 def _keyed_schema(field: str, keys: list[str], item: dict) -> dict:
@@ -722,20 +762,28 @@ def build_verify_words_prompt(items: list[dict]) -> str:
 
 # 類語の紐づけ（矢印ゲームで、正解の語の類語をダミーに出さないため。tools/link_synonyms.py）
 
-SYNONYMS_STYLE = 2
+# 組の種類。同義・敬語・話し言葉と書き言葉は同じ意味の言い換え、包含は a が b を含む（a が広い）、一部が重なるは訳の一部だけが同じ
+SYNONYM_KINDS = ["同義", "包含", "敬語", "話し言葉と書き言葉", "一部が重なる"]
 
 
 def synonyms_schema(word_ids: list[str]) -> dict:
-    pair = _obj({"a": {"type": "string", "enum": word_ids}, "b": {"type": "string", "enum": word_ids}, "reason": {"type": "string"}})
+    pair = _obj(
+        {
+            "a": {"type": "string", "enum": word_ids},
+            "b": {"type": "string", "enum": word_ids},
+            "kind": {"type": "string", "enum": SYNONYM_KINDS},
+            "reason": {"type": "string"},
+        }
+    )
     return _obj({"pairs": {"type": "array", "items": pair}})
 
 
-def build_synonyms_prompt(group: str, words: list[dict], found: list[tuple[str, str]] | None = None) -> str:
-    """words: id, lemma, pos, meaning（すべての意味）。found を渡すと、それ以外の見落としだけを挙げさせる（2 回目の呼び出し）。"""
+def build_synonyms_prompt(group: str, words: list[dict], found: list[tuple[str, str, str]] | None = None) -> str:
+    """words: id, lemma, pos, meaning（すべての意味）。found（a, b, 種類）を渡すと、それ以外の見落としだけを挙げさせる（2 回目の呼び出し）。"""
     lemma = {w["id"]: w["lemma"] for w in words}
     review = (
         "\n# すでに挙がった組\n\n別の担当が下の組を挙げました。これらは挙げなくてよい。見落としている組だけを、一覧を 1 語ずつ見直して挙げてください。\n\n"
-        + ("\n".join(f"- {lemma[a]}（{a}）／{lemma[b]}（{b}）" for a, b in found) or "（なし）")
+        + ("\n".join(f"- {lemma[a]}（{a}）／{lemma[b]}（{b}）: {kind}" for a, b, kind in found) or "（なし）")
         + "\n"
         if found is not None
         else ""
@@ -746,13 +794,14 @@ def build_synonyms_prompt(group: str, words: list[dict], found: list[tuple[str, 
 ダミーの選択肢には、ほかの単語の意味を使います。正しい答えが選択肢の中に 1 つだけになるように、ダミーにしてはいけない組を挙げてください。
 下の単語（{group}）のうち、片方の問題に、もう片方をダミーとして出すと、どちらを選んでも正解と言えてしまう（間違いと言い切れない）組をすべて挙げてください。
 
-# 挙げる組
+# 挙げる組と種類（kind）
 
-- 類語・同じ意味の語（아버지／아빠、집／댁、말／얘기）
-- 意味の一部が重なる語（보다＝見る・会う と 만나다＝会う）
-- 片方がもう片方を含む語（고기＝肉 と 쇠고기＝牛肉、과일＝果物 と 사과＝りんご は、사과 の問題で「果物」を選んでも間違いと言い切れない）
-- 敬語とふつうの言い方（먹다／드시다、자다／주무시다、있다／계시다）
-- 書き言葉と話し言葉（그러나／하지만）
+- 同義: 類語・同じ意味の語（아버지／아빠、집／댁、말／얘기）
+- 包含: 片方がもう片方を含む語。a に広い語、b に含まれる語を書く（a＝고기（肉）、b＝쇠고기（牛肉）。a＝과일（果物）、b＝사과（りんご）。
+  사과 の問題で「果物」を選んでも間違いと言い切れない）
+- 敬語: 敬語とふつうの言い方（먹다／드시다、자다／주무시다、있다／계시다）
+- 話し言葉と書き言葉: 同じ意味の、話し言葉と書き言葉（하지만／그러나）
+- 一部が重なる: 意味の一部だけが重なる語（보다＝見る・会う と 만나다＝会う）
 
 # 挙げない組
 
@@ -760,7 +809,7 @@ def build_synonyms_prompt(group: str, words: list[dict], found: list[tuple[str, 
 
 # 書き方
 
-- a と b は下の一覧の id。同じ組を 2 回挙げない。reason は日本語で短く
+- a と b は下の一覧の id。同じ組を 2 回挙げない。包含だけは向きがあるので、a に広い語を書く。reason は日本語で短く
 - 迷ったら挙げる（挙げすぎても、ダミーの候補が少し減るだけなので）
 {review}
 # 単語（id: 単語（品詞）意味）
@@ -802,8 +851,10 @@ def build_sentences_prompt(
     retry: list[dict] | None = None,
     must_use: list[dict] | None = None,
     keep: list[str] | None = None,
+    version: int = 2,
 ) -> str:
-    """unit: id, title, scene。*_words: id, lemma, pos, meaning。grammar: form, ja, new（このユニットから使えるか）。
+    """unit: id, title, scene, level。*_words: id, lemma, pos, meaning。grammar: form, ja, new（このユニットから使えるか）。
+    version はプロンプトの版（style("sentences", level)）。
 
     初めて作るときは retry も keep も渡さない。作り直すときは retry（ko と problems）を渡す。
     まだどの文にも出てこない単語の文を足すときは、retry を渡さずに must_use と keep を渡す。
@@ -859,7 +910,7 @@ def build_sentences_prompt(
 # 書き方
 
 - ko: 韓国語の文。分かち書きは標準どおり。文末は「.」か「?」
-- ja: 自然な日本語訳。해요체・합니다체の文は「です・ます」で、반말の文はくだけた話し言葉（〜だよ、〜する？）で、한다체の文は「だ・である」で訳す
+- ja: 自然な日本語訳。{"해요체・합니다체の文は「です・ます」で、반말の文はくだけた話し言葉（〜だよ、〜する？）で、한다체の文は「だ・である」で訳す" if version >= 3 else "해요체・합니다체の文は「です・ます」で訳す"}
 - register: 文体
 - scene: 誰がどこで言うか（日本語、15 字ほどまで。例:「カフェで店員に」）
 - tokens: ko を空白で区切った語節を、前から順にすべて並べる。surface は語節の表記（句読点を除く）。
@@ -900,7 +951,7 @@ def verify_sentences_schema(keys: list[str], grammar_forms: list[str]) -> dict:
     return _keyed_schema("sentences", keys, item)
 
 
-def build_verify_sentences_prompt(unit: dict, items: list[dict], grammar: list[dict]) -> str:
+def build_verify_sentences_prompt(unit: dict, items: list[dict], grammar: list[dict], version: int = 2) -> str:
     """items: key, ko, ja, register, grammar, words（[{lemma, pos, meaning}]）, cloze（answer, hint_ja）, variants。"""
     blocks = []
     for item in items:
@@ -929,7 +980,7 @@ def build_verify_sentences_prompt(unit: dict, items: list[dict], grammar: list[d
 
 次のどれかに当てはまれば ok を false にして、problems に何が問題かを日本語で短く書く（ok が true なら problems は空）。
 
-- ko が韓国語として正しく自然か（文法・語の選び方・分かち書き・綴り・句読点）。実際の会話でそう言うか（한다체 の書き言葉の文は、実際にそう書くか）
+- ko が韓国語として正しく自然か（文法・語の選び方・分かち書き・綴り・句読点）。実際の会話でそう言うか{"（한다체 の書き言葉の文は、実際にそう書くか）" if version >= 3 else ""}
 - ja が ko の意味を過不足なく訳しているか
 - register（文体）の表示が ko と合っているか（あいさつなどの決まった表現が別の文体なのはよい）
 - ko が「使える文法」にない語尾や文型を使っていないか
@@ -960,8 +1011,6 @@ sentences のキーは、下の「## 」の後ろのキーをそのまま使う�
 # 採点は、答えが模範解答か許容例に一致すれば AI を呼ばずに正解にする。誤った許容例は誤りを正解として覚えさせるので、
 # 作る呼び出しと検算する呼び出しを分ける
 
-VARIANTS_STYLE = 1
-VERIFY_VARIANTS_STYLE = 1
 
 
 def variants_schema(keys: list[str]) -> dict:

@@ -76,7 +76,7 @@ class FakeAI:
             lemmas = dict(re.findall(r"^(ko-w-\d{4}): (.+?)（", prompt, re.M))
             by_lemma = {v: k for k, v in lemmas.items()}
             pair = [by_lemma.get("가다"), by_lemma.get("주다")]
-            return {"pairs": [{"a": pair[0], "b": pair[1], "reason": "テスト"}] if all(pair) and set(pair) <= set(ids) else []}
+            return {"pairs": [{"a": pair[0], "b": pair[1], "kind": "同義", "reason": "テスト"}] if all(pair) and set(pair) <= set(ids) else []}
         if field == "items":
             self.calls.append("grammar")
             unit = props["items"]["properties"]["unit"]["enum"][0]
@@ -340,3 +340,31 @@ def test_second_level_builds_on_the_first(tmp_path):
     assert by_ko["물 주세요."].unit == "L2-U01"
     assert words["주다"].id in by_ko["물 주세요."].word_ids  # L1 の単語を使う L2 の文も、整合の確かめを通る
     assert {g["level"] for g in loaded.grammar} == {1, 2}
+
+
+def test_export_and_status_follow_what_is_built(tmp_path):
+    """文法リストは、ユニットを書き出すレベルの分だけ書き出す。status は人が決めた語を要確認に数えない（1-16）。"""
+    from tools import cli
+
+    ws = Workspace(tmp_path, "ko")
+    ws.sources.mkdir(parents=True)
+    (ws.sources / "nikl.txt").write_text(NIKL_TEXT, encoding="utf-8")
+    ai = FakeAI()
+    import_nikl.run(ws)
+    supplement.run(ws, ai)
+    tag_candidates.run(ws, ai)
+    assign_levels.rank(ws, sizes={1: 9, 2: 2})  # 커피（偽の検算が要確認にする語）を L1 に入れる
+    for level in (1, 2):
+        assign_levels.run_units(ws, ai, level)
+        gen_grammar.run(ws, ai, level)
+    enrich_words.run(ws, ai, 1)
+    verify_words.run(ws, ai, 1)
+    export.run(ws)
+    loaded = content.load(tmp_path, "ko", approved_only=False)
+    assert {u.level for u in loaded.units} == {1}  # L2 は詳しい付与がまだなので書き出さない
+    assert {g["level"] for g in loaded.grammar} == {1}
+
+    assert "（要確認 1。ほかに work/decisions.json で決めた語 0）" in cli.status(ws)
+    coffee = next(w for w in loaded.words if w.lemma == "커피")
+    ws.write(decisions.DECISIONS, {"words": {coffee.id: {"lemma": "커피", "meanings": [{"ja": "コーヒー", "primary": True}]}}})
+    assert "（要確認 0。ほかに work/decisions.json で決めた語 1）" in cli.status(ws)

@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.claude_cli import AskFn
-from app.prompts import VERIFY_WORDS_STYLE, build_verify_words_prompt, verify_words_schema
+from app.prompts import build_verify_words_prompt, style, verify_words_schema
 from tools import batch, candidates
 from tools.batch import BadOutput
 from tools.enrich_words import ENRICH, level_words
@@ -26,7 +26,8 @@ def run(ws: Workspace, ask: AskFn, level: int = 1, parallel: int = 3) -> str:
     enrich: dict[str, Any] = ws.read(ENRICH, {})
     verified: dict[str, Any] = ws.read(VERIFY_WORDS, {})
     words = [w for w in level_words(ws, level) if w["key"] in enrich]
-    todo = [w for w in words if not _current(verified.get(w["key"]), enrich[w["key"]])]
+    version = style("verify_words", level)
+    todo = [w for w in words if not _current(verified.get(w["key"]), enrich[w["key"]], version)]
     if not todo:
         return f"済み（L{level} の {len(words)} 語）"
 
@@ -44,7 +45,7 @@ def run(ws: Workspace, ask: AskFn, level: int = 1, parallel: int = 3) -> str:
 
     def save(group: list[dict[str, Any]], result: dict[str, Any]) -> None:
         for w in group:
-            verified[w["key"]] = {**result[w["key"]], "of": fingerprint(enrich[w["key"]]), "style": VERIFY_WORDS_STYLE}
+            verified[w["key"]] = {**result[w["key"]], "of": fingerprint(enrich[w["key"]]), "style": version}
         ws.write(VERIFY_WORDS, verified)
 
     outcome = batch.run(
@@ -54,8 +55,8 @@ def run(ws: Workspace, ask: AskFn, level: int = 1, parallel: int = 3) -> str:
     return f"L{level} の {len(todo)} 語: {outcome.summary()}。要確認 {flagged} 語"
 
 
-def _current(result: dict[str, Any] | None, enriched: dict[str, Any]) -> bool:
-    return bool(result) and result.get("style") == VERIFY_WORDS_STYLE and result.get("of") == fingerprint(enriched)
+def _current(result: dict[str, Any] | None, enriched: dict[str, Any], version: int) -> bool:
+    return bool(result) and result.get("style") == version and result.get("of") == fingerprint(enriched)
 
 
 def problems(result: dict[str, Any]) -> list[str]:

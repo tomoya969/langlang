@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.claude_cli import AskFn
-from app.prompts import GRAMMAR_SCOPES, GRAMMAR_STYLE, build_grammar_prompt, grammar_schema
+from app.prompts import GRAMMAR_SCOPES, build_grammar_prompt, grammar_schema, style
 from tools import batch, candidates
 from tools.assign_levels import layout
 from tools.batch import BadOutput
@@ -19,8 +19,8 @@ GRAMMAR = "grammar.json"
 MIN_ITEMS = 20
 
 
-def _fingerprint(units: list[dict[str, Any]]) -> str:
-    return fingerprint({"style": GRAMMAR_STYLE, "units": [[u["id"], u["title"], u["keys"]] for u in units]})
+def _fingerprint(units: list[dict[str, Any]], level: int) -> str:
+    return fingerprint({"style": style("grammar", level), "units": [[u["id"], u["title"], u["keys"]] for u in units]})
 
 
 def run(ws: Workspace, ask: AskFn, level: int = 1) -> str:
@@ -28,7 +28,7 @@ def run(ws: Workspace, ask: AskFn, level: int = 1) -> str:
         raise BuildError(f"L{level} の文法の範囲がまだ決まっていません（app/prompts.py の GRAMMAR_SCOPES）")
     units = layout(ws, level)
     saved = ws.read(GRAMMAR, {})
-    fp = _fingerprint(units)
+    fp = _fingerprint(units, level)
     if saved.get(f"L{level}", {}).get("fingerprint") == fp:
         return f"済み（L{level} の文法 {len(saved[f'L{level}']['items'])} 個）"
     lemmas = {c["key"]: c["lemma"] for c in candidates.load(ws)}

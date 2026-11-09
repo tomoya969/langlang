@@ -15,7 +15,7 @@ import statistics
 from typing import Any
 
 from app.claude_cli import AskFn
-from app.prompts import UNITS_STYLE, build_units_prompt, units_schema
+from app.prompts import build_units_prompt, style, units_schema
 from tools import batch, candidates
 from tools.batch import BadOutput
 from tools.ko.fixed import GREETING, fixed_categories
@@ -153,8 +153,8 @@ def bands(entries: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
     return [b for b in result if b]
 
 
-def _band_fingerprint(band: list[dict[str, Any]], first: bool) -> str:
-    return fingerprint({"style": UNITS_STYLE, "keys": [e["key"] for e in band], "first": first})
+def _band_fingerprint(band: list[dict[str, Any]], first: bool, level: int) -> str:
+    return fingerprint({"style": style("units", level), "keys": [e["key"] for e in band], "first": first})
 
 
 def run_units(ws: Workspace, ask: AskFn, level: int = 1) -> str:
@@ -171,7 +171,7 @@ def run_units(ws: Workspace, ask: AskFn, level: int = 1) -> str:
     done = 0
     for index, band in enumerate(level_bands):
         first = index == 0 and level == 1 and bool(band[0].get("fixed"))
-        fp = _band_fingerprint(band, first)
+        fp = _band_fingerprint(band, first, level)
         if fp in previous:
             records.append(previous[fp])
             continue

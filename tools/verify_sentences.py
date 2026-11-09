@@ -80,9 +80,14 @@ class Checker:
 
 
 def ai_check(
-    ask: AskFn, unit: dict[str, Any], items: list[tuple[str, dict[str, Any]]], grammar: list[dict[str, Any]], words: dict[str, dict[str, Any]]
+    ask: AskFn,
+    unit: dict[str, Any],
+    items: list[tuple[str, dict[str, Any]]],
+    grammar: list[dict[str, Any]],
+    words: dict[str, dict[str, Any]],
+    version: int,
 ) -> dict[str, dict[str, Any]]:
-    """AI の検算。items は (キー, 文)。キーごとに ok・problems・正しい文法の表示・取り除く許容例を返す。"""
+    """AI の検算。items は (キー, 文)、version はプロンプトの版。キーごとに ok・problems・正しい文法の表示・取り除く許容例を返す。"""
     keys = [key for key, _ in items]
     forms = [g["form"] for g in grammar]
     prompt_items = [
@@ -98,7 +103,7 @@ def ai_check(
         }
         for key, s in items
     ]
-    result = ask(build_verify_sentences_prompt(unit, prompt_items, grammar), verify_sentences_schema(keys, forms))["sentences"]
+    result = ask(build_verify_sentences_prompt(unit, prompt_items, grammar, version), verify_sentences_schema(keys, forms))["sentences"]
     missing = [k for k in keys if k not in result]
     if missing:
         raise BadOutput(f"検算が返ってこなかった文があります: {'、'.join(missing)}")
