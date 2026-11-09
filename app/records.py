@@ -32,6 +32,12 @@ RATINGS = {"again": Rating.Again, "hard": Rating.Hard, "good": Rating.Good, "eas
 # 文の段階（docs/plan.md 4.7）。0 は導入で、記録は導入のあとの最初の出題（段階 1）から作る
 FIRST_STAGE = 1
 LAST_STAGE = 5
+# 産出（自分で韓国語の文を作る）の練習。段階 4 から 5 へは、これで正解したときだけ上げる
+PRODUCTION_PRACTICES = ("sentence_ja_to_ko", "sentence_compose")
+# FSRS を動かさずに解答だけを残す理由（reviews.detail の reason。単語帳の履歴に理由を出す）
+NOTE_CONTEXT = "context"  # 文の問題で出会った（文脈の面）
+NOTE_NO_CARD = "no_card"  # 文の誤りを、まだ出していない面に返した
+NOTE_OTHER_WORD = "other_word"  # 綴りの面で、読み上げた語と違う正しい語を書いた
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS cards (
@@ -117,9 +123,12 @@ def next_day_start(now: datetime) -> datetime:
     return day_start(now) + timedelta(days=1)
 
 
-def next_stage(stage: int, rating: str) -> int:
-    """正解（Good・Easy）で 1 つ上へ、注意つき（Hard）ならそのまま、不正解（Again）なら 1 つ下へ（最低は 1）。"""
+def next_stage(stage: int, rating: str, practice: str | None = None) -> int:
+    """正解（Good・Easy）で 1 つ上へ、注意つき（Hard）ならそのまま、不正解（Again）なら 1 つ下へ（最低は 1）。
+    段階 4（応用作文）から 5 へは、産出の練習で正解したときだけ上げる（書き取りで上がると、自分で文を作らないまま定着になるため）。"""
     if rating in ("good", "easy"):
+        if stage == 4 and practice not in PRODUCTION_PRACTICES:
+            return stage
         return min(LAST_STAGE, stage + 1)
     if rating == "again":
         return max(FIRST_STAGE, stage - 1)
@@ -224,7 +233,7 @@ class Records:
             counted = last is None or last < day_start(now)
             if counted:
                 card, _ = self.scheduler.review_card(current.card, RATINGS[rating], now_utc)
-                stage = next_stage(current.stage, rating) if current.stage is not None else None
+                stage = next_stage(current.stage, rating, practice) if current.stage is not None else None
                 current = CardRow(item_id, face, card, current.introduced_at, stage)
                 conn.execute(
                     """INSERT INTO cards (language, kind, item_id, face, state, step, stability, difficulty, due, last_review, introduced_at, stage)
@@ -273,9 +282,11 @@ class Records:
         rating: str,
         correct: bool,
         now: datetime,
+        reason: str,
         detail: dict[str, Any] | None = None,
     ) -> None:
-        """FSRS を動かさず、カードも作らずに解答だけを残す（文脈の面、まだ出していない面への文の誤り）。"""
+        """FSRS を動かさず、カードも作らずに解答だけを残す。reason は NOTE_* のどれか。"""
+        detail = {**(detail or {}), "reason": reason}
         with self._connect() as conn:
             conn.execute(
                 """INSERT INTO reviews (language, kind, item_id, face, practice, reviewed_at, rating, counted, correct, elapsed_sec, answer, detail)
@@ -301,6 +312,17 @@ class Records:
             ).fetchall()
         return [{"item_id": r["item_id"], "face": r["face"], "practice": r["practice"], "correct": bool(r["correct"]), "elapsed_sec": r["elapsed_sec"]} for r in rows]
 
+    def last_reviewed(self, language: str, kind: str, practices: tuple[str, ...]) -> dict[str, datetime]:
+        """item_id → その練習で最後に答えた時刻。"""
+        marks = ", ".join("?" for _ in practices)
+        with self._connect() as conn:
+            rows = conn.execute(
+                f"""SELECT item_id, MAX(reviewed_at) AS at FROM reviews
+                    WHERE language = ? AND kind = ? AND practice IN ({marks}) GROUP BY item_id""",
+                (language, kind, *practices),
+            ).fetchall()
+        return {r["item_id"]: datetime.fromisoformat(r["at"]) for r in rows}
+
     def confuse(self, language: str, word_id: str, picked_id: str, face: str, now: datetime) -> None:
         with self._connect() as conn:
             conn.execute(
@@ -308,27 +330,32 @@ class Records:
                 (language, word_id, picked_id, face, now.astimezone(timezone.utc).isoformat()),
             )
 
-    def confusion_counts(self, language: str) -> dict[str, dict[str, int]]:
-        """正解の語 → {選んでしまった語: 回数}。"""
+    def confusion_counts(self, language: str, since: datetime | None = None) -> dict[str, dict[str, int]]:
+        """正解の語 → {選んでしまった語: 取り違えた日数}。同じ日の取り違えは 1 回と数える（1 日 1 組 1 回）。
+        since を渡すと、その時刻より後の取り違えだけを数える。"""
         with self._connect() as conn:
             rows = conn.execute(
-                "SELECT word_id, picked_id, COUNT(*) AS n FROM confusions WHERE language = ? GROUP BY word_id, picked_id",
-                (language,),
+                "SELECT word_id, picked_id, confused_at FROM confusions WHERE language = ? AND confused_at >= ?",
+                (language, since.astimezone(timezone.utc).isoformat() if since else ""),
             ).fetchall()
-        result: dict[str, dict[str, int]] = {}
+        days: dict[str, dict[str, set[datetime]]] = {}
         for r in rows:
-            result.setdefault(r["word_id"], {})[r["picked_id"]] = r["n"]
-        return result
+            days.setdefault(r["word_id"], {}).setdefault(r["picked_id"], set()).add(day_start(datetime.fromisoformat(r["confused_at"])))
+        return {wid: {picked: len(d) for picked, d in by_picked.items()} for wid, by_picked in days.items()}
 
     def history(self, language: str, kind: str, item_id: str, limit: int = 30) -> list[dict[str, Any]]:
+        """解答の履歴（新しい順）。文脈の記録は数が多く、学習の結果ではないので除く（文脈は review_count で数える）。
+        FSRS を動かさなかった解答には、その理由（reason: NOTE_* か、同じ日の 2 回目以降の same_day）を付ける。"""
         with self._connect() as conn:
             rows = conn.execute(
-                """SELECT face, practice, reviewed_at, rating, counted, correct, elapsed_sec FROM reviews
-                   WHERE language = ? AND kind = ? AND item_id = ? ORDER BY reviewed_at DESC, id DESC LIMIT ?""",
-                (language, kind, item_id, limit),
+                """SELECT face, practice, reviewed_at, rating, counted, correct, elapsed_sec, detail FROM reviews
+                   WHERE language = ? AND kind = ? AND item_id = ? AND face != ? ORDER BY reviewed_at DESC, id DESC LIMIT ?""",
+                (language, kind, item_id, NOTE_CONTEXT, limit),
             ).fetchall()
-        return [
-            {
+        result = []
+        for r in rows:
+            detail = json.loads(r["detail"]) if r["detail"] else {}
+            result.append({
                 "face": r["face"],
                 "practice": r["practice"],
                 "reviewed_at": datetime.fromisoformat(r["reviewed_at"]).astimezone().isoformat(timespec="minutes"),
@@ -336,9 +363,9 @@ class Records:
                 "counted": bool(r["counted"]),
                 "correct": bool(r["correct"]),
                 "elapsed_sec": r["elapsed_sec"],
-            }
-            for r in rows
-        ]
+                "reason": None if r["counted"] else detail.get("reason", "same_day"),
+            })
+        return result
 
     def retrievability(self, card: CardRow, now: datetime) -> float:
         return self.scheduler.get_card_retrievability(card.card, now.astimezone(timezone.utc))

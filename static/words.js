@@ -30,7 +30,7 @@ function renderList() {
     if (f.level && String(w.level) !== f.level) return false;
     if (f.unit && w.unit !== f.unit) return false;
     if (f.state === "weak" ? !w.weak : f.state && w.state !== f.state) return false;
-    if (f.q && !w.lemma.toLowerCase().includes(f.q) && !w.meaning.toLowerCase().includes(f.q)) return false;
+    if (f.q && !w.lemma.toLowerCase().includes(f.q) && !w.all_meanings.toLowerCase().includes(f.q)) return false;
     return true;
   });
   document.getElementById("f-count").textContent = `${rows.length} 語`;
@@ -124,6 +124,12 @@ function contextRow(label, count) {
 }
 
 const RATING_LABELS = { again: "もう一度", hard: "難しい", good: "ふつう", easy: "簡単" };
+// FSRS を動かさなかった解答の理由（app/records.py の NOTE_* と same_day）
+const NOT_COUNTED = {
+  same_day: "評価に使わない（同じ日の 2 回目以降）",
+  no_card: "記録だけ（文の問題の誤り。この面はまだ出していない）",
+  other_word: "記録だけ（読み上げた語と違う正しい語を書いた）",
+};
 
 function historyRow(h) {
   const face = (FACES.find(([key]) => key === h.face) || [h.face, h.face])[1];
@@ -133,7 +139,7 @@ function historyRow(h) {
     el("span", { class: "history-date", text: shortDate(h.reviewed_at, true) }),
     el("span", { text: face }),
     el("span", { class: "history-rating", text: RATING_LABELS[h.rating] || h.rating }),
-    h.counted ? null : el("span", { class: "note", text: "評価に使わない（同じ日の 2 回目以降）" }),
+    h.counted ? null : el("span", { class: "note", text: NOT_COUNTED[h.reason] || NOT_COUNTED.same_day }),
   );
 }
 

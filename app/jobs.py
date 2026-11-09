@@ -1,6 +1,7 @@
 """時間のかかる処理（AI 採点、解説、教材づくり）をバックグラウンドのスレッドで実行し、状態を問い合わせられるようにする（suburi から移植）。
 
-ローカルの 1 人用なので、同時に動くジョブは 1 つだけ。実行中に次の要求が来たら JobBusy を投げる。
+ローカルの 1 人用なので、同時に動くジョブは種類（採点・解説・教材づくり）ごとに 1 つだけ。同じ種類のジョブの実行中に
+次の要求が来たら JobBusy を投げる。種類が違えば並べて動かす（採点を待つ間に解説を押せるように）。
 ジョブはメモリ上にだけ持つ（サーバーを再起動すると消える。結果は保存先に書かれているので困らない）。
 """
 
@@ -87,7 +88,7 @@ class JobStore:
 
     def submit(self, kind: str, fn: JobFn) -> Job:
         with self._lock:
-            self._ensure_idle_locked()
+            self._ensure_idle_locked(kind)
             job = Job(id=uuid.uuid4().hex[:12], kind=kind, created_at=now_iso())
             self._jobs[job.id] = job
             self._prune_locked()
@@ -104,8 +105,8 @@ class JobStore:
     def active(self) -> list[Job]:
         return [job for job in self._jobs.values() if job.status == STATUS_RUNNING]
 
-    def _ensure_idle_locked(self) -> None:
-        running = [job for job in self._jobs.values() if job.status == STATUS_RUNNING]
+    def _ensure_idle_locked(self, kind: str) -> None:
+        running = [job for job in self._jobs.values() if job.status == STATUS_RUNNING and job.kind == kind]
         if running:
             raise JobBusy(f"処理中です（{running[0].label}）。終わるまで待ってください")
 

@@ -51,6 +51,8 @@ class Judgement:
     corrected: str | None = None
     comment_ja: str = ""
     diff: list[dict[str, Any]] | None = None  # 直した答えとの文字単位の差分
+    # 綴りの面で、読み上げた語とは違う正しい語を書いた（正解と表示するが、読み上げた語の綴りの記録には使わない）
+    other_word: bool = False
 
     @property
     def rating(self) -> str:
@@ -65,6 +67,7 @@ class Judgement:
             "corrected": self.corrected,
             "comment_ja": self.comment_ja,
             "diff": self.diff,
+            "other_word": self.other_word,
         }
 
     @classmethod
@@ -76,6 +79,7 @@ class Judgement:
             corrected=data.get("corrected"),
             comment_ja=data.get("comment_ja") or "",
             diff=data.get("diff"),
+            other_word=bool(data.get("other_word")),
         )
 
 
@@ -130,7 +134,7 @@ def judge_machine(pack: LanguagePack, answer: str, expected: str, variants: tupl
 def judge_ai(pack: LanguagePack, task: Task, answer: str, ask: AskFn) -> Judgement:
     """機械で決まらなかった答えを AI に判定させる。"""
     prompt = prompts.build_grade_prompt(task.type, task.context, answer.strip())
-    raw = ask(prompt, prompts.GRADE_SCHEMA)
+    raw = ask(prompt, prompts.grade_schema(task.type))
     verdict = raw["verdict"]
     issues = [_clean_issue(i, task.word_ids) for i in raw.get("issues") or []]
     # 直すところを挙げたのに「正解」と返すことがある。注意があるなら注意つきにそろえる
@@ -144,7 +148,8 @@ def judge_ai(pack: LanguagePack, task: Task, answer: str, ask: AskFn) -> Judgeme
     if verdict != VERDICT_CORRECT and corrected is not None and task.normalize(pack, corrected) != norm:
         # 差分は見せるための文字の並びなので、記号を除かない形で比べる
         diff = char_diff(pack.normalize(answer), pack.normalize(corrected))
-    return Judgement(verdict, "ai", issues=issues, corrected=corrected, comment_ja=(raw.get("comment_ja") or "").strip(), diff=diff)
+    other_word = bool(raw.get("other_word")) and verdict != VERDICT_INCORRECT
+    return Judgement(verdict, "ai", issues=issues, corrected=corrected, comment_ja=(raw.get("comment_ja") or "").strip(), diff=diff, other_word=other_word)
 
 
 def _clean_issue(issue: dict[str, Any], word_ids: tuple[str, ...]) -> dict[str, Any]:

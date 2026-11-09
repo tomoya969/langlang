@@ -347,3 +347,99 @@ def test_listen_choose_skips_sentences_with_the_same_translation(root):
     for _ in range(30):
         item = session._sentence_item("listen_choose", c.sentence("t-s-U01-001"), c, set(), rng)
         assert "t-s-U02-002" not in {o["sentence_id"] for o in item["options"]}
+
+
+# ---- クロスレビューの指摘（1-2・1-6・1-7・1-8・1-12・1-19） ----
+
+
+def test_listening_options_never_sound_the_same():
+    # 입（口）と 잎（葉）は発音が同じ。聞き取りでは、取り違えの相手・形の近い語に入っていても並べない
+    mouth = word_obj(1, "입", "口", pos="名詞", confusables=["t-w-0002"])
+    leaf = word_obj(2, "잎", "葉", pos="名詞")
+    others = [word_obj(10 + i, f"말{i}", f"別{i}", pos="名詞") for i in range(6)]
+    pool = [mouth, leaf, *others]
+    rng = random.Random(0)
+    for _ in range(50):
+        item = session._word_item("listen", mouth, pool, pack, rng, True, ["t-w-0002"])
+        assert "葉" not in {o["label"] for o in item["options"]}
+    # 文字を見る意味の面では、見分けられるので入れてよい
+    assert any("葉" in {o["label"] for o in session._word_item("meaning", mouth, pool, pack, rng, True, ["t-w-0002"])["options"]} for _ in range(10))
+
+
+def test_distractors_do_not_clash_with_each_other():
+    target = word_obj(1, "가다", "行く", pos="動詞")
+    a = word_obj(2, "보다", "見る", pos="動詞", synonyms=["t-w-0003"])
+    b = word_obj(3, "구경하다", "見物する", pos="動詞")  # a の類語
+    c = word_obj(4, "놓다", "置く", pos="動詞")
+    d = word_obj(5, "두다", "置く", pos="動詞")  # c と表示が同じ
+    e = word_obj(6, "차", "お茶", pos="動詞", homographs=["t-w-0007"])
+    f = word_obj(7, "차", "車", pos="動詞", homographs=["t-w-0006"])  # e と同じ綴り
+    g = word_obj(8, "먹다", "食べる・いただく", pos="動詞")
+    h = word_obj(9, "드시다", "召し上がる・いただく", pos="動詞")  # g と訳が重なる
+    pool = [target, a, b, c, d, e, f, g, h]
+    rng = random.Random(1)
+    clashing = [{"t-w-0002", "t-w-0003"}, {"t-w-0004", "t-w-0005"}, {"t-w-0006", "t-w-0007"}, {"t-w-0008", "t-w-0009"}]
+    for face in ("meaning", "reverse"):
+        for _ in range(100):
+            ids = {o["word_id"] for o in session._word_item(face, target, pool, pack, rng)["options"]}
+            assert len(ids) == session.OPTIONS
+            assert not any(pair <= ids for pair in clashing)
+
+
+def test_first_questions_follow_intro_order_with_gaps():
+    # 出題は導入の順（列の終わりで詰めるときも）。どの出題も導入から RECALL_GAP の最小の数以上あとに出る
+    intros = [({"type": "intro", "n": n}, {"type": "first", "n": n}) for n in range(6)]
+    for seed in range(50):
+        items = session._interleave(intros, [{"type": "review"}] * (seed % 4), session.RECALL_GAP, random.Random(seed))
+        firsts = [i["n"] for i in items if i["type"] == "first"]
+        assert firsts == sorted(firsts)
+        for n in range(6):
+            intro = next(k for k, i in enumerate(items) if i["type"] == "intro" and i["n"] == n)
+            first = next(k for k, i in enumerate(items) if i["type"] == "first" and i["n"] == n)
+            assert first - intro - 1 >= session.RECALL_GAP[0]
+
+
+def test_sentence_reviews_are_capped_and_output_goes_to_the_least_recently_produced(root):
+    records = Records(root, make_scheduler(fuzz=False))
+    for sid in ("t-s-U01-001", "t-s-U01-002", "t-s-U02-001", "t-s-U02-002"):
+        answer_sentence(records, sid, "good", "good")  # 段階 3
+    later = NOW + timedelta(days=365)
+    c = content.load(root, "ko")
+    sentence_cards = {sid: card for (sid, _), card in records.cards("ko", "sentence").items()}
+    cfg = {**settings.DEFAULTS, "sentence_review_limit": 3, "new_sentences_per_day": 0}
+    plan = session.build(c, pack, cfg, {}, later, rng=random.Random(1), sentence_cards=sentence_cards)
+    assert sum(1 for i in plan["items"] if "stage" in i) == 3  # 文の復習は上限まで
+    # 産出は、まだ産出していない文、次に最後の産出が古い文から
+    produced = {"t-s-U01-001": later - timedelta(days=1), "t-s-U01-002": later - timedelta(days=30)}
+    reviews = [(c.sentence(s), 3) for s in ("t-s-U01-001", "t-s-U01-002", "t-s-U02-001", "t-s-U02-002")]
+    assert session.output_sentences(reviews, produced) == {"t-s-U02-001", "t-s-U02-002", "t-s-U01-002"}
+
+
+def test_start_level_treats_earlier_levels_as_seen_and_skips_their_sentences(root):
+    import json
+
+    for name, key in (("units.json", "id"), ("words.json", "unit")):
+        path = root / "content" / "ko" / name
+        items = json.loads(path.read_text(encoding="utf-8"))
+        for x in items:
+            if x[key] == "T-U02":
+                x["level"] = 2
+        path.write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
+    plan = build(root, unit=None, start_level=2)
+    new_sentences = {i["sentence"]["id"] for i in plan["items"] if i["type"] == "sentence_intro"}
+    assert new_sentences and all(s.startswith("t-s-U02") for s in new_sentences)  # L1 の文は新しい文に出さない
+    assert "t-s-U02-002" in new_sentences  # 우유（L1）は見た語として数えるので、まだ見ていない語は 마시다 だけ
+
+
+def test_outline_counts_match_the_built_session(root):
+    records = Records(root, make_scheduler(fuzz=False))
+    answer(records, "t-w-0001")
+    answer_sentence(records, "t-s-U01-001", "good", "good")
+    cards = records.cards("ko")
+    sentence_cards = {sid: card for (sid, _), card in records.cards("ko", "sentence").items()}
+    later = NOW + timedelta(days=3)
+    c = content.load(root, "ko")
+    built = session.build(c, pack, dict(settings.DEFAULTS), cards, later, rng=random.Random(1), sentence_cards=sentence_cards)
+    outlined = session.outline(session.plan(c, dict(settings.DEFAULTS), cards, later, sentence_cards=sentence_cards))
+    for key in ("new_word_count", "new_sentence_count", "review_count", "weak_slot_count", "estimate_min", "unit"):
+        assert outlined[key] == built[key], key

@@ -177,8 +177,8 @@ function record(body, path = "/api/review") {
   });
 }
 
-function recordWord(item, { rating, correct, elapsed = null, answer = null }) {
-  record({ kind: "word", item_id: item.word.id, face: item.face, practice: item.type, rating, correct, elapsed_sec: elapsed, answer });
+function recordWord(item, { rating, correct, elapsed = null, answer = null, detail = null }) {
+  record({ kind: "word", item_id: item.word.id, face: item.face, practice: item.type, rating, correct, elapsed_sec: elapsed, answer, detail });
 }
 
 function recordSentence(item, { rating, correct, elapsed = null, answer = null, detail = null }) {
@@ -216,7 +216,9 @@ function sceneFor(item) {
         expected: item.expected,
         body: { type: "word_spell", word_id: item.word.id },
         placeholder: "意味と音を手がかりに、韓国語で打つ",
-        onFirstJudgement: (j, value) => recordWord(item, { rating: j.rating, correct: j.verdict !== "incorrect", answer: value }),
+        // 読み上げた語と違う正しい語（other_word）は、正解と表示するが、サーバーは読み上げた語の綴りの FSRS を動かさない
+        onFirstJudgement: (j, value) =>
+          recordWord(item, { rating: j.rating, correct: j.verdict !== "incorrect", answer: value, detail: { verdict: j.verdict, source: j.source, other_word: Boolean(j.other_word) } }),
       });
     case "sentence_intro":
       return sentenceIntroScene(item);
@@ -696,6 +698,14 @@ function typingScene(item, { title, prompt, expected, body, placeholder, plain =
       return;
     }
     waiting = false;
+    if (judgement.retry) {
+      // 応用作文で例文を写した答え。採点も記録もせず、打ち直させる
+      attempts -= 1;
+      if (state.scene !== scene) return;
+      resultBox.replaceChildren(el("div", { class: "result notes" }, el("span", { class: "result-title", text: judgement.message })));
+      field.focus();
+      return;
+    }
     // AI の採点を待つ間に中断や次の問題へ進んでいたら、結果は出さない
     if (state.scene !== scene) return;
     if (attempts === 1) {

@@ -7,7 +7,8 @@
 まだ出していないものを新出にする。苦手な単語（app/weak.py）は、期限の前でも苦手枠の数だけ混ぜる（4.6）。
 ユニットを指定したときは、そのユニットの単語と文だけで組む（ユニットの練習）。
 文の練習の種類は段階で決める（4.7）。段階 1 は、新しい文の最初の出題を聞いて選ぶ（テンポのため）、復習を韓→日訳にする。
-産出（日→韓・応用作文）は時間がかかるので 1 日 OUTPUT_ITEMS 問までにし、産出に回らなかった段階 3〜5 の文は書き取りにする。
+文の復習は 1 日 sentence_review_limit 問まで。産出（日→韓・応用作文）は時間がかかるので 1 日 OUTPUT_ITEMS 問までにし、
+最後に産出してから時間がたった文から回す。産出に回らなかった段階 3〜5 の文は書き取りにする。
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ from __future__ import annotations
 import difflib
 import random
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable
 
 from app.content import Content, Sentence, Unit, Word
@@ -23,6 +24,7 @@ from app.grader import normalize_ja
 from app.langs.base import LanguagePack
 from app.records import FIRST_STAGE, CardRow, day_start
 from app.weak import ARROW_FACES, Analysis
+from app.weak import PRACTICE_WORDS as WEAK_PRACTICE_WORDS
 
 # 初見カードのあと、同じ単語の最初の出題までにはさむ問題の数
 RECALL_GAP = (3, 5)
@@ -78,7 +80,7 @@ def plan_words(
     introduced = {wid for wid, face in cards if face == "meaning" and wid in words}
     weak = analysis.weak if analysis else {}
     if weak_only:
-        order = sorted((wid for wid in weak if wid in words), key=lambda i: (words[i].level, words[i].order))
+        order = sorted((wid for wid in weak if wid in words), key=lambda i: (-len(weak[i]), words[i].level, words[i].order))[:WEAK_PRACTICE_WORDS]
         return WordPlan([], [(words[wid], face) for wid in order for face in ARROW_FACES if (wid, face) in cards], None)
     if unit_id:
         unit_words = content.words_in(unit_id)
@@ -137,21 +139,25 @@ def plan_sentences(
     new_ids = {w.id for w in words.new}
     review_ids = {w.id for w, _ in words.reviews}
     weak = weak or set()
-    seen = {wid for wid, face in cards if face == "meaning"} | new_ids
-    pool = content.sentences_in(unit_id) if unit_id else content.sentences
+    # 途中のレベルから始めたとき、前のレベルの単語は知っているものとして扱い、前のレベルの文は新しい文に出さない
+    start_level = max(1, settings["start_level"])
+    known = {w.id for w in content.words if w.level < start_level}
+    seen = {wid for wid, face in cards if face == "meaning"} | new_ids | known
+    pool = content.sentences_in(unit_id) if unit_id else [s for s in content.sentences if content.unit(s.unit).level >= start_level]
     fresh = [s for s in pool if s.id not in sentence_cards and sum(1 for w in s.word_ids if w not in seen) <= 1]
     fresh.sort(key=lambda s: tuple(-sum(w in ids for w in s.word_ids) for ids in (new_ids, weak, review_ids)))
+    limit = settings["sentence_review_limit"]
 
     if unit_id:
         reviews = [(s, _stage(sentence_cards[s.id])) for s in pool if s.id in sentence_cards]
-        return SentencePlan(fresh[: settings["new_sentences_per_day"]], reviews)
+        return SentencePlan(fresh[: settings["new_sentences_per_day"]], reviews[:limit])
 
     started = day_start(now)
     new_today = sum(1 for c in sentence_cards.values() if c.introduced_at >= started)
     quota = max(0, settings["new_sentences_per_day"] - new_today)
     due = [c for sid, c in sentence_cards.items() if sid in content._sentence_by_id and c.is_due(now)]
     due.sort(key=lambda c: _priority_key(c, priority))
-    reviews = [(content.sentence(c.item_id), _stage(c)) for c in due[: settings["review_limit"]]]
+    reviews = [(content.sentence(c.item_id), _stage(c)) for c in due[:limit]]
     return SentencePlan(fresh[:quota], reviews)
 
 
@@ -206,13 +212,66 @@ def word_state(word_id: str, cards: Cards, mastered_days: float) -> str:
     return "mastered" if all(c.stability >= mastered_days for c in faces) else "learning"
 
 
-def practice_for(sentence: Sentence, stage: int, output_room: int) -> tuple[str, bool]:
-    """段階の練習と、産出ラウンドに回すか。段階 3 以上の文は、産出の枠（output_room）が残っていれば産出に回す。"""
-    if stage >= 3 and output_room > 0:
+def practice_for(sentence: Sentence, stage: int, output: bool) -> str:
+    """段階の練習。output（産出ラウンドに回す文）なら、段階 4 は応用作文、3 と 5 は日→韓。"""
+    if output:
         kind = OUTPUT_PRACTICE[stage]
-        return ("ja_to_ko" if kind == "compose" and not sentence.grammar else kind), True
+        return "ja_to_ko" if kind == "compose" and not sentence.grammar else kind
     kind = STAGE_PRACTICE[stage]
-    return ("dictation" if kind == "cloze" and not sentence.cloze else kind), False
+    return "dictation" if kind == "cloze" and not sentence.cloze else kind
+
+
+def output_sentences(reviews: list[tuple[Sentence, int]], last_output: dict[str, datetime] | None = None) -> set[str]:
+    """産出ラウンドに回す文。段階 3 以上の復習の文から、最後に産出してから時間がたった順（まだ産出していない文が先）に
+    OUTPUT_ITEMS 文。期限の近さだけで選ぶと、同じ文ばかりが産出に回り、ほかの文が段階 4 から上がれないため。"""
+    last_output = last_output or {}
+    never = datetime.min.replace(tzinfo=timezone.utc)
+    candidates = [s for s, stage in reviews if stage >= 3]
+    candidates.sort(key=lambda s: last_output.get(s.id, never))
+    return {s.id for s in candidates[:OUTPUT_ITEMS]}
+
+
+@dataclass
+class Plan:
+    words: WordPlan
+    sentences: SentencePlan
+    output: set[str]  # 産出ラウンドに回す文の id
+
+
+def plan(
+    content: Content,
+    settings: dict[str, Any],
+    cards: Cards,
+    now: datetime,
+    unit_id: str | None = None,
+    priority: Priority | None = None,
+    sentence_cards: SentenceCards | None = None,
+    analysis: Analysis | None = None,
+    weak_only: bool = False,
+    last_output: dict[str, datetime] | None = None,
+) -> Plan:
+    """今日の学習で出す単語と文（問題の中身はまだ作らない）。"""
+    analysis = analysis or Analysis()
+    words = plan_words(content, settings, cards, now, unit_id, priority, analysis, weak_only)
+    if weak_only:
+        sentences = SentencePlan([], [])
+    else:
+        sentences = plan_sentences(content, settings, words, cards, sentence_cards or {}, now, unit_id, priority, set(analysis.weak))
+    return Plan(words, sentences, output_sentences(sentences.reviews, last_output))
+
+
+def outline(p: Plan) -> dict[str, Any]:
+    """ホームに出す見通し（件数と目安の時間）。問題を組まずに数える。"""
+    sentence_items = 2 * len(p.sentences.new) + len(p.sentences.reviews) + min(3, len(p.sentences.new) + len(p.sentences.reviews))
+    word_items = 2 * len(p.words.new) + len(p.words.reviews) + len(p.words.weak)
+    return {
+        "unit": p.words.unit.to_dict() if p.words.unit else None,
+        "new_word_count": len(p.words.new),
+        "new_sentence_count": len(p.sentences.new),
+        "review_count": len(p.words.reviews) + len(p.words.weak) + len(p.sentences.reviews),
+        "weak_slot_count": len(p.words.weak),
+        "estimate_min": estimate_minutes(word_items, sentence_items),
+    }
 
 
 def build(
@@ -227,24 +286,23 @@ def build(
     sentence_cards: SentenceCards | None = None,
     analysis: Analysis | None = None,
     weak_only: bool = False,
+    last_output: dict[str, datetime] | None = None,
 ) -> dict[str, Any]:
-    """weak_only は単語帳の「苦手を練習」。苦手な単語の矢印ゲームだけを出す。"""
+    """weak_only は単語帳の「苦手を練習」。苦手な単語の矢印ゲームだけを出す。
+    last_output は文ごとの最後に産出した時刻（産出に回す文を選ぶのに使う）。"""
     rng = rng or random.Random()
     analysis = analysis or Analysis()
-    words = plan_words(content, settings, cards, now, unit_id, priority, analysis, weak_only)
-    if weak_only:
-        sentences = SentencePlan([], [])
-    else:
-        sentences = plan_sentences(content, settings, words, cards, sentence_cards or {}, now, unit_id, priority, set(analysis.weak))
+    p = plan(content, settings, cards, now, unit_id, priority, sentence_cards, analysis, weak_only, last_output)
+    words, sentences = p.words, p.sentences
     new_ids = {w.id for w in words.new}
 
     sentence_reviews: list[dict[str, Any]] = []
     output_round: list[dict[str, Any]] = []
     for sentence, stage in sentences.reviews:
-        kind, is_output = practice_for(sentence, stage, OUTPUT_ITEMS - len(output_round))
-        item = _sentence_item(kind, sentence, content, new_ids, rng)
+        output = sentence.id in p.output
+        item = _sentence_item(practice_for(sentence, stage, output), sentence, content, new_ids, rng)
         item["stage"] = stage
-        (output_round if is_output else sentence_reviews).append(item)
+        (output_round if output else sentence_reviews).append(item)
 
     word_round = _word_round(content, pack, words, cards, analysis, rng)
     sentence_round = _sentence_round(content, sentences.new, sentence_reviews, new_ids, rng)
@@ -266,30 +324,25 @@ def build(
     return {
         "language": pack.code,
         "mode": "weak" if weak_only else "unit" if unit_id else "today",
-        "unit": words.unit.to_dict() if words.unit else None,
-        "new_word_count": len(words.new),
-        "new_sentence_count": len(sentences.new),
-        "review_count": len(words.reviews) + len(words.weak) + len(sentences.reviews),
-        "weak_slot_count": len(words.weak),
+        **outline(p),
         "timing": analysis.timing(),
         "rounds": rounds,
         "items": items,
-        "estimate_min": estimate_minutes(items),
     }
 
 
-def estimate_minutes(items: list[dict[str, Any]]) -> int:
+def estimate_minutes(word_items: int, sentence_items: int) -> int:
     """目安の時間。単語カード 1 枚 3 秒、文 1 問 30 秒で概算する。"""
-    seconds = sum(3 if item["type"].startswith("word_") else 30 for item in items)
-    return max(1, round(seconds / 60))
+    return max(1, round((word_items * 3 + sentence_items * 30) / 60))
 
 
 def _interleave(new: list[tuple[dict[str, Any], dict[str, Any]]], reviews: list[dict[str, Any]], gap: tuple[int, int], rng: random.Random) -> list[dict[str, Any]]:
     """新出の（導入, 最初の出題）を順に出し、出題は導入から gap 問あとに置く。
-    復習は REVIEW_EVERY 問ごとに 1 つ混ぜ、最後の出題までの間を埋めるのにも使い、残りは最後に出す。"""
+    復習は REVIEW_EVERY 問ごとに 1 つ混ぜ、最後の出題までの間を埋めるのにも使い、残りは最後に出す。
+    出題は導入の順に出す（前の導入の出題がまだ出せないうちは、後の出題も待たせる。学ぶ順を崩さないため）。"""
     reviews = list(reviews)
     result: list[dict[str, Any]] = []
-    pending: list[tuple[int, dict[str, Any]]] = []
+    pending: list[tuple[int, dict[str, Any]]] = []  # 導入の順に (出してよい位置, 出題)
     intro_of: dict[int, int] = {}  # 出題の id() → 導入の id()
 
     def flush() -> None:
@@ -301,14 +354,14 @@ def _interleave(new: list[tuple[dict[str, Any], dict[str, Any]]], reviews: list[
         result.append(intro)
         intro_of[id(first)] = id(intro)
         pending.append((len(result) + rng.randint(*gap), first))
-        pending.sort(key=lambda p: p[0])
         if reviews and len(result) % REVIEW_EVERY == 0:
             flush()
             result.append(reviews.pop())
-    while pending:
-        flush()
-        if pending:
-            result.append(reviews.pop() if reviews else pending.pop(0)[1])
+    # 導入を出し終えたら、残りの出題を導入の順に出す。出してよい位置まで、復習で間を埋める
+    for due, first in pending:
+        while reviews and due > len(result):
+            result.append(reviews.pop())
+        result.append(first)
     result.extend(reviews)
     _space_out_tail(result, intro_of, gap[0])
     return result
@@ -353,7 +406,7 @@ def _word_item(
         item["expected"] = word.lemma
         item["prompt"] = {"text": word.meaning, "tts": word.tts_text}
         return item
-    distractors = _distractors(word, pool, rng, familiar, partners or [])
+    distractors = _distractors(word, pool, rng, familiar, partners or [], face, pack)
     if face == "reverse":
         item["prompt"] = {"text": word.meaning, "tts": None}
         item["options"] = [{"word_id": w.id, "label": w.lemma, "tts": w.tts_text} for w in [word, *distractors]]
@@ -365,38 +418,76 @@ def _word_item(
     return item
 
 
-def _distractors(word: Word, pool: list[Word], rng: random.Random, familiar: bool = False, partners: list[str] | None = None) -> list[Word]:
-    """ダミーの選択肢（docs/plan.md 4.4・4.6）。正しい答えが選択肢の中に 1 つだけになるようにする。
+def _distractors(
+    word: Word,
+    pool: list[Word],
+    rng: random.Random,
+    familiar: bool = False,
+    partners: list[str] | None = None,
+    face: str = "meaning",
+    pack: LanguagePack | None = None,
+) -> list[Word]:
+    """ダミーの選択肢（docs/plan.md 4.4・4.6）。正しい答えが選択肢の中に 1 つだけになり、選択肢どうしも見分けられるようにする。
 
-    類語（synonyms。どちらから紐づいていても）・同じ綴りの別語と、訳が 1 つでも重なる語は入れない
-    （主な意味以外の訳でも、選んだら正解と言えてしまうため）。
+    選択肢（正解とダミー）のどの 2 つも、類語（どちらから紐づいていても）・同じ綴りの別語・訳が 1 つでも重なる語・
+    表示が同じ語にしない（主な意味以外の訳でも、選んだら正解と言えてしまうため）。聞き取りの面では、発音が同じ語も
+    並べない（音だけでは見分けられないため）。
     過去に取り違えた相手は、見分けさせるために入れる。慣れてきた面（familiar）では、形や意味の近い語（confusables）も混ぜる。
-    残りは同じ品詞から選び、慣れるまでは場面のタグが重ならない（意味の離れた）語にする。足りなければほかの品詞から補う。
+    残りは同じ品詞から選び、慣れるまでは場面のタグが重ならない（意味の離れた）語を先に選ぶ。足りなければほかの品詞から補う。
     """
     by_id = {w.id: w for w in pool}
-    excluded = {word.id, *word.synonyms, *word.homographs}
+    hear = pack.pronounce if face == "listen" and pack is not None and pack.pronounce is not None else None
+    chosen = [word]
 
-    def usable(w: Word) -> bool:
-        return w.id not in excluded and word.id not in w.synonyms and not (w.meaning_atoms & word.meaning_atoms)
+    def label(w: Word) -> str:
+        return w.lemma if face == "reverse" else w.meaning
 
-    near_ids = list(partners or []) + (list(word.confusables) if familiar else [])
-    picked: list[Word] = []
-    for wid in near_ids:
+    def clash(a: Word, b: Word) -> bool:
+        return (
+            a.id == b.id
+            or b.id in a.synonyms
+            or a.id in b.synonyms
+            or b.id in a.homographs
+            or a.id in b.homographs
+            or bool(a.meaning_atoms & b.meaning_atoms)
+            or label(a) == label(b)
+            or (hear is not None and _sound(hear, a.lemma) == _sound(hear, b.lemma))
+        )
+
+    def add(w: Word) -> bool:
+        if len(chosen) < OPTIONS and all(not clash(w, c) for c in chosen):
+            chosen.append(w)
+            return True
+        return False
+
+    near = 0
+    for wid in [*(partners or []), *(word.confusables if familiar else [])]:
         w = by_id.get(wid)
-        if w and usable(w) and w not in picked and len(picked) < MAX_NEAR_DISTRACTORS:
-            picked.append(w)
-    need = OPTIONS - 1 - len(picked)
-    rest = [w for w in pool if usable(w) and w not in picked]
-    same_pos = [w for w in rest if w.pos == word.pos]
+        if w and near < MAX_NEAR_DISTRACTORS and add(w):
+            near += 1
+    same_pos = [w for w in pool if w.pos == word.pos]
+    rng.shuffle(same_pos)
     if not familiar:
-        distant = [w for w in same_pos if not set(w.tags) & set(word.tags) and w.id not in word.confusables]
-        if len(distant) >= need:
-            same_pos = distant
-    picked += rng.sample(same_pos, min(len(same_pos), need))
-    if len(picked) < OPTIONS - 1:
-        others = [w for w in rest if w.pos != word.pos]
-        picked += rng.sample(others, min(len(others), OPTIONS - 1 - len(picked)))
-    return picked
+        # 慣れるまでは意味の離れた語を先に（足りなければ、近い語でも同じ品詞を使う）
+        same_pos.sort(key=lambda w: bool(set(w.tags) & set(word.tags)) or w.id in word.confusables)
+    others = [w for w in pool if w.pos != word.pos]
+    rng.shuffle(others)
+    for w in [*same_pos, *others]:
+        if len(chosen) == OPTIONS:
+            break
+        add(w)
+    return chosen[1:]
+
+
+_sounds: dict[tuple[int, str], str] = {}
+
+
+def _sound(pronounce: Callable[[str], str], lemma: str) -> str:
+    """発音の形（語ごとに 1 回だけ直す。選択肢を選ぶたびに直すと遅いため）。"""
+    key = (id(pronounce), lemma)
+    if key not in _sounds:
+        _sounds[key] = pronounce(lemma)
+    return _sounds[key]
 
 
 # ---- 文ラウンド ----

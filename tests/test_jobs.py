@@ -28,15 +28,24 @@ def test_job_error_keeps_detail():
     assert job.error_detail == "生の出力"
 
 
-def test_only_one_running_job():
+def test_only_one_running_job_per_kind():
     store = JobStore()
     import threading
 
     gate = threading.Event()
-    job = store.submit("content", lambda _j: gate.wait(5))
+    job = store.submit("grade", lambda _j: gate.wait(5))
     with pytest.raises(JobBusy):
         store.submit("grade", lambda _j: None)
+    # 採点を待つ間でも、解説は作れる
+    explain = store.submit("explain", lambda _j: "解説")
     gate.set()
+    for _ in range(100):
+        if explain.status == STATUS_DONE:
+            break
+        import time
+
+        time.sleep(0.01)
+    assert explain.result == "解説"
     for _ in range(100):
         if job.status == STATUS_DONE:
             break

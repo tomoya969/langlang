@@ -20,7 +20,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable
 
@@ -36,12 +36,12 @@ from app.graded import GradedStore
 from app.jobs import JobBusy, JobStore
 from app.langs.base import LanguagePack, UnsupportedLanguage
 from app.prompts import ERROR_TAGS, EXPLAIN_SCHEMA, EXPLAIN_STYLE, build_explain_prompt
-from app.records import RATINGS, Records
+from app.records import NOTE_CONTEXT, NOTE_NO_CARD, NOTE_OTHER_WORD, PRODUCTION_PRACTICES, RATINGS, Records, day_start
 from app import weak as weak_mod
 
 log = logging.getLogger("langlang.server")
 
-API_VERSION = 8
+API_VERSION = 9
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 LANGUAGE_PAGES = {"": "index.html", "learn": "learn.html", "words": "words.html"}
 
@@ -126,7 +126,11 @@ def create_app(
 
     def analysis_of(language: str, cards: session.Cards) -> weak_mod.Analysis:
         records = app.state.records
-        return weak_mod.analyze(cards, records.counted_reviews(language), records.confusion_counts(language))
+        recent = day_start(now()) - timedelta(days=weak_mod.CONFUSION_DAYS - 1)
+        return weak_mod.analyze(cards, records.counted_reviews(language), records.confusion_counts(language), records.confusion_counts(language, recent))
+
+    def last_output_of(language: str) -> dict[str, datetime]:
+        return app.state.records.last_reviewed(language, "sentence", PRODUCTION_PRACTICES)
 
     def summary(language: str) -> dict[str, Any]:
         """言語ごとの今日の見通し（復習・新出の数、目安の時間、レベルとユニットの進み、苦手の数）。"""
@@ -138,8 +142,11 @@ def create_app(
         cards = cards_of(language)
         analysis = analysis_of(language, cards)
         at = now()
-        plan = session.build(
-            content, pack, cfg, cards, at, priority=priority(at), rng=random.Random(0), sentence_cards=sentence_cards_of(language), analysis=analysis
+        plan = session.outline(
+            session.plan(
+                content, cfg, cards, at, priority=priority(at), sentence_cards=sentence_cards_of(language), analysis=analysis,
+                last_output=last_output_of(language),
+            )
         )
         states = {w.id: session.word_state(w.id, cards, cfg["mastered_days"]) for w in content.words}
         levels = []
@@ -200,7 +207,8 @@ def create_app(
         cfg = settings_mod.load(root, req.language)
         cards = cards_of(req.language)
         plan = session.build(
-            content, pack, cfg, cards, at, req.unit, priority(at), rng, sentence_cards_of(req.language), analysis_of(req.language, cards), req.weak
+            content, pack, cfg, cards, at, req.unit, priority(at), rng, sentence_cards_of(req.language), analysis_of(req.language, cards), req.weak,
+            last_output_of(req.language),
         )
         log.info(
             "学習を開始: %s %s（新出 %d 語・%d 文、復習 %d（苦手枠 %d）、%d 問、目安 %d 分）",
@@ -227,6 +235,12 @@ def create_app(
             raise HTTPException(400, f"評価は {', '.join(RATINGS)} のいずれかです: {req.rating}")
         at = now()
         records = app.state.records
+        detail = req.detail or {}
+        if req.kind == "word" and req.face == "spell" and detail.get("other_word"):
+            # 読み上げた語と違う正しい語を書いた。正解と表示するが、読み上げた語の綴りを思い出したことにはならない
+            fields = {"practice": req.practice, "rating": req.rating, "correct": req.correct, "now": at, "detail": detail}
+            records.note(req.language, "word", req.item_id, "spell", reason=NOTE_OTHER_WORD, **fields)
+            return {"counted": False, "card": None}
         result = records.review(
             req.language,
             req.kind,
@@ -241,7 +255,8 @@ def create_app(
             detail=req.detail,
         )
         if req.kind == "word" and not req.correct and req.face in weak_mod.ARROW_FACES and req.answer in content._word_by_id and req.answer != req.item_id:
-            records.confuse(req.language, req.item_id, req.answer, req.face, at)
+            if not (req.face == "listen" and _same_sound(pack_of(req.language), content.word(req.item_id), content.word(req.answer))):
+                records.confuse(req.language, req.item_id, req.answer, req.face, at)
         if req.kind == "sentence":
             feed_words(req.language, content.sentence(req.item_id), req, at)
         return {"counted": result.counted, "card": result.card.to_dict()}
@@ -252,13 +267,16 @@ def create_app(
         records = app.state.records
         detail = req.detail or {}
         for wid in sentence.word_ids:
-            records.note(language, "word", wid, "context", practice=req.practice, rating=req.rating, correct=req.correct, now=at, detail={"sentence_id": sentence.id})
+            records.note(
+                language, "word", wid, "context", practice=req.practice, rating=req.rating, correct=req.correct, now=at,
+                reason=NOTE_CONTEXT, detail={"sentence_id": sentence.id},
+            )
         if detail.get("verdict") != grader.VERDICT_INCORRECT:
             return
         cards = cards_of(language)
         returned: set[tuple[str, str]] = set()
         for issue in detail.get("issues") or []:
-            wid, face = issue.get("word_id"), weak_mod.face_for_issue(issue)
+            wid, face = issue.get("word_id"), weak_mod.face_for_issue(issue, req.practice)
             if not face or wid not in sentence.word_ids or (wid, face) in returned:
                 continue
             returned.add((wid, face))
@@ -266,7 +284,7 @@ def create_app(
             if (wid, face) in cards:
                 records.review(language, "word", wid, face, **fields)
             else:
-                records.note(language, "word", wid, face, **fields)
+                records.note(language, "word", wid, face, reason=NOTE_NO_CARD, **fields)
 
     @app.post("/api/trace")
     def trace(req: TraceRequest) -> dict[str, Any]:
@@ -310,6 +328,9 @@ def create_app(
         norm = task.normalize(pack, req.answer)
         if not norm:
             raise HTTPException(400, "答えが空です")
+        if req.type == "sentence_compose" and _copies_example(pack, content.sentence(task.item_id), req.answer):
+            # 例文を写した答えは採点も記録もしない（自分で文を作る練習なので）
+            return {"retry": True, "message": "例文とは別の、自分の文を書いてください"}
         judged = grader.judge_task(pack, task, req.answer)
         if judged is None and req.type == "word_spell":
             judged = _synonym_answer(content, pack, content.word(task.item_id), req.answer)
@@ -350,7 +371,7 @@ def create_app(
             result = [w for w in result if w.unit == unit]
         if q:
             needle = q.strip().lower()
-            result = [w for w in result if needle in w.lemma.lower() or needle in w.meaning.lower()]
+            result = [w for w in result if needle in w.lemma.lower() or needle in w.all_meanings.lower()]
         cards = cards_of(language)
         analysis = analysis_of(language, cards)
         mastered = settings_mod.load(root, language)["mastered_days"]
@@ -482,17 +503,26 @@ def task_for(content: content_mod.Content, pack: LanguagePack, req: AnswerReques
 
 
 def _synonym_answer(content: content_mod.Content, pack: LanguagePack, word: content_mod.Word, answer: str) -> grader.Judgement | None:
-    """綴りの面で、問題に出した意味（主な意味）にも合う別の語を書いた答えは正解にする（複数に解釈できる答えはどれも正解）。
-    合う語は、類語と、訳が問題の意味と重なる語。"""
+    """綴りの面で、問題に出した意味（主な意味）と訳が重なる別の語を書いた答えは、機械で正解にする（複数に解釈できる答えは
+    どれも正解）。類語（synonyms）は意味を選ぶ問題のダミーから外すためのもので、問題の意味に合うとは限らないので根拠にしない
+    （それ以外の別の語は AI に判定させる）。読み上げた語の綴りを思い出したことにはならないので other_word を付ける。"""
     norm = pack.normalize(answer)
     asked = meaning_atoms(word.meaning)
     for other in content.words:
-        if other.id == word.id or pack.normalize(other.lemma) != norm:
-            continue
-        if other.id in word.synonyms or word.id in other.synonyms or asked & other.meaning_atoms:
+        if other.id != word.id and pack.normalize(other.lemma) == norm and asked & other.meaning_atoms:
             comment = f"「{other.lemma}」も「{word.meaning}」の意味なので正解です。読み上げた語は「{word.lemma}」です。"
-            return grader.Judgement(grader.VERDICT_CORRECT, "synonym", corrected=other.lemma, comment_ja=comment)
+            return grader.Judgement(grader.VERDICT_CORRECT, "synonym", corrected=other.lemma, comment_ja=comment, other_word=True)
     return None
+
+
+def _copies_example(pack: LanguagePack, sentence: content_mod.Sentence, answer: str) -> bool:
+    """応用作文の答えが、例文か許容例と同じか（空白の違いは見ない）。"""
+    squeeze = lambda text: pack.normalize(text).replace(" ", "")  # noqa: E731
+    return squeeze(answer) in {squeeze(t) for t in [sentence.ko, *sentence.variants.get("ko", [])]}
+
+
+def _same_sound(pack: LanguagePack, a: content_mod.Word, b: content_mod.Word) -> bool:
+    return pack.pronounce is not None and pack.pronounce(a.lemma) == pack.pronounce(b.lemma)
 
 
 def _word_brief(word: content_mod.Word) -> dict[str, str]:

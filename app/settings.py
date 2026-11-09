@@ -19,7 +19,9 @@ DEFAULTS: dict[str, Any] = {
     "new_words_per_day": 15,
     "new_sentences_per_day": 7,
     "weak_slots": 5,
+    # 単語の面の復習の上限（枚/日）と、文の復習の上限（問/日）。文は 1 問に時間がかかるので別に持つ
     "review_limit": 200,
+    "sentence_review_limit": 30,
     # 反応時間の基準（秒）。記録がたまったら自分の中央値を基準にする
     "fast_sec": 1.5,
     "slow_sec": 4.0,

@@ -383,15 +383,37 @@ def word_review(client, word_id="t-w-0001", face="meaning", rating="again", answ
     return client.post("/api/review", json=body).json()
 
 
-def test_wrong_pick_is_recorded_as_confusion_and_makes_weak(client):
+@pytest.fixture
+def clocked(root):
+    """時刻を進められるサーバー（clock["now"] を書き換える）。"""
+    from datetime import datetime
+
+    clock = {"now": datetime(2026, 11, 10, 9, 0).astimezone()}
+    app = create_app(root, jobs=JobStore(inline=True), clock=lambda: clock["now"])
+    with TestClient(app) as c:
+        yield c, clock
+
+
+def test_wrong_pick_is_recorded_as_confusion_and_makes_weak(clocked):
+    from datetime import timedelta
+
+    client, clock = clocked
     word_review(client, answer="t-w-0002")
-    word_review(client, answer="t-w-0002")  # 同じ日の 2 回目（評価には使わないが、取り違えは残す）
+    word_review(client, answer="t-w-0002")  # 同じ日の 2 回目は、取り違えた日数に数えない（1 日 1 組 1 回）
+    detail = client.get("/api/words/t-w-0001?language=ko").json()
+    assert [(c["id"], c["times"]) for c in detail["confused_with"]] == [("t-w-0002", 1)]
+    assert not detail["weak"]
+    clock["now"] += timedelta(days=3)
+    word_review(client, answer="t-w-0002")
     detail = client.get("/api/words/t-w-0001?language=ko").json()
     assert [(c["id"], c["times"]) for c in detail["confused_with"]] == [("t-w-0002", 2)]
-    assert detail["weak"] and detail["weak_reasons"] == ["取り違えが多い"]
+    assert detail["weak"] and "取り違えが多い" in detail["weak_reasons"]
     assert client.get("/api/today?language=ko").json()["weak_count"] == 1
     words = {w["id"]: w for w in client.get("/api/words?language=ko").json()}
     assert words["t-w-0001"]["weak"] and not words["t-w-0002"]["weak"]
+    # 直近 CONFUSION_DAYS 日より前の取り違えは、苦手の判定に使わない
+    clock["now"] += timedelta(days=30)
+    assert "取り違えが多い" not in client.get("/api/words/t-w-0001?language=ko").json()["weak_reasons"]
     # 「わからない」と時間切れ（answer なし）は取り違えにしない
     word_review(client, word_id="t-w-0003")
     assert client.get("/api/words/t-w-0003?language=ko").json()["confused_with"] == []
@@ -409,21 +431,29 @@ def test_sentence_errors_go_back_to_word_faces(client, root):
     client.post("/api/review", json=body)
     records = Records(root)
     history = records.history("ko", "word", "t-w-0003")
-    assert sorted(h["face"] for h in history if h["practice"] == "sentence_ja_to_ko") == ["context", "meaning", "spell"]
-    assert ("t-w-0003", "spell") not in records.cards("ko")
+    # 日→韓の意味の誤りは逆引きの面へ（まだ出していないので記録だけ）、받침 は綴りの面へ（同じく記録だけ）。文脈は履歴に出さない
+    returned = sorted((h["face"], h["reason"]) for h in history if h["practice"] == "sentence_ja_to_ko")
+    assert returned == [("reverse", "no_card"), ("spell", "no_card")]
+    assert ("t-w-0003", "spell") not in records.cards("ko") and ("t-w-0003", "reverse") not in records.cards("ko")
     detail = client.get("/api/words/t-w-0003?language=ko").json()
     assert detail["context_count"] == 1
+    assert [h["reason"] for h in detail["history"]] == ["no_card", "no_card", None]
 
 
 def test_notes_verdict_does_not_go_back_to_words(client, root):
     body = {"language": "ko", "kind": "sentence", "item_id": "t-s-U01-002", "practice": "sentence_dictation", "rating": "hard", "correct": True,
             "detail": {"verdict": "correct_with_notes", "source": "ai", "issues": [{"tag": "받침", "axis": "orthography", "word_id": "t-w-0003"}]}}
     client.post("/api/review", json=body)
-    assert [h["face"] for h in Records(root).history("ko", "word", "t-w-0003")] == ["context"]
+    assert Records(root).history("ko", "word", "t-w-0003") == []  # 文脈の記録だけ（履歴には出さない）
+    assert Records(root).review_count("ko", "word", "t-w-0003", "context") == 1
 
 
-def test_weak_practice_session(client):
+def test_weak_practice_session(clocked):
+    from datetime import timedelta
+
+    client, clock = clocked
     word_review(client, answer="t-w-0002")
+    clock["now"] += timedelta(days=1)
     word_review(client, answer="t-w-0002")
     plan = client.post("/api/session/start", json={"language": "ko", "weak": True}).json()
     assert plan["mode"] == "weak"
@@ -447,7 +477,59 @@ def test_spell_accepts_a_synonym_of_the_asked_meaning(root, ai):
         def spell(answer):
             return c.post("/api/answer", json={"language": "ko", "type": "word_spell", "word_id": "t-w-0001", "answer": answer}).json()
 
-        res = spell("우유")
-        assert res["verdict"] == "correct" and res["source"] == "synonym" and "물" in res["comment_ja"]
-        assert spell("빵")["source"] == "synonym"  # 問題の意味「水」が訳にある語
-        assert "job" in spell("커피")  # 意味が違う語は AI に判定させる
+        res = spell("빵")  # 問題の意味「水」が訳にある語は、機械で正解（読み上げた語とは別の語）
+        assert res["verdict"] == "correct" and res["source"] == "synonym" and res["other_word"] and "물" in res["comment_ja"]
+        assert "job" in spell("우유")  # 類語に紐づいているだけでは機械で正解にしない（AI に判定させる）
+        assert "job" in spell("커피")  # 意味が違う語も AI に判定させる
+
+
+# ---- クロスレビューの指摘（1-2・1-15・1-17） ----
+
+
+def _rewrite_words(root, change):
+    import json
+
+    path = root / "content" / "ko" / "words.json"
+    words = json.loads(path.read_text(encoding="utf-8"))
+    for w in words:
+        change(w)
+    path.write_text(json.dumps(words, ensure_ascii=False), encoding="utf-8")
+
+
+def test_homophone_pick_in_listening_is_not_a_confusion(root):
+    # 입（口）と 잎（葉）は発音が同じ。聞き取りで選んでも、音だけでは見分けられないので取り違えにしない
+    def change(w):
+        if w["id"] == "t-w-0001":
+            w["lemma"], w["meanings"] = "입", [{"ja": "口", "primary": True}]
+        if w["id"] == "t-w-0002":
+            w["lemma"], w["meanings"] = "잎", [{"ja": "葉", "primary": True}]
+
+    _rewrite_words(root, change)
+    app = create_app(root, jobs=JobStore(inline=True))
+    with TestClient(app) as c:
+        word_review(c, face="listen", answer="t-w-0002")
+        assert c.get("/api/words/t-w-0001?language=ko").json()["confused_with"] == []
+        word_review(c, face="meaning", answer="t-w-0002")  # 文字を見る面では取り違え
+        assert [x["id"] for x in c.get("/api/words/t-w-0001?language=ko").json()["confused_with"]] == ["t-w-0002"]
+
+
+def test_copying_the_example_in_compose_is_not_graded(ai_client, ai):
+    def post(answer):
+        return ai_client.post("/api/answer", json={"language": "ko", "type": "sentence_compose", "sentence_id": "t-s-U01-001", "answer": answer}).json()
+
+    for copied in ("물 주세요.", "물주세요", "물 좀 주세요"):  # 例文、空白だけ違う形、許容例
+        res = post(copied)
+        assert res == {"retry": True, "message": "例文とは別の、自分の文を書いてください"}
+    assert not ai.calls
+    assert "job" in post("커피 주세요")  # 自分の文は AI が採点する
+
+
+def test_word_search_looks_at_other_meanings(root):
+    def change(w):
+        if w["id"] == "t-w-0007":
+            w["meanings"] = [{"ja": "食べる", "primary": True}, {"ja": "（年を）取る", "primary": False}]
+
+    _rewrite_words(root, change)
+    app = create_app(root, jobs=JobStore(inline=True))
+    with TestClient(app) as c:
+        assert [w["id"] for w in c.get("/api/words?language=ko&q=取る").json()] == ["t-w-0007"]

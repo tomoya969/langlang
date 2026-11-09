@@ -2,12 +2,14 @@
 
 教材は JSON ファイルで持つ（Git で差分を見られるように）。学習に出すのは status が approved のものだけ。
 id は一度付けたら変えない（学習の記録が参照するため）。
+読み込んだ教材は、ファイルの更新時刻か大きさが変わるまで使い回す（画面の API はリクエストのたびに教材を使うため）。
 """
 
 from __future__ import annotations
 
 import json
 import re
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -63,6 +65,8 @@ class Word:
     tts_text: str
     status: str
     raw: dict[str, Any] = field(repr=False, compare=False)
+    # すべての意味を、比べられる最小の訳に分けたもの（類語の判定に使う）。読み込むときに 1 回だけ作る
+    meaning_atoms: frozenset[str] = field(default=frozenset(), repr=False, compare=False)
 
     @property
     def meaning(self) -> str:
@@ -76,11 +80,6 @@ class Word:
     def all_meanings(self) -> str:
         """すべての意味（主な意味が先）。文の検算・採点・解説と、文の中の単語の表示に使う。"""
         return all_meanings_text(list(self.meanings))
-
-    @property
-    def meaning_atoms(self) -> frozenset[str]:
-        """すべての意味を、比べられる最小の訳に分けたもの（類語の判定に使う）。"""
-        return frozenset(a for m in self.meanings for a in meaning_atoms(str(m["ja"])))
 
     def to_dict(self) -> dict[str, Any]:
         return {**self.raw, "meaning": self.meaning, "all_meanings": self.all_meanings}
@@ -100,15 +99,11 @@ class Sentence:
     variants: dict[str, list[str]]
     status: str
     raw: dict[str, Any] = field(repr=False, compare=False)
+    ids: tuple[str, ...] = field(default=(), repr=False, compare=False)  # 語節の順に、重なりを除いた単語の id
 
     @property
     def word_ids(self) -> list[str]:
-        seen: list[str] = []
-        for token in self.tokens:
-            for wid in token.get("word_ids", []):
-                if wid not in seen:
-                    seen.append(wid)
-        return seen
+        return list(self.ids)
 
     def to_dict(self) -> dict[str, Any]:
         return dict(self.raw)
@@ -144,6 +139,12 @@ class Content:
         self._word_by_id = {w.id: w for w in self.words}
         self._sentence_by_id = {s.id: s for s in self.sentences}
         self._unit_by_id = {u.id: u for u in self.units}
+        self._words_by_unit: dict[str, list[Word]] = {}
+        for w in sorted(self.words, key=lambda w: w.order):
+            self._words_by_unit.setdefault(w.unit, []).append(w)
+        self._sentences_by_unit: dict[str, list[Sentence]] = {}
+        for s in self.sentences:
+            self._sentences_by_unit.setdefault(s.unit, []).append(s)
 
     def word(self, word_id: str) -> Word:
         try:
@@ -164,10 +165,10 @@ class Content:
             raise ContentError(f"ユニットがありません: {unit_id}") from None
 
     def words_in(self, unit_id: str) -> list[Word]:
-        return sorted((w for w in self.words if w.unit == unit_id), key=lambda w: w.order)
+        return list(self._words_by_unit.get(unit_id, []))
 
     def sentences_in(self, unit_id: str) -> list[Sentence]:
-        return [s for s in self.sentences if s.unit == unit_id]
+        return list(self._sentences_by_unit.get(unit_id, []))
 
     def units_up_to(self, unit_id: str) -> list[Unit]:
         """そのユニットまで（含む）のユニットを順に返す。前のレベルのユニットも含む。文で使ってよい単語の範囲を決めるのに使う。"""
@@ -179,11 +180,42 @@ def content_dir(root: Path, language: str) -> Path:
     return root / "content" / language
 
 
+_cache: dict[tuple[Path, bool], tuple[tuple[Any, ...], Content]] = {}
+_cache_lock = threading.Lock()
+
+
 def load(root: Path, language: str, approved_only: bool = True) -> Content:
-    """content/<言語>/ を読み込む。整合していなければ ContentError。"""
+    """content/<言語>/ を読み込む。整合していなければ ContentError。ファイルが変わっていなければ前に読んだものを返す。"""
     base = content_dir(root, language)
     if not base.is_dir():
         raise ContentError(f"教材のディレクトリがありません: {base}")
+    key = (base.resolve(), approved_only)
+    signature = _signature(base)
+    with _cache_lock:
+        cached = _cache.get(key)
+    if cached and cached[0] == signature:
+        return cached[1]
+    content = _load(base, language, approved_only)
+    with _cache_lock:
+        _cache[key] = (signature, content)
+    return content
+
+
+def _signature(base: Path) -> tuple[Any, ...]:
+    """教材のファイルの更新時刻と大きさ（ファイルが増えた・減った・書き換わったら変わる）。"""
+    paths = [base / "units.json", base / "words.json", base / "grammar.json", *sorted((base / "sentences").glob("*.json"))]
+    result = []
+    for path in paths:
+        try:
+            stat = path.stat()
+        except FileNotFoundError:
+            result.append((path.name, None))
+            continue
+        result.append((path.name, stat.st_mtime_ns, stat.st_size))
+    return tuple(result)
+
+
+def _load(base: Path, language: str, approved_only: bool) -> Content:
     units = [_unit(u) for u in _read_json(base / "units.json")]
     units.sort(key=lambda u: u.position)
     words = [_word(w) for w in _read_json(base / "words.json")]
@@ -228,11 +260,12 @@ def validate(content: Content) -> None:
         if s.unit not in content._unit_by_id:
             problems.append(f"文 {s.id} のユニットがありません: {s.unit}")
             continue
-        allowed = {w.id for u in content.units_up_to(s.unit) for w in content.words_in(u.id)}
+        position = content._unit_by_id[s.unit].position
         for wid in s.word_ids:
-            if wid not in content._word_by_id:
+            word = content._word_by_id.get(wid)
+            if word is None:
                 problems.append(f"文 {s.id} が参照する単語がありません: {wid}")
-            elif wid not in allowed:
+            elif word.unit not in content._unit_by_id or content._unit_by_id[word.unit].position > position:
                 problems.append(f"文 {s.id} がまだ出ていない単語を使っています: {wid}")
         for c in s.cloze:
             if c.get("answer") not in s.ko:
@@ -278,6 +311,7 @@ def _word(raw: dict[str, Any]) -> Word:
         tts_text=raw.get("tts_text") or raw["lemma"],
         status=raw.get("status", "draft"),
         raw=raw,
+        meaning_atoms=frozenset(a for m in raw.get("meanings", []) for a in meaning_atoms(str(m["ja"]))),
     )
 
 
@@ -295,4 +329,5 @@ def _sentence(raw: dict[str, Any]) -> Sentence:
         variants=raw.get("variants", {}),
         status=raw.get("status", "draft"),
         raw=raw,
+        ids=tuple(dict.fromkeys(wid for token in raw.get("tokens", []) for wid in token.get("word_ids", []))),
     )

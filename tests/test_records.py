@@ -81,6 +81,11 @@ def test_sentence_stage_moves_with_first_answer_of_the_day(records):
     assert review_sentence(records, "again", day(3)).card.stage == 1  # 最低は 1
     for n in range(4, 10):
         review_sentence(records, "easy", day(n))
+    # 段階 4 から 5 へは、産出（日→韓・応用作文）で正解したときだけ上がる
+    assert records.cards("ko", "sentence")[("s1", "")].stage == 4
+    produced = records.review("ko", "sentence", "s1", "", practice="sentence_compose", rating="good", correct=True, now=day(10))
+    assert produced.card.stage == 5
+    records.review("ko", "sentence", "s1", "", practice="sentence_ja_to_ko", rating="easy", correct=True, now=day(11))
     assert records.cards("ko", "sentence")[("s1", "")].stage == 5  # 最高は 5
 
 
