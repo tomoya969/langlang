@@ -533,3 +533,15 @@ def test_word_search_looks_at_other_meanings(root):
     app = create_app(root, jobs=JobStore(inline=True))
     with TestClient(app) as c:
         assert [w["id"] for w in c.get("/api/words?language=ko&q=取る").json()] == ["t-w-0007"]
+
+
+def test_other_word_in_spelling_is_recorded_without_moving_fsrs(client, root):
+    """綴りの面で、読み上げた語と違う正しい語を書いたときは、正解と表示するが読み上げた語の綴りの FSRS は動かさない（記録だけ）。"""
+    body = {"language": "ko", "kind": "word", "item_id": "t-w-0001", "face": "spell", "practice": "word_spell", "rating": "good",
+            "correct": True, "answer": "빵", "detail": {"verdict": "correct", "source": "synonym", "other_word": True}}
+    assert client.post("/api/review", json=body).json() == {"counted": False, "card": None}
+    assert ("t-w-0001", "spell") not in Records(root).cards("ko")
+    assert [h["reason"] for h in client.get("/api/words/t-w-0001?language=ko").json()["history"]] == ["other_word"]
+    # 読み上げた語そのものを書いたときは、ふつうに FSRS を動かす
+    same = {**body, "answer": "물", "detail": {"verdict": "correct", "source": "exact", "other_word": False}}
+    assert client.post("/api/review", json=same).json()["counted"] is True
